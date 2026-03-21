@@ -3,6 +3,9 @@ name: Create GitHub Issues
 on:
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   create-issues:
     runs-on: ubuntu-latest
@@ -30,11 +33,15 @@ jobs:
             title="${entry%%|*}"
             desc="${entry##*|}"
             echo "Creating milestone: $title"
-            gh api repos/$REPO/milestones \
+            response=$(gh api repos/$REPO/milestones \
               --method POST \
               --field title="$title" \
-              --field description="$desc" \
-              --silent || echo "Milestone may already exist, continuing..."
+              --field description="$desc" 2>&1)
+            if echo "$response" | grep -q "already_exists\|number"; then
+              echo "  → OK (created or already exists)"
+            else
+              echo "  → Response: $response"
+            fi
           done
 
       - name: Create labels
@@ -65,11 +72,15 @@ jobs:
             name="${entry%%|*}"
             color="${entry##*|}"
             echo "Creating label: $name"
-            gh api repos/$REPO/labels \
+            response=$(gh api repos/$REPO/labels \
               --method POST \
               --field name="$name" \
-              --field color="$color" \
-              --silent || echo "Label may already exist, continuing..."
+              --field color="$color" 2>&1)
+            if echo "$response" | grep -q "already_exists\|id"; then
+              echo "  → OK (created or already exists)"
+            else
+              echo "  → Response: $response"
+            fi
           done
 
       - name: Create issues from issues.json
@@ -80,20 +91,49 @@ jobs:
           python3 << 'EOF'
           import json
           import subprocess
+          import os
           import sys
+
+          repo = os.environ["REPO"]
 
           with open("issues.json", "r") as f:
               issues = json.load(f)
 
-          # Fetch milestone numbers from the API
+          # Fetch milestone numbers
           result = subprocess.run(
-              ["gh", "api", f"repos/{subprocess.os.environ['REPO']}/milestones", "--paginate"],
+              ["gh", "api", f"repos/{repo}/milestones", "--paginate"],
               capture_output=True, text=True
           )
+          if result.returncode != 0:
+              print(f"Failed to fetch milestones: {result.stderr}")
+              sys.exit(1)
+
           milestones = {m["title"]: m["number"] for m in json.loads(result.stdout)}
+          print(f"Found milestones: {list(milestones.keys())}")
+
+          # Fetch existing issue titles to avoid duplicates
+          result = subprocess.run(
+              ["gh", "api", f"repos/{repo}/issues", "--paginate",
+               "--field", "state=all", "--field", "per_page=100"],
+              capture_output=True, text=True
+          )
+          existing_titles = set()
+          if result.returncode == 0:
+              existing_titles = {i["title"] for i in json.loads(result.stdout)}
+          print(f"Found {len(existing_titles)} existing issues")
+
+          created = 0
+          skipped = 0
+          failed = 0
 
           for issue in issues:
               title = issue["title"]
+
+              if title in existing_titles:
+                  print(f"⊘ Skipped (exists): {title}")
+                  skipped += 1
+                  continue
+
               body = issue.get("body", "")
               labels = issue.get("labels", [])
               milestone_title = issue.get("milestone", "")
@@ -101,7 +141,7 @@ jobs:
 
               cmd = [
                   "gh", "issue", "create",
-                  "--repo", subprocess.os.environ["REPO"],
+                  "--repo", repo,
                   "--title", title,
                   "--body", body,
               ]
@@ -116,8 +156,14 @@ jobs:
 
               if result.returncode == 0:
                   print(f"✓ Created: {title}")
+                  created += 1
               else:
                   print(f"✗ Failed: {title}")
-                  print(result.stderr)
+                  print(f"  Error: {result.stderr.strip()}")
+                  failed += 1
+
+          print(f"\nSummary: {created} created, {skipped} skipped, {failed} failed")
+          if failed > 0:
+              sys.exit(1)
 
           EOF
