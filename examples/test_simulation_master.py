@@ -1,17 +1,19 @@
 """
-Quick smoke test for SimulationMaster against SimpleCounter.fmu.
-Not a pytest test - just a manual validation script.
+Smoke test for SimulationMaster + CsvLogger against SimpleCounter.fmu.
 """
 
 from pathlib import Path
 from svf.simulation import SimulationMaster
+from svf.logging import CsvLogger
 
 fmu_path = Path(__file__).parent / "SimpleCounter.fmu"
 
-print("Testing SimulationMaster with SimpleCounter.fmu")
-print("-" * 45)
+print("Testing SimulationMaster + CsvLogger with SimpleCounter.fmu")
+print("-" * 55)
 
-with SimulationMaster(fmu_path, dt=0.1) as master:
+csv_logger = CsvLogger(output_dir="results", run_id="simple_counter")
+
+with SimulationMaster(fmu_path, dt=0.1, csv_logger=csv_logger) as master:
     master.initialise(start_time=0.0)
     print(f"Outputs: {master.output_names}")
     print(f"\n{'Step':>5}  {'Time':>8}  {'counter':>10}")
@@ -20,4 +22,5 @@ with SimulationMaster(fmu_path, dt=0.1) as master:
         outputs = master.step()
         print(f"{i:>5}  {master.time:>8.3f}  {outputs['counter']:>10.3f}")
 
-print("\nSimulationMaster smoke test passed.")
+print(f"\nCSV written to: {csv_logger.path}")
+print("\nSimulationMaster + CsvLogger smoke test passed.")
