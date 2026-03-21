@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
-from fmpy import read_model_description, extract
-from fmpy.simulation import instantiate_fmu
+from fmpy import read_model_description, extract  # type: ignore[import-untyped]
+from fmpy.simulation import instantiate_fmu  # type: ignore[import-untyped]
 
 from svf.logging import CsvLogger
 
@@ -40,7 +40,6 @@ class SimulationMaster:
             master.initialise()
             for step in range(100):
                 master.step()
-        # results/my_run_<timestamp>.csv is written automatically
 
     Or as a context manager without logging:
         with SimulationMaster("model.fmu", dt=0.1) as master:
@@ -59,7 +58,8 @@ class SimulationMaster:
         self.dt = dt
         self._csv_logger = csv_logger
         self._time: float = 0.0
-        self._instance: Optional[object] = None
+        self._instance: Optional[Any] = None
+        self._model_desc: Optional[Any] = None
         self._unzipdir: Optional[str] = None
         self._output_names: list[str] = []
 
@@ -102,7 +102,6 @@ class SimulationMaster:
                 f"Failed to initialise FMU {self.fmu_path.name}: {e}"
             ) from e
 
-        # Open CSV logger now that we know the variable names
         if self._csv_logger is not None:
             self._csv_logger.open(self._output_names)
 
@@ -112,9 +111,9 @@ class SimulationMaster:
         """
         Advance simulation by one timestep (dt).
         Returns a dict of {variable_name: value} for all output variables.
-        Raises SimulationError if called before initialise() or if the step fails.
+        Raises SimulationError if called before initialise() or if step fails.
         """
-        if self._instance is None:
+        if self._instance is None or self._model_desc is None:
             raise SimulationError(
                 "Cannot step: FMU has not been initialised. Call initialise() first."
             )
