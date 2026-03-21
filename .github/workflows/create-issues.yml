@@ -1,0 +1,123 @@
+name: Create GitHub Issues
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-issues:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create milestones
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          milestones=(
+            "M1 — Simulation Master|fmpy stepping a single FMU, outputs logged to CSV"
+            "M2 — DDS Integration|Cyclone DDS publishing FMU outputs as typed topics"
+            "M3 — pytest Plugin|Simulation lifecycle fixture and verdict engine"
+            "M4 — First Real Model|Spacecraft power or thermal FMU, full stack validation"
+            "M5 — Campaign & Reporting|YAML campaign loader, JUnit XML and traceability matrix"
+          )
+
+          for entry in "${milestones[@]}"; do
+            title="${entry%%|*}"
+            desc="${entry##*|}"
+            echo "Creating milestone: $title"
+            gh api repos/$REPO/milestones \
+              --method POST \
+              --field title="$title" \
+              --field description="$desc" \
+              --silent || echo "Milestone may already exist, continuing..."
+          done
+
+      - name: Create labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          labels=(
+            "type: feature|0075ca"
+            "type: bug|d73a4a"
+            "type: spike|e4e669"
+            "type: docs|cfd3d7"
+            "type: refactor|f9d0c4"
+            "layer: sim-core|0e8a16"
+            "layer: comm-bus|1d7d1d"
+            "layer: orchestration|2ea44f"
+            "layer: model-authoring|3cb371"
+            "layer: reporting|5aab61"
+            "priority: now|e05d0a"
+            "priority: next|f4a261"
+            "priority: later|fce8d5"
+            "req: sim-core|7057ff"
+            "req: comm-bus|9b59b6"
+            "req: orchestration|b39ddb"
+          )
+
+          for entry in "${labels[@]}"; do
+            name="${entry%%|*}"
+            color="${entry##*|}"
+            echo "Creating label: $name"
+            gh api repos/$REPO/labels \
+              --method POST \
+              --field name="$name" \
+              --field color="$color" \
+              --silent || echo "Label may already exist, continuing..."
+          done
+
+      - name: Create issues from issues.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 << 'EOF'
+          import json
+          import subprocess
+          import sys
+
+          with open("issues.json", "r") as f:
+              issues = json.load(f)
+
+          # Fetch milestone numbers from the API
+          result = subprocess.run(
+              ["gh", "api", f"repos/{subprocess.os.environ['REPO']}/milestones", "--paginate"],
+              capture_output=True, text=True
+          )
+          milestones = {m["title"]: m["number"] for m in json.loads(result.stdout)}
+
+          for issue in issues:
+              title = issue["title"]
+              body = issue.get("body", "")
+              labels = issue.get("labels", [])
+              milestone_title = issue.get("milestone", "")
+              milestone_number = milestones.get(milestone_title)
+
+              cmd = [
+                  "gh", "issue", "create",
+                  "--repo", subprocess.os.environ["REPO"],
+                  "--title", title,
+                  "--body", body,
+              ]
+
+              for label in labels:
+                  cmd += ["--label", label]
+
+              if milestone_number:
+                  cmd += ["--milestone", str(milestone_number)]
+
+              result = subprocess.run(cmd, capture_output=True, text=True)
+
+              if result.returncode == 0:
+                  print(f"✓ Created: {title}")
+              else:
+                  print(f"✗ Failed: {title}")
+                  print(result.stderr)
+
+          EOF
