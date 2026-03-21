@@ -9,7 +9,9 @@ from __future__ import annotations
 import csv
 import logging
 from datetime import datetime
+from io import TextIOWrapper
 from pathlib import Path
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +39,9 @@ class CsvLogger:
     ) -> None:
         self.output_dir = Path(output_dir)
         self.run_id = run_id
-        self._file: object = None
-        self._writer: object = None
-        self._path: Path | None = None
+        self._file: Optional[TextIOWrapper] = None
+        self._writer: Optional[csv.DictWriter[str]] = None
+        self._path: Optional[Path] = None
 
     def open(self, variable_names: list[str]) -> None:
         """
@@ -66,7 +68,7 @@ class CsvLogger:
         """
         if self._writer is None:
             raise RuntimeError("CsvLogger is not open. Call open() first.")
-        row = {"time": round(time, 9)} | outputs
+        row: dict[str, float] = {"time": round(time, 9)} | outputs
         self._writer.writerow(row)
 
     def close(self) -> None:
@@ -82,7 +84,7 @@ class CsvLogger:
             logger.info(f"CSV logger closed: {self._path}")
 
     @property
-    def path(self) -> Path | None:
+    def path(self) -> Optional[Path]:
         """Path to the current CSV file, or None if not open."""
         return self._path
 
