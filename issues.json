@@ -1,68 +1,26 @@
 [
   {
-    "title": "[SYS] Set up Python project structure with pyproject.toml",
-    "body": "## Objective\nEstablish the foundational Python package structure for SVF core.\n\n## Acceptance Criteria\n- `pyproject.toml` defined with project metadata, dependencies, and build configuration\n- `src/svf/` package layout created\n- Package is pip-installable locally via `pip install -e .`\n- `tests/` directory scaffolded with a placeholder test\n\n## Implements\nSVF-DEV-060, SVF-DEV-065",
-    "labels": ["type: feature", "layer: sim-core", "priority: now"],
-    "milestone": "M1 — Simulation Master"
+    "title": "[BUS] Evaluate Cyclone DDS Python bindings with hello-world example",
+    "body": "## Objective\nConfirm that cyclonedds-python is correctly installed and can publish and subscribe to a DDS topic.\n\n## Acceptance Criteria\n- cyclonedds added as a dependency in `pyproject.toml`\n- A validation script `examples/validate_dds.py` publishes and receives a message on a local DDS topic\n- Output confirms message was sent and received\n\n## Implements\nSVF-DEV-010",
+    "labels": ["type: spike", "layer: comm-bus", "priority: now"],
+    "milestone": "M2 - DDS Integration"
   },
   {
-    "title": "[SYS] Validate fmpy installation with a reference FMU",
-    "body": "## Objective\nConfirm that fmpy is correctly installed and can load, initialise, and step a known-good FMU.\n\n## Acceptance Criteria\n- fmpy added as a dependency in `pyproject.toml`\n- A reference FMU (from the fmpy test suite or modelica.org) is included under `examples/`\n- A validation script `examples/validate_fmpy.py` successfully loads and steps the FMU for 10 time steps\n- Output is printed to stdout showing variable values at each step\n\n## Implements\nSVF-DEV-001",
-    "labels": ["type: spike", "layer: sim-core", "priority: now"],
-    "milestone": "M1 — Simulation Master"
+    "title": "[BUS] Design DDS topic schema for telemetry and commands",
+    "body": "## Objective\nDefine the DDS topic structure for SVF telemetry (FMU outputs) and commands (FMU inputs).\n\n## Acceptance Criteria\n- Topic schema defined in `src/svf/topics.py` using cyclonedds IDL\n- Telemetry topic carries: timestamp, variable name, value\n- Command topic carries: timestamp, variable name, value\n- Schema is documented with docstrings\n\n## Implements\nSVF-DEV-011, SVF-DEV-012",
+    "labels": ["type: feature", "layer: comm-bus", "priority: now"],
+    "milestone": "M2 - DDS Integration"
   },
   {
-    "title": "[SIM] Implement SimulationMaster class with fixed-timestep execution",
-    "body": "## Objective\nImplement the core `SimulationMaster` class that loads an FMU and steps it at a fixed timestep.\n\n## Acceptance Criteria\n- `SimulationMaster` accepts an FMU path and a timestep `dt` as constructor arguments\n- Exposes `initialise()`, `step()`, and `teardown()` methods (SVF-DEV-006)\n- Runs a configurable number of steps or until a stop time is reached\n- Handles FMU initialisation errors gracefully with descriptive messages (SVF-DEV-007)\n- Unit tests cover: successful init, step execution, teardown, and init failure handling\n\n## Implements\nSVF-DEV-001, SVF-DEV-002, SVF-DEV-006, SVF-DEV-007",
-    "labels": ["type: feature", "layer: sim-core", "priority: now"],
-    "milestone": "M1 — Simulation Master"
+    "title": "[BUS] Implement DDS publisher bridge from FMU outputs",
+    "body": "## Objective\nPublish FMU output variables as typed DDS topics after each simulation step.\n\n## Acceptance Criteria\n- `DdsPublisher` class in `src/svf/bus.py`\n- Publishes all FMU outputs to their respective DDS topics after each step\n- Wired into SimulationMaster as an optional component alongside CsvLogger\n- Integration test confirms messages are published during a simulation run\n\n## Implements\nSVF-DEV-010, SVF-DEV-011",
+    "labels": ["type: feature", "layer: comm-bus", "priority: now"],
+    "milestone": "M2 - DDS Integration"
   },
   {
-    "title": "[SIM] Add variable-timestep execution support to SimulationMaster",
-    "body": "## Objective\nExtend `SimulationMaster` to support variable-timestep stepping where the FMU exposes step-size negotiation.\n\n## Acceptance Criteria\n- `SimulationMaster` detects if the loaded FMU supports step-size negotiation\n- If supported, uses negotiated step size; otherwise falls back to fixed `dt`\n- Behaviour is documented in the class docstring\n- Unit test covers variable-step negotiation with a suitable test FMU\n\n## Implements\nSVF-DEV-003",
-    "labels": ["type: feature", "layer: sim-core", "priority: next"],
-    "milestone": "M1 — Simulation Master"
-  },
-  {
-    "title": "[SIM] Implement CSV output logger for FMU variables",
-    "body": "## Objective\nRecord all FMU output variables to a timestamped CSV file for each simulation run.\n\n## Acceptance Criteria\n- A `CsvLogger` class subscribes to FMU output variables after each step\n- Output file is named `{run_id}_{timestamp}.csv` and written to a configurable output directory\n- CSV columns: `time`, followed by one column per logged variable\n- Logger is attached to `SimulationMaster` via a clean interface (not hardcoded)\n- Unit test verifies CSV content against expected values for a known FMU\n\n## Implements\nSVF-DEV-005",
-    "labels": ["type: feature", "layer: sim-core", "priority: now"],
-    "milestone": "M1 — Simulation Master"
-  },
-  {
-    "title": "[SIM] Implement SSP-based multi-FMU co-simulation support",
-    "body": "## Objective\nExtend `SimulationMaster` to load and connect multiple FMUs described by an SSP system description file.\n\n## Acceptance Criteria\n- `SimulationMaster` accepts an SSP file path as an alternative to a single FMU path\n- Parses SSP to identify component FMUs and their port connections\n- Steps all FMUs in the correct dependency order\n- Connection values are passed between FMUs at each timestep\n- Integration test validates a two-FMU connected system\n\n## Implements\nSVF-DEV-004",
-    "labels": ["type: feature", "layer: sim-core", "priority: next"],
-    "milestone": "M1 — Simulation Master"
-  },
-  {
-    "title": "[SYS] Write REQUIREMENTS.md with initial SVF development requirements",
-    "body": "## Objective\nEstablish the baseline requirements document for SVF development.\n\n## Acceptance Criteria\n- `REQUIREMENTS.md` committed to repo root\n- Covers all functional areas: SIM, BUS, ORC, CAM, MOD, REP, SYS\n- Minimum 40 requirements defined\n- All M1-scope requirements marked `BASELINED`\n- Deferred requirements clearly marked `DEFERRED`\n- Traceability index table included at the bottom\n\n## Note\nDraft content has been prepared — this issue tracks committing and baselining it.\n\n## Implements\nSVF-DEV-031",
-    "labels": ["type: docs", "priority: now"],
-    "milestone": "M1 — Simulation Master"
-  },
-  {
-    "title": "[SYS] Write docs/architecture.md",
-    "body": "## Objective\nCommit the architecture document to the repository as the canonical reference for SVF design decisions.\n\n## Acceptance Criteria\n- `docs/architecture.md` committed and readable via GitHub web interface\n- Covers: design principles, layered architecture diagram, all five layer descriptions, technology stack table, model authoring philosophy, real-time roadmap, milestones, and out-of-scope items\n- Links from `README.md` to `docs/architecture.md`\n\n## Note\nDraft content has been prepared — this issue tracks committing and baselining it.",
-    "labels": ["type: docs", "priority: now"],
-    "milestone": "M1 — Simulation Master"
-  },
-  {
-    "title": "[SYS] Set up GitHub Actions CI pipeline",
-    "body": "## Objective\nEstablish a basic CI pipeline that runs on every push and pull request.\n\n## Acceptance Criteria\n- Workflow file at `.github/workflows/ci.yml`\n- Pipeline runs on: push to `main`, push to any `feature/*` branch, pull requests to `main`\n- Steps: checkout, install dependencies, run mypy, run pytest, upload JUnit XML results\n- Pipeline passes on a clean repo with placeholder tests\n- Badge added to `README.md`\n\n## Implements\nSVF-DEV-067",
-    "labels": ["type: feature", "layer: orchestration", "priority: now"],
-    "milestone": "M1 — Simulation Master"
-  },
-  {
-    "title": "[SYS] Add type annotations to SimulationMaster and CsvLogger",
-    "body": "## Objective\nEnsure all public API surface in M1 components is fully type-annotated and passes mypy strict mode.\n\n## Acceptance Criteria\n- `SimulationMaster` and `CsvLogger` have complete type annotations on all public methods and attributes\n- `mypy --strict src/svf/` passes with zero errors\n- mypy check added to CI pipeline\n\n## Implements\nSVF-DEV-068",
-    "labels": ["type: refactor", "layer: sim-core", "priority: next"],
-    "milestone": "M1 — Simulation Master"
-  },
-  {
-    "title": "[SYS] Create Dockerfile for simulation execution environment",
-    "body": "## Objective\nPackage the SVF simulation environment in a Docker image so runs are fully reproducible with no host dependencies.\n\n## Acceptance Criteria\n- `Dockerfile` at repo root builds successfully\n- Image is based on a pinned Ubuntu 22.04 base\n- SVF core package is installed inside the image\n- Running the container with a mounted FMU path executes a simulation and writes CSV output to a mounted output directory\n- README includes a minimal `docker run` usage example\n\n## Implements\nSVF-DEV-061, SVF-DEV-064",
-    "labels": ["type: feature", "layer: sim-core", "priority: next"],
-    "milestone": "M1 — Simulation Master"
+    "title": "[BUS] Implement DDS subscriber for command injection into FMU inputs",
+    "body": "## Objective\nSubscribe to DDS command topics and inject received values into FMU input variables.\n\n## Acceptance Criteria\n- `DdsSubscriber` class in `src/svf/bus.py`\n- Subscribes to command topics and applies values to FMU inputs before each step\n- Wired into SimulationMaster as an optional component\n- Integration test confirms commands received via DDS affect simulation outputs\n\n## Implements\nSVF-DEV-012",
+    "labels": ["type: feature", "layer: comm-bus", "priority: now"],
+    "milestone": "M2 - DDS Integration"
   }
 ]
