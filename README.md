@@ -1,2 +1,4 @@
 # opensvf
+[![CI](https://github.com/lipofefeyt/opensvf/actions/workflows/ci.yml/badge.svg)](https://github.com/lipofefeyt/opensvf/actions/workflows/ci.yml)
+
 The Software Validation Facility (SVF) is a standards-based validation platform for aerospace software — simulation, test orchestration, and requirements traceability in one open-core toolchain
