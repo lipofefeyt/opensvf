@@ -1,19 +1,16 @@
 """
 SVF Simulation Master
-Owns the lifecycle of a single FMU: initialise, step, teardown.
-Implements: SVF-DEV-001, SVF-DEV-002, SVF-DEV-005, SVF-DEV-006, SVF-DEV-007
+Orchestrates simulation execution via dependency-injected abstractions.
+Depends only on TickSource, SyncProtocol, and ModelAdapter interfaces.
+Implements: SVF-DEV-016
 """
 
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
-from fmpy import read_model_description, extract  # type: ignore[import-untyped]
-from fmpy.simulation import instantiate_fmu  # type: ignore[import-untyped]
-
-from svf.logging import CsvLogger
+from svf.abstractions import TickSource, SyncProtocol, ModelAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -25,139 +22,138 @@ class SimulationError(Exception):
 
 class SimulationMaster:
     """
-    Manages the lifecycle of a single FMU simulation.
+    Orchestrates a simulation run across one or more models.
+
+    The master does not know about FMUs, DDS, or Python loops directly.
+    It depends exclusively on three injected abstractions:
+      - TickSource:    drives simulation time
+      - SyncProtocol:  coordinates model acknowledgements
+      - ModelAdapter[]: the models being simulated
 
     Usage:
-        master = SimulationMaster("path/to/model.fmu", dt=0.1)
-        master.initialise(start_time=0.0)
-        for step in range(100):
-            outputs = master.step()
-        master.teardown()
+        participant = DomainParticipant()
+        master = SimulationMaster(
+            tick_source=SoftwareTickSource(),
+            sync_protocol=DdsSyncProtocol(participant),
+            models=[FmuModelAdapter("power.fmu", "power")],
+            dt=0.1,
+            stop_time=10.0,
+        )
+        master.run()
 
-    With CSV logging:
-        csv_logger = CsvLogger(output_dir="results", run_id="my_run")
-        with SimulationMaster("model.fmu", dt=0.1, csv_logger=csv_logger) as master:
-            master.initialise()
-            for step in range(100):
-                master.step()
-
-    Or as a context manager without logging:
-        with SimulationMaster("model.fmu", dt=0.1) as master:
-            master.initialise()
-            for step in range(100):
-                master.step()
+    Or as a context manager:
+        with SimulationMaster(...) as master:
+            master.run()
     """
 
     def __init__(
         self,
-        fmu_path: str | Path,
+        tick_source: TickSource,
+        sync_protocol: SyncProtocol,
+        models: list[ModelAdapter],
         dt: float = 0.1,
-        csv_logger: Optional[CsvLogger] = None,
+        stop_time: float = 1.0,
+        sync_timeout: float = 5.0,
     ) -> None:
-        self.fmu_path = Path(fmu_path)
-        self.dt = dt
-        self._csv_logger = csv_logger
+        if not models:
+            raise SimulationError("SimulationMaster requires at least one ModelAdapter.")
+
+        self._tick_source = tick_source
+        self._sync_protocol = sync_protocol
+        self._models = models
+        self._dt = dt
+        self._stop_time = stop_time
+        self._sync_timeout = sync_timeout
         self._time: float = 0.0
-        self._instance: Optional[Any] = None
-        self._model_desc: Optional[Any] = None
-        self._unzipdir: Optional[str] = None
-        self._output_names: list[str] = []
+        self._running = False
+        self._model_ids = [m.model_id for m in models]
 
-        if not self.fmu_path.exists():
-            raise SimulationError(f"FMU not found: {self.fmu_path}")
-
-    def initialise(self, start_time: float = 0.0) -> None:
+    def run(self, start_time: float = 0.0) -> None:
         """
-        Load and initialise the FMU, ready for stepping.
-        Raises SimulationError with a descriptive message on failure.
+        Initialise all models and run the simulation to stop_time.
+        Blocks until the simulation completes or an error occurs.
         """
         self._time = start_time
-        logger.info(f"Initialising FMU: {self.fmu_path.name}")
+        self._running = True
 
-        try:
-            self._model_desc = read_model_description(str(self.fmu_path))
-        except Exception as e:
-            raise SimulationError(
-                f"Failed to read model description from {self.fmu_path.name}: {e}"
-            ) from e
+        logger.info(
+            f"SimulationMaster starting: models={self._model_ids} "
+            f"dt={self._dt}s stop={self._stop_time}s"
+        )
 
-        self._output_names = [
-            v.name for v in self._model_desc.modelVariables
-            if v.causality == "output"
-        ]
-        logger.info(f"Output variables: {self._output_names}")
-
-        try:
-            self._unzipdir = extract(str(self.fmu_path))
-            self._instance = instantiate_fmu(
-                unzipdir=self._unzipdir,
-                model_description=self._model_desc,
-                fmi_type="CoSimulation",
-            )
-            self._instance.setupExperiment(startTime=self._time)
-            self._instance.enterInitializationMode()
-            self._instance.exitInitializationMode()
-        except Exception as e:
-            raise SimulationError(
-                f"Failed to initialise FMU {self.fmu_path.name}: {e}"
-            ) from e
-
-        if self._csv_logger is not None:
-            self._csv_logger.open(self._output_names)
-
-        logger.info(f"FMU initialised at t={self._time}")
-
-    def step(self) -> dict[str, float]:
-        """
-        Advance simulation by one timestep (dt).
-        Returns a dict of {variable_name: value} for all output variables.
-        Raises SimulationError if called before initialise() or if step fails.
-        """
-        if self._instance is None or self._model_desc is None:
-            raise SimulationError(
-                "Cannot step: FMU has not been initialised. Call initialise() first."
-            )
-
-        try:
-            self._instance.doStep(
-                currentCommunicationPoint=self._time,
-                communicationStepSize=self.dt,
-            )
-            self._time += self.dt
-
-            vrs = [
-                v.valueReference for v in self._model_desc.modelVariables
-                if v.causality == "output"
-            ]
-            values = self._instance.getReal(vrs)
-            outputs = dict(zip(self._output_names, values))
-
-            if self._csv_logger is not None:
-                self._csv_logger.record(time=self._time, outputs=outputs)
-
-            logger.debug(f"t={self._time:.3f} {outputs}")
-            return outputs
-
-        except Exception as e:
-            raise SimulationError(f"Step failed at t={self._time:.3f}: {e}") from e
-
-    def teardown(self) -> None:
-        """
-        Terminate and clean up the FMU instance.
-        Safe to call even if initialise() was never called.
-        """
-        if self._csv_logger is not None:
-            self._csv_logger.close()
-
-        if self._instance is not None:
+        # Initialise all models
+        for model in self._models:
             try:
-                self._instance.terminate()
-                self._instance.freeInstance()
+                model.initialise(start_time=start_time)
             except Exception as e:
-                logger.warning(f"Error during FMU teardown: {e}")
-            finally:
-                self._instance = None
-                logger.info("FMU teardown complete")
+                raise SimulationError(
+                    f"Failed to initialise model '{model.model_id}': {e}"
+                ) from e
+
+        # Hand control to the TickSource
+        try:
+            self._tick_source.start(
+                on_tick=self._on_tick,
+                dt=self._dt,
+                stop_time=self._stop_time,
+            )
+        finally:
+            self._teardown()
+
+        logger.info("SimulationMaster run complete")
+
+    def stop(self) -> None:
+        """Signal the simulation to stop after the current tick."""
+        self._running = False
+        self._tick_source.stop()
+
+    def _on_tick(self, t: float) -> None:
+        """
+        Called by TickSource on each tick.
+        Drives all models and waits for acknowledgements.
+        """
+        if not self._running:
+            self._tick_source.stop()
+            return
+
+        self._time = t
+        self._sync_protocol.reset()
+
+        # Drive all models
+        for model in self._models:
+            try:
+                outputs = model.on_tick(t=t, dt=self._dt)
+                logger.debug(f"[{model.model_id}] t={t:.3f} outputs={outputs}")
+            except Exception as e:
+                raise SimulationError(
+                    f"Model '{model.model_id}' failed on tick t={t:.3f}: {e}"
+                ) from e
+
+            # Model publishes its own ready acknowledgement
+            self._sync_protocol.publish_ready(
+                model_id=model.model_id,
+                t=t,
+            )
+
+        # Wait for all models to acknowledge
+        all_ready = self._sync_protocol.wait_for_ready(
+            expected=self._model_ids,
+            timeout=self._sync_timeout,
+        )
+
+        if not all_ready:
+            raise SimulationError(
+                f"Sync timeout at t={t:.3f}: not all models acknowledged "
+                f"within {self._sync_timeout}s"
+            )
+
+    def _teardown(self) -> None:
+        """Tear down all models cleanly."""
+        for model in self._models:
+            try:
+                model.teardown()
+            except Exception as e:
+                logger.warning(f"Error during teardown of '{model.model_id}': {e}")
 
     @property
     def time(self) -> float:
@@ -165,12 +161,12 @@ class SimulationMaster:
         return self._time
 
     @property
-    def output_names(self) -> list[str]:
-        """Names of all output variables exposed by the FMU."""
-        return list(self._output_names)
+    def model_ids(self) -> list[str]:
+        """IDs of all registered models."""
+        return list(self._model_ids)
 
     def __enter__(self) -> "SimulationMaster":
         return self
 
     def __exit__(self, *args: object) -> None:
-        self.teardown()
+        self._teardown()

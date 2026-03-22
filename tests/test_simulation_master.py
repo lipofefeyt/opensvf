@@ -1,70 +1,152 @@
 """
-Tests for SimulationMaster and CsvLogger.
-Implements: SVF-DEV-001, SVF-DEV-002, SVF-DEV-005, SVF-DEV-006, SVF-DEV-007
+Tests for SimulationMaster, FmuModelAdapter, NativeModelAdapter and CsvLogger.
+Implements: SVF-DEV-001, SVF-DEV-002, SVF-DEV-005, SVF-DEV-006, SVF-DEV-007,
+            SVF-DEV-010, SVF-DEV-013, SVF-DEV-014, SVF-DEV-015, SVF-DEV-016
 """
 
 import pytest
 from pathlib import Path
+from unittest.mock import MagicMock
+
 from svf.simulation import SimulationMaster, SimulationError
+from svf.abstractions import TickSource, SyncProtocol, ModelAdapter
+from svf.software_tick import SoftwareTickSource
+from svf.fmu_adapter import FmuModelAdapter
+from svf.native_adapter import NativeModelAdapter
 from svf.logging import CsvLogger
 
 FMU_PATH = Path(__file__).parent.parent / "examples" / "SimpleCounter.fmu"
 
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+class _PassthroughSync(SyncProtocol):
+    """Minimal SyncProtocol for testing — always returns True immediately."""
+    def reset(self) -> None: pass
+    def publish_ready(self, model_id: str, t: float) -> None: pass
+    def wait_for_ready(self, expected: list[str], timeout: float) -> bool: return True
+
+
+class _CounterModel:
+    """Minimal NativeModel — returns t+dt as its only output."""
+    def step(self, t: float, dt: float) -> dict[str, float]:
+        return {"value": round(t + dt, 9)}
+
+
+# ── NativeModelAdapter tests ──────────────────────────────────────────────────
+
+def test_native_adapter_step() -> None:
+    """NativeModelAdapter correctly delegates to the underlying model."""
+    adapter = NativeModelAdapter(model=_CounterModel(), model_id="counter")
+    adapter.initialise()
+    outputs = adapter.on_tick(t=0.0, dt=0.1)
+    assert outputs == {"value": pytest.approx(0.1)}
+    adapter.teardown()
+
+
+def test_native_adapter_invalid_model() -> None:
+    """NativeModelAdapter rejects a model missing the step() method."""
+    with pytest.raises(TypeError, match="does not implement"):
+        NativeModelAdapter(model=object(), model_id="bad")  # type: ignore
+
+
+# ── FmuModelAdapter tests ─────────────────────────────────────────────────────
+
+def test_fmu_adapter_initialises() -> None:
+    """FmuModelAdapter loads and initialises the FMU without error."""
+    adapter = FmuModelAdapter(fmu_path=FMU_PATH, model_id="counter")
+    adapter.initialise()
+    assert "counter" in adapter.output_names
+    adapter.teardown()
+
+
+def test_fmu_adapter_on_tick() -> None:
+    """FmuModelAdapter steps the FMU and returns correct output."""
+    adapter = FmuModelAdapter(fmu_path=FMU_PATH, model_id="counter")
+    adapter.initialise()
+    outputs = adapter.on_tick(t=0.0, dt=0.1)
+    assert outputs["counter"] == pytest.approx(0.1)
+    adapter.teardown()
+
+
+def test_fmu_adapter_missing_fmu() -> None:
+    """FmuModelAdapter raises FileNotFoundError for missing FMU."""
+    with pytest.raises(FileNotFoundError, match="FMU not found"):
+        FmuModelAdapter(fmu_path="nonexistent.fmu", model_id="bad")
+
+
+def test_fmu_adapter_tick_before_initialise() -> None:
+    """FmuModelAdapter raises RuntimeError if ticked before initialise."""
+    adapter = FmuModelAdapter(fmu_path=FMU_PATH, model_id="counter")
+    with pytest.raises(RuntimeError, match="not initialised"):
+        adapter.on_tick(t=0.0, dt=0.1)
+
+
 # ── SimulationMaster tests ────────────────────────────────────────────────────
 
-def test_simulation_master_initialises():
-    """FMU loads and initialises without error."""
-    master = SimulationMaster(FMU_PATH, dt=0.1)
-    master.initialise()
-    assert master.time == 0.0
-    assert "counter" in master.output_names
-    master.teardown()
+def test_simulation_master_runs() -> None:
+    """SimulationMaster completes a 10-step run with NativeModelAdapter."""
+    results: list[float] = []
+
+    class _RecordingModel:
+        def step(self, t: float, dt: float) -> dict[str, float]:
+            results.append(round(t + dt, 9))
+            return {"value": round(t + dt, 9)}
+
+    master = SimulationMaster(
+        tick_source=SoftwareTickSource(),
+        sync_protocol=_PassthroughSync(),
+        models=[NativeModelAdapter(_RecordingModel(), "rec")],
+        dt=0.1,
+        stop_time=1.0,
+    )
+    master.run()
+
+    assert len(results) == 10
+    assert results[-1] == pytest.approx(1.0)
 
 
-def test_simulation_master_steps():
-    """Single step advances time by dt and returns output dict."""
-    with SimulationMaster(FMU_PATH, dt=0.1) as master:
-        master.initialise()
-        outputs = master.step()
-        assert master.time == pytest.approx(0.1)
-        assert "counter" in outputs
-        assert outputs["counter"] == pytest.approx(0.1)
+def test_simulation_master_with_fmu() -> None:
+    """SimulationMaster runs correctly with FmuModelAdapter."""
+    master = SimulationMaster(
+        tick_source=SoftwareTickSource(),
+        sync_protocol=_PassthroughSync(),
+        models=[FmuModelAdapter(FMU_PATH, "counter")],
+        dt=0.1,
+        stop_time=1.0,
+    )
+    master.run()
+    assert master.time == pytest.approx(0.9)
 
 
-def test_simulation_master_multiple_steps():
-    """10 steps advance time to 1.0s correctly."""
-    with SimulationMaster(FMU_PATH, dt=0.1) as master:
-        master.initialise()
-        for _ in range(10):
-            master.step()
-        assert master.time == pytest.approx(1.0)
+def test_simulation_master_no_models() -> None:
+    """SimulationMaster raises SimulationError if no models provided."""
+    with pytest.raises(SimulationError, match="at least one"):
+        SimulationMaster(
+            tick_source=SoftwareTickSource(),
+            sync_protocol=_PassthroughSync(),
+            models=[],
+            dt=0.1,
+            stop_time=1.0,
+        )
 
 
-def test_simulation_master_context_manager_teardown():
-    """Context manager calls teardown automatically."""
-    with SimulationMaster(FMU_PATH, dt=0.1) as master:
-        master.initialise()
-        master.step()
-    assert master._instance is None
-
-
-def test_simulation_master_missing_fmu():
-    """Missing FMU path raises SimulationError on construction."""
-    with pytest.raises(SimulationError, match="FMU not found"):
-        SimulationMaster("nonexistent.fmu", dt=0.1)
-
-
-def test_simulation_master_step_before_initialise():
-    """Stepping before initialise raises SimulationError."""
-    master = SimulationMaster(FMU_PATH, dt=0.1)
-    with pytest.raises(SimulationError, match="not been initialised"):
-        master.step()
+def test_simulation_master_context_manager() -> None:
+    """SimulationMaster tears down cleanly via context manager."""
+    with SimulationMaster(
+        tick_source=SoftwareTickSource(),
+        sync_protocol=_PassthroughSync(),
+        models=[NativeModelAdapter(_CounterModel(), "counter")],
+        dt=0.1,
+        stop_time=0.5,
+    ) as master:
+        master.run()
+    assert master.time == pytest.approx(0.4)
 
 
 # ── CsvLogger tests ───────────────────────────────────────────────────────────
 
-def test_csv_logger_creates_file(tmp_path: Path):
+def test_csv_logger_creates_file(tmp_path: Path) -> None:
     """CsvLogger creates a CSV file with correct headers."""
     csv_logger = CsvLogger(output_dir=tmp_path, run_id="test")
     csv_logger.open(["counter"])
@@ -73,26 +155,29 @@ def test_csv_logger_creates_file(tmp_path: Path):
 
     files = list(tmp_path.glob("test_*.csv"))
     assert len(files) == 1
-
     content = files[0].read_text()
     assert "time,counter" in content
     assert "0.1,0.1" in content
 
 
-def test_csv_logger_record_before_open():
-    """Recording before open raises RuntimeError."""
+def test_csv_logger_record_before_open() -> None:
+    """CsvLogger raises RuntimeError if record called before open."""
     csv_logger = CsvLogger()
     with pytest.raises(RuntimeError, match="not open"):
         csv_logger.record(time=0.1, outputs={"counter": 0.1})
 
 
-def test_csv_logger_wired_to_simulation_master(tmp_path: Path):
-    """CsvLogger receives all steps when wired to SimulationMaster."""
+def test_csv_logger_wired_to_fmu_adapter(tmp_path: Path) -> None:
+    """CsvLogger receives all steps when wired to FmuModelAdapter."""
     csv_logger = CsvLogger(output_dir=tmp_path, run_id="wired")
-    with SimulationMaster(FMU_PATH, dt=0.1, csv_logger=csv_logger) as master:
-        master.initialise()
-        for _ in range(5):
-            master.step()
+    master = SimulationMaster(
+        tick_source=SoftwareTickSource(),
+        sync_protocol=_PassthroughSync(),
+        models=[FmuModelAdapter(FMU_PATH, "counter", csv_logger=csv_logger)],
+        dt=0.1,
+        stop_time=0.5,
+    )
+    master.run()
 
     files = list(tmp_path.glob("wired_*.csv"))
     assert len(files) == 1
