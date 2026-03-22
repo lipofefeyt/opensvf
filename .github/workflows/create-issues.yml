@@ -20,4 +20,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-        run: python3 setup_issues.py
+        run: python3 tools/setup_issues.py
