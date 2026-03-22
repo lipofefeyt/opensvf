@@ -13,6 +13,7 @@ dependencies = [
     "fmpy>=0.3.20",
     "requests>=2.31",
     "pythonfmu>=0.6",
+    "cyclonedds>=0.11",
 ]
 
 [project.optional-dependencies]
