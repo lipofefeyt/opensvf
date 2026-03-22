@@ -28,3 +28,7 @@ where = ["src"]
 
 [tool.mypy]
 strict = true
+exclude = [
+    "examples/",
+    "setup_issues.py",
+]

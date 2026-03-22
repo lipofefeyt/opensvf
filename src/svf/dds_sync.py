@@ -4,17 +4,18 @@ Tick acknowledgements over Cyclone DDS topics.
 Implements: SVF-DEV-012, SVF-DEV-020, SVF-DEV-021, SVF-DEV-022, SVF-DEV-023
 """
 
-from __future__ import annotations
-
 import logging
 import time
 from dataclasses import dataclass
+from typing import List
 
 from cyclonedds.domain import DomainParticipant
 from cyclonedds.topic import Topic
 from cyclonedds.pub import Publisher, DataWriter
 from cyclonedds.sub import Subscriber, DataReader
+from cyclonedds.core import Qos, Policy
 from cyclonedds.idl import IdlStruct
+from cyclonedds.idl.types import bounded_str
 
 from svf.abstractions import SyncProtocol
 
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SimReady(IdlStruct, typename="SimReady"):
     """Acknowledgement published by a model when it finishes processing a tick."""
-    model_id: str
+    model_id: bounded_str(256)  # type: ignore[valid-type]
     t: float
 
 
@@ -32,23 +33,25 @@ class DdsSyncProtocol(SyncProtocol):
     """
     Exchanges tick acknowledgements over DDS.
 
-    Each model publishes a SimReady message on SVF/Sim/Ready when it
-    finishes processing a tick. The master reads all SimReady messages
-    and blocks until all expected models have acknowledged.
+    Uses KEEP_ALL QoS to ensure no acknowledgement is lost when multiple
+    models publish to the same topic in quick succession.
     """
 
     TOPIC_NAME = "SVF/Sim/Ready"
 
     def __init__(self, participant: DomainParticipant) -> None:
         self._participant = participant
-        self._pending: set[str] = set()
+
+        # KEEP_ALL ensures no ack is dropped when multiple models
+        # publish to the same topic before wait_for_ready reads them
+        qos = Qos(Policy.History.KeepAll)
 
         publisher = Publisher(participant)
         subscriber = Subscriber(participant)
         topic = Topic(participant, self.TOPIC_NAME, SimReady)
 
-        self._writer = DataWriter(publisher, topic)
-        self._reader = DataReader(subscriber, topic)
+        self._writer = DataWriter(publisher, topic, qos=qos)
+        self._reader = DataReader(subscriber, topic, qos=qos)
 
         # Allow DDS discovery to settle
         time.sleep(0.05)
@@ -57,14 +60,13 @@ class DdsSyncProtocol(SyncProtocol):
     def reset(self) -> None:
         """Drain any leftover acknowledgements from the previous tick."""
         self._reader.take()
-        self._pending.clear()
 
     def publish_ready(self, model_id: str, t: float) -> None:
         """Publish a readiness acknowledgement for this model and time."""
         self._writer.write(SimReady(model_id=model_id, t=t))
         logger.debug(f"Ready published: model={model_id} t={t:.3f}")
 
-    def wait_for_ready(self, expected: list[str], timeout: float) -> bool:
+    def wait_for_ready(self, expected: List[str], timeout: float) -> bool:
         """
         Block until all expected models have published SimReady for this tick.
         Returns True if all acknowledged within timeout, False otherwise.
