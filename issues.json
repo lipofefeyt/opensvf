@@ -1,26 +1,26 @@
 [
   {
-    "title": "[ORC] Implement simulation lifecycle pytest fixture",
-    "body": "## Objective\nProvide a pytest fixture that starts a SimulationMaster before a test and tears it down cleanly after, regardless of outcome.\n\n## Acceptance Criteria\n- `simulation` fixture defined in `src/svf/plugin.py`\n- Fixture accepts FMU path, dt, and stop_time via pytest marks or parameters\n- SimulationMaster is fully initialised before the test body runs\n- Teardown is guaranteed even if the test raises\n- Integration test confirms fixture behaviour\n\n## Implements\nSVF-DEV-040, SVF-DEV-041",
+    "title": "[BUS] Implement ParameterStore as central simulation state",
+    "body": "## Objective\nImplement a thread-safe ParameterStore as the central state store for all simulation outputs. Models write to it, observables poll it.\n\n## Acceptance Criteria\n- `ParameterStore` class in `src/svf/parameter_store.py`\n- Thread-safe write(name, value, t, model_id) and read(name) methods\n- snapshot() returns a full copy of current state\n- Each entry carries: value (float), timestamp (float), model_id (string)\n- Unit tests cover concurrent reads/writes\n\n## Implements\nSVF-DEV-031, SVF-DEV-032, SVF-DEV-033",
+    "labels": ["type: feature", "layer: comm-bus", "priority: now"],
+    "milestone": "M3 - pytest Plugin"
+  },
+  {
+    "title": "[BUS] Wire ParameterStore into FmuModelAdapter and NativeModelAdapter",
+    "body": "## Objective\nReplace DDS telemetry publishing in adapters with ParameterStore writes.\n\n## Acceptance Criteria\n- FmuModelAdapter and NativeModelAdapter accept a ParameterStore at construction\n- on_tick() writes all outputs to the store after each step\n- DDS telemetry writers removed from adapters\n- Existing tests updated to pass a ParameterStore\n- Integration tests confirm store is populated after simulation run\n\n## Implements\nSVF-DEV-031, SVF-DEV-033",
+    "labels": ["type: feature", "layer: comm-bus", "priority: now"],
+    "milestone": "M3 - pytest Plugin"
+  },
+  {
+    "title": "[ORC] Refactor ObservableFactory to poll ParameterStore",
+    "body": "## Objective\nReplace DDS-based telemetry subscriptions in ObservableFactory with ParameterStore polling.\n\n## Acceptance Criteria\n- ObservableFactory accepts a ParameterStore instead of DomainParticipant\n- within() polls the store until condition met or timeout expires\n- No DDS readers in ObservableFactory\n- All observable tests pass\n- Late-joiner problem eliminated by design\n\n## Implements\nSVF-DEV-043",
     "labels": ["type: feature", "layer: orchestration", "priority: now"],
     "milestone": "M3 - pytest Plugin"
   },
   {
-    "title": "[ORC] Implement observable assertion API",
-    "body": "## Objective\nProvide a fluent API for test procedures to assert time-bounded telemetry conditions via DDS subscriptions.\n\n## Acceptance Criteria\n- `observe(variable).reaches(value).within(seconds)` API\n- Subscribes to SVF/Telemetry/{variable} DDS topic\n- Polls until condition met or timeout expires\n- Raises AssertionError with descriptive message on timeout\n- Integration test validates against running simulation\n\n## Implements\nSVF-DEV-043",
-    "labels": ["type: feature", "layer: orchestration", "priority: now"],
-    "milestone": "M3 - pytest Plugin"
-  },
-  {
-    "title": "[ORC] Implement ECSS verdict mapper",
-    "body": "## Objective\nMap pytest outcomes to ECSS-compatible verdicts and include them in test reports.\n\n## Acceptance Criteria\n- Verdict enum: PASS, FAIL, INCONCLUSIVE, ERROR\n- pytest hook maps outcomes to verdicts after each test\n- Verdict recorded in JUnit XML output\n- Unit tests cover all verdict mappings\n\n## Implements\nSVF-DEV-044",
-    "labels": ["type: feature", "layer: orchestration", "priority: now"],
-    "milestone": "M3 - pytest Plugin"
-  },
-  {
-    "title": "[ORC] Implement stimuli injection API",
-    "body": "## Objective\nProvide a clean API for test procedures to inject commands into the simulation via DDS command topics.\n\n## Acceptance Criteria\n- `inject(variable, value)` API publishes to SVF/Command/{variable}\n- FmuModelAdapter subscribes to command topics and applies values before next step\n- Integration test confirms injected command affects simulation output\n\n## Implements\nSVF-DEV-042",
-    "labels": ["type: feature", "layer: orchestration", "priority: now"],
+    "title": "[BUS] Implement ParameterStoreDdsBridge for external inspection",
+    "body": "## Objective\nOptional bridge that mirrors ParameterStore values to DDS topics for external inspection tools and ground segment simulation.\n\n## Acceptance Criteria\n- ParameterStoreDdsBridge mirrors store writes to SVF/Telemetry/{variable} topics\n- Bridge is optional — simulation runs correctly without it\n- Read-only from external perspective\n- Unit test confirms DDS topics receive mirrored values\n\n## Implements\nSVF-DEV-034",
+    "labels": ["type: feature", "layer: comm-bus", "priority: later"],
     "milestone": "M3 - pytest Plugin"
   }
 ]
