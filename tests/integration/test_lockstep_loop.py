@@ -1,9 +1,9 @@
-
 """
 SVF Integration Test — Full Lockstep Loop
 Exercises the complete stack: SoftwareTickSource + DdsSyncProtocol +
-FmuModelAdapter + NativeModelAdapter over a real DDS participant.
-Implements: SVF-DEV-010, SVF-DEV-012, SVF-DEV-014, SVF-DEV-015, SVF-DEV-016
+FmuModelAdapter + NativeModelAdapter with ParameterStore.
+Implements: SVF-DEV-010, SVF-DEV-012, SVF-DEV-014, SVF-DEV-015, SVF-DEV-016,
+            SVF-DEV-031, SVF-DEV-033
 """
 
 import pytest
@@ -17,6 +17,7 @@ from svf.software_tick import SoftwareTickSource
 from svf.dds_sync import DdsSyncProtocol
 from svf.fmu_adapter import FmuModelAdapter
 from svf.native_adapter import NativeModelAdapter
+from svf.parameter_store import ParameterStore
 
 FMU_PATH = Path(__file__).parent.parent.parent / "examples" / "SimpleCounter.fmu"
 
@@ -27,18 +28,23 @@ def participant() -> DomainParticipant:
 
 
 @pytest.fixture
+def store() -> ParameterStore:
+    return ParameterStore()
+
+
+@pytest.fixture
 def sync(participant: DomainParticipant) -> DdsSyncProtocol:
     return DdsSyncProtocol(participant)
 
 
 def test_lockstep_single_fmu(
-    participant: DomainParticipant, sync: DdsSyncProtocol
+    store: ParameterStore, sync: DdsSyncProtocol
 ) -> None:
     """Full lockstep loop with a single FmuModelAdapter."""
     master = SimulationMaster(
         tick_source=SoftwareTickSource(),
         sync_protocol=sync,
-        models=[FmuModelAdapter(FMU_PATH, "counter", participant, sync)],
+        models=[FmuModelAdapter(FMU_PATH, "counter", sync, store)],
         dt=0.1,
         stop_time=1.0,
         sync_timeout=5.0,
@@ -46,10 +52,13 @@ def test_lockstep_single_fmu(
     master.run()
     assert master.time == pytest.approx(0.9)
     assert master.model_ids == ["counter"]
+    entry = store.read("counter")
+    assert entry is not None
+    assert entry.value == pytest.approx(1.0)
 
 
 def test_lockstep_multiple_models(
-    participant: DomainParticipant, sync: DdsSyncProtocol
+    store: ParameterStore, sync: DdsSyncProtocol
 ) -> None:
     """Full lockstep loop with two models — one FMU and one native."""
     tick_log: list[tuple[str, float]] = []
@@ -63,8 +72,10 @@ def test_lockstep_multiple_models(
         tick_source=SoftwareTickSource(),
         sync_protocol=sync,
         models=[
-            FmuModelAdapter(FMU_PATH, "counter", participant, sync),
-            NativeModelAdapter(_LoggingModel(), "logger", ["logged_time"], participant, sync),
+            FmuModelAdapter(FMU_PATH, "counter", sync, store),
+            NativeModelAdapter(
+                _LoggingModel(), "logger", ["logged_time"], sync, store
+            ),
         ],
         dt=0.1,
         stop_time=0.5,
@@ -76,9 +87,13 @@ def test_lockstep_multiple_models(
     assert tick_log[0][0] == "native"
     assert tick_log[0][1] == pytest.approx(0.1)
     assert tick_log[-1][1] == pytest.approx(0.5)
+    assert store.read("counter") is not None
+    assert store.read("logged_time") is not None
 
 
-def test_lockstep_sync_timeout(participant: DomainParticipant) -> None:
+def test_lockstep_sync_timeout(
+    store: ParameterStore, participant: DomainParticipant
+) -> None:
     """SimulationMaster raises SimulationError if sync times out."""
 
     class _HungSyncProtocol(SyncProtocol):
@@ -91,11 +106,12 @@ def test_lockstep_sync_timeout(participant: DomainParticipant) -> None:
         def step(self, t: float, dt: float) -> dict[str, float]:
             return {"value": t}
 
+    hung_sync = _HungSyncProtocol()
     master = SimulationMaster(
         tick_source=SoftwareTickSource(),
-        sync_protocol=_HungSyncProtocol(),
+        sync_protocol=hung_sync,
         models=[NativeModelAdapter(
-            _SimpleModel(), "simple", ["value"], participant, _HungSyncProtocol()
+            _SimpleModel(), "simple", ["value"], hung_sync, store
         )],
         dt=0.1,
         stop_time=1.0,
@@ -107,7 +123,7 @@ def test_lockstep_sync_timeout(participant: DomainParticipant) -> None:
 
 
 def test_lockstep_model_failure(
-    participant: DomainParticipant, sync: DdsSyncProtocol
+    store: ParameterStore, sync: DdsSyncProtocol
 ) -> None:
     """SimulationMaster raises SimulationError if a model faults."""
 
@@ -120,7 +136,9 @@ def test_lockstep_model_failure(
     master = SimulationMaster(
         tick_source=SoftwareTickSource(),
         sync_protocol=sync,
-        models=[NativeModelAdapter(_FailingModel(), "faulty", ["value"], participant, sync)],
+        models=[NativeModelAdapter(
+            _FailingModel(), "faulty", ["value"], sync, store
+        )],
         dt=0.1,
         stop_time=1.0,
         sync_timeout=5.0,
@@ -128,3 +146,24 @@ def test_lockstep_model_failure(
 
     with pytest.raises(SimulationError, match="failed on tick"):
         master.run()
+
+
+def test_parameter_store_populated_after_run(
+    store: ParameterStore, sync: DdsSyncProtocol
+) -> None:
+    """ParameterStore contains correct final values after simulation run."""
+    master = SimulationMaster(
+        tick_source=SoftwareTickSource(),
+        sync_protocol=sync,
+        models=[FmuModelAdapter(FMU_PATH, "counter", sync, store)],
+        dt=0.1,
+        stop_time=0.5,
+        sync_timeout=5.0,
+    )
+    master.run()
+
+    entry = store.read("counter")
+    assert entry is not None
+    assert entry.value == pytest.approx(0.5)
+    assert entry.model_id == "counter"
+    assert entry.t == pytest.approx(0.5)

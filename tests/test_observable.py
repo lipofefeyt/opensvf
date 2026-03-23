@@ -8,6 +8,7 @@ import threading
 from cyclonedds.domain import DomainParticipant
 
 from svf.plugin.observable import ObservableFactory, ConditionNotMet
+from svf.parameter_store import ParameterStore
 from svf.simulation import SimulationMaster
 from svf.software_tick import SoftwareTickSource
 from svf.dds_sync import DdsSyncProtocol
@@ -20,13 +21,18 @@ def participant() -> DomainParticipant:
 
 
 @pytest.fixture
+def store() -> ParameterStore:
+    return ParameterStore()
+
+
+@pytest.fixture
 def sync(participant: DomainParticipant) -> DdsSyncProtocol:
     return DdsSyncProtocol(participant)
 
 
 def _run_simulation(
-    participant: DomainParticipant,
     sync: DdsSyncProtocol,
+    store: ParameterStore,
     stop_time: float = 2.0,
 ) -> None:
     """Run a simple counter simulation in the background."""
@@ -38,7 +44,7 @@ def _run_simulation(
         tick_source=SoftwareTickSource(),
         sync_protocol=sync,
         models=[NativeModelAdapter(
-            _CounterModel(), "counter", ["counter"], participant, sync
+            _CounterModel(), "counter", ["counter"], sync, store
         )],
         dt=0.1,
         stop_time=stop_time,
@@ -48,13 +54,13 @@ def _run_simulation(
 
 
 def test_observe_reaches(
-    participant: DomainParticipant, sync: DdsSyncProtocol
+    sync: DdsSyncProtocol, store: ParameterStore
 ) -> None:
     """observe().reaches() detects when a variable hits a target value."""
-    observe = ObservableFactory(participant)
+    observe = ObservableFactory(store)
 
     thread = threading.Thread(
-        target=_run_simulation, args=(participant, sync, 2.0)
+        target=_run_simulation, args=(sync, store, 2.0)
     )
     thread.start()
 
@@ -65,13 +71,13 @@ def test_observe_reaches(
 
 
 def test_observe_exceeds(
-    participant: DomainParticipant, sync: DdsSyncProtocol
+    sync: DdsSyncProtocol, store: ParameterStore
 ) -> None:
     """observe().exceeds() detects when a variable crosses a threshold."""
-    observe = ObservableFactory(participant)
+    observe = ObservableFactory(store)
 
     thread = threading.Thread(
-        target=_run_simulation, args=(participant, sync, 2.0)
+        target=_run_simulation, args=(sync, store, 2.0)
     )
     thread.start()
 
@@ -82,26 +88,21 @@ def test_observe_exceeds(
 
 
 def test_observe_drops_below(
-    participant: DomainParticipant, sync: DdsSyncProtocol
+    sync: DdsSyncProtocol, store: ParameterStore
 ) -> None:
     """observe().drops_below() detects when a variable goes below threshold."""
-    observe = ObservableFactory(participant)
+    observe = ObservableFactory(store)
 
-    # Model that counts down
     class _CountdownModel:
-        def __init__(self) -> None:
-            self.value = 1.0
-
         def step(self, t: float, dt: float) -> dict[str, float]:
-            self.value = round(1.0 - (t + dt), 9)
-            return {"countdown": self.value}
+            return {"countdown": round(1.0 - (t + dt), 9)}
 
-    countdown_sync = DdsSyncProtocol(participant)
+    countdown_sync = DdsSyncProtocol(DomainParticipant())
     master = SimulationMaster(
         tick_source=SoftwareTickSource(),
         sync_protocol=countdown_sync,
         models=[NativeModelAdapter(
-            _CountdownModel(), "countdown", ["countdown"], participant, countdown_sync
+            _CountdownModel(), "countdown", ["countdown"], countdown_sync, store
         )],
         dt=0.1,
         stop_time=2.0,
@@ -118,31 +119,30 @@ def test_observe_drops_below(
 
 
 def test_observe_timeout(
-    participant: DomainParticipant, sync: DdsSyncProtocol
+    sync: DdsSyncProtocol, store: ParameterStore
 ) -> None:
     """observe() raises ConditionNotMet if condition never satisfied."""
-    observe = ObservableFactory(participant)
+    observe = ObservableFactory(store)
 
     thread = threading.Thread(
-        target=_run_simulation, args=(participant, sync, 0.5)
+        target=_run_simulation, args=(sync, store, 0.5)
     )
     thread.start()
 
     with pytest.raises(ConditionNotMet, match="not met within"):
-        # Counter only reaches 0.5, never 999.0
         observe("counter").reaches(999.0).within(2.0)
 
     thread.join()
 
 
 def test_observe_satisfies(
-    participant: DomainParticipant, sync: DdsSyncProtocol
+    sync: DdsSyncProtocol, store: ParameterStore
 ) -> None:
     """observe().satisfies() works with arbitrary condition functions."""
-    observe = ObservableFactory(participant)
+    observe = ObservableFactory(store)
 
     thread = threading.Thread(
-        target=_run_simulation, args=(participant, sync, 2.0)
+        target=_run_simulation, args=(sync, store, 2.0)
     )
     thread.start()
 

@@ -1,7 +1,8 @@
 """
 Tests for SimulationMaster, FmuModelAdapter, NativeModelAdapter and CsvLogger.
 Implements: SVF-DEV-001, SVF-DEV-002, SVF-DEV-005, SVF-DEV-006, SVF-DEV-007,
-            SVF-DEV-010, SVF-DEV-013, SVF-DEV-014, SVF-DEV-015, SVF-DEV-016
+            SVF-DEV-010, SVF-DEV-013, SVF-DEV-014, SVF-DEV-015, SVF-DEV-016,
+            SVF-DEV-031, SVF-DEV-033
 """
 
 import pytest
@@ -14,6 +15,7 @@ from svf.abstractions import SyncProtocol
 from svf.software_tick import SoftwareTickSource
 from svf.fmu_adapter import FmuModelAdapter
 from svf.native_adapter import NativeModelAdapter
+from svf.parameter_store import ParameterStore
 from svf.logging import CsvLogger
 
 FMU_PATH = Path(__file__).parent.parent / "examples" / "SimpleCounter.fmu"
@@ -29,8 +31,8 @@ class _PassthroughSync(SyncProtocol):
 
 
 @pytest.fixture
-def participant() -> DomainParticipant:
-    return DomainParticipant()
+def store() -> ParameterStore:
+    return ParameterStore()
 
 
 @pytest.fixture
@@ -41,7 +43,7 @@ def sync() -> _PassthroughSync:
 # ── NativeModelAdapter tests ──────────────────────────────────────────────────
 
 def test_native_adapter_step(
-    participant: DomainParticipant, sync: _PassthroughSync
+    store: ParameterStore, sync: _PassthroughSync
 ) -> None:
     """NativeModelAdapter correctly delegates to the underlying model."""
     results: list[float] = []
@@ -55,17 +57,19 @@ def test_native_adapter_step(
         model=_RecordingModel(),
         model_id="rec",
         output_names=["value"],
-        participant=participant,
         sync_protocol=sync,
+        store=store,
     )
     adapter.initialise()
     adapter.on_tick(t=0.0, dt=0.1)
     assert results == [pytest.approx(0.1)]
+    assert store.read("value") is not None
+    assert store.read("value").value == pytest.approx(0.1)  # type: ignore[union-attr]
     adapter.teardown()
 
 
 def test_native_adapter_invalid_model(
-    participant: DomainParticipant, sync: _PassthroughSync
+    store: ParameterStore, sync: _PassthroughSync
 ) -> None:
     """NativeModelAdapter rejects a model missing the step() method."""
     with pytest.raises(TypeError, match="does not implement"):
@@ -73,22 +77,22 @@ def test_native_adapter_invalid_model(
             model=object(),  # type: ignore
             model_id="bad",
             output_names=[],
-            participant=participant,
             sync_protocol=sync,
+            store=store,
         )
 
 
 # ── FmuModelAdapter tests ─────────────────────────────────────────────────────
 
 def test_fmu_adapter_initialises(
-    participant: DomainParticipant, sync: _PassthroughSync
+    store: ParameterStore, sync: _PassthroughSync
 ) -> None:
     """FmuModelAdapter loads and initialises without error."""
     adapter = FmuModelAdapter(
         fmu_path=FMU_PATH,
         model_id="counter",
-        participant=participant,
         sync_protocol=sync,
+        store=store,
     )
     adapter.initialise()
     assert "counter" in adapter.output_names
@@ -96,42 +100,46 @@ def test_fmu_adapter_initialises(
 
 
 def test_fmu_adapter_on_tick(
-    participant: DomainParticipant, sync: _PassthroughSync
+    store: ParameterStore, sync: _PassthroughSync
 ) -> None:
-    """FmuModelAdapter steps the FMU without error."""
+    """FmuModelAdapter steps the FMU and writes to ParameterStore."""
     adapter = FmuModelAdapter(
         fmu_path=FMU_PATH,
         model_id="counter",
-        participant=participant,
         sync_protocol=sync,
+        store=store,
     )
     adapter.initialise()
     adapter.on_tick(t=0.0, dt=0.1)
+    entry = store.read("counter")
+    assert entry is not None
+    assert entry.value == pytest.approx(0.1)
+    assert entry.model_id == "counter"
     adapter.teardown()
 
 
 def test_fmu_adapter_missing_fmu(
-    participant: DomainParticipant, sync: _PassthroughSync
+    store: ParameterStore, sync: _PassthroughSync
 ) -> None:
     """FmuModelAdapter raises FileNotFoundError for missing FMU."""
     with pytest.raises(FileNotFoundError, match="FMU not found"):
         FmuModelAdapter(
             fmu_path="nonexistent.fmu",
             model_id="bad",
-            participant=participant,
             sync_protocol=sync,
+            store=store,
         )
 
 
 def test_fmu_adapter_tick_before_initialise(
-    participant: DomainParticipant, sync: _PassthroughSync
+    store: ParameterStore, sync: _PassthroughSync
 ) -> None:
     """FmuModelAdapter raises RuntimeError if ticked before initialise."""
     adapter = FmuModelAdapter(
         fmu_path=FMU_PATH,
         model_id="counter",
-        participant=participant,
         sync_protocol=sync,
+        store=store,
     )
     with pytest.raises(RuntimeError, match="not initialised"):
         adapter.on_tick(t=0.0, dt=0.1)
@@ -140,7 +148,7 @@ def test_fmu_adapter_tick_before_initialise(
 # ── SimulationMaster tests ────────────────────────────────────────────────────
 
 def test_simulation_master_runs(
-    participant: DomainParticipant, sync: _PassthroughSync
+    store: ParameterStore, sync: _PassthroughSync
 ) -> None:
     """SimulationMaster completes a 10-step run."""
     results: list[float] = []
@@ -153,7 +161,9 @@ def test_simulation_master_runs(
     master = SimulationMaster(
         tick_source=SoftwareTickSource(),
         sync_protocol=sync,
-        models=[NativeModelAdapter(_RecordingModel(), "rec", ["value"], participant, sync)],
+        models=[NativeModelAdapter(
+            _RecordingModel(), "rec", ["value"], sync, store
+        )],
         dt=0.1,
         stop_time=1.0,
     )
@@ -163,18 +173,21 @@ def test_simulation_master_runs(
 
 
 def test_simulation_master_with_fmu(
-    participant: DomainParticipant, sync: _PassthroughSync
+    store: ParameterStore, sync: _PassthroughSync
 ) -> None:
     """SimulationMaster runs correctly with FmuModelAdapter."""
     master = SimulationMaster(
         tick_source=SoftwareTickSource(),
         sync_protocol=sync,
-        models=[FmuModelAdapter(FMU_PATH, "counter", participant, sync)],
+        models=[FmuModelAdapter(FMU_PATH, "counter", sync, store)],
         dt=0.1,
         stop_time=1.0,
     )
     master.run()
     assert master.time == pytest.approx(0.9)
+    entry = store.read("counter")
+    assert entry is not None
+    assert entry.value == pytest.approx(1.0)
 
 
 def test_simulation_master_no_models(sync: _PassthroughSync) -> None:
@@ -190,7 +203,7 @@ def test_simulation_master_no_models(sync: _PassthroughSync) -> None:
 
 
 def test_simulation_master_context_manager(
-    participant: DomainParticipant, sync: _PassthroughSync
+    store: ParameterStore, sync: _PassthroughSync
 ) -> None:
     """SimulationMaster tears down cleanly via context manager."""
     class _SimpleModel:
@@ -200,7 +213,9 @@ def test_simulation_master_context_manager(
     with SimulationMaster(
         tick_source=SoftwareTickSource(),
         sync_protocol=sync,
-        models=[NativeModelAdapter(_SimpleModel(), "simple", ["value"], participant, sync)],
+        models=[NativeModelAdapter(
+            _SimpleModel(), "simple", ["value"], sync, store
+        )],
         dt=0.1,
         stop_time=0.5,
     ) as master:
@@ -232,7 +247,7 @@ def test_csv_logger_record_before_open() -> None:
 
 
 def test_csv_logger_wired_to_fmu_adapter(
-    participant: DomainParticipant, sync: _PassthroughSync, tmp_path: Path
+    store: ParameterStore, sync: _PassthroughSync, tmp_path: Path
 ) -> None:
     """CsvLogger receives all steps when wired to FmuModelAdapter."""
     csv_logger = CsvLogger(output_dir=tmp_path, run_id="wired")
@@ -240,7 +255,7 @@ def test_csv_logger_wired_to_fmu_adapter(
         tick_source=SoftwareTickSource(),
         sync_protocol=sync,
         models=[FmuModelAdapter(
-            FMU_PATH, "counter", participant, sync, csv_logger=csv_logger
+            FMU_PATH, "counter", sync, store, csv_logger=csv_logger
         )],
         dt=0.1,
         stop_time=0.5,
