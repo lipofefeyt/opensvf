@@ -2,7 +2,7 @@
 
 > **Status:** Draft — v0.6
 > **Last updated:** 2026-03
-> **Author:** TBD
+> **Author:** lipofefeyt
 
 ---
 
