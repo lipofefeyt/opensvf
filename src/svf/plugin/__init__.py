@@ -29,6 +29,14 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "svf_stop_time(t): simulation stop time in seconds"
     )
+    config.addinivalue_line(
+        "markers",
+        "requirement(*ids): requirement IDs verified by this test case"
+    )
+    config.addinivalue_line(
+        "markers",
+        "svf_initial_commands(cmds): list of (name, value) tuples injected before simulation starts"
+    )
 
 
 @pytest.hookimpl(hookwrapper=True)

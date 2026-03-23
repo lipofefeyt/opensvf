@@ -48,12 +48,14 @@ class SimulationSession:
         verdicts:  VerdictRecorder populated after the test completes
         error:     Any SimulationError raised during the run
     """
+    
     observe: ObservableFactory
     store: ParameterStore
     verdicts: VerdictRecorder
     _cmd_store: CommandStore = field(default_factory=CommandStore, repr=False)
     error: Optional[Exception] = None
     _master: Optional[SimulationMaster] = field(default=None, repr=False)
+    _done: bool = field(default=False, repr=False)  # ← add this
 
     def inject(
         self,
@@ -90,7 +92,6 @@ def _run_in_thread(
     master: SimulationMaster,
     session: SimulationSession,
 ) -> None:
-    """Run the simulation master in a background thread."""
     try:
         master.run()
     except SimulationError as e:
@@ -99,6 +100,8 @@ def _run_in_thread(
     except Exception as e:
         session.error = e
         logger.error(f"Unexpected simulation error: {e}")
+    finally:
+        session._done = True  # ← always set when thread exits
 
 
 @pytest.fixture
@@ -135,6 +138,12 @@ def svf_session(
     fmu_configs: List[FmuConfig] = (
         fmu_marker.args[0] if fmu_marker else []
     )
+
+    cmd_marker = request.node.get_closest_marker("svf_initial_commands")
+    initial_commands: List[tuple[str, float]] = (
+        cmd_marker.args[0] if cmd_marker else []
+    )
+
     dt: float = dt_marker.args[0] if dt_marker else 0.1
     stop_time: float = stop_marker.args[0] if stop_marker else 2.0
 
@@ -185,6 +194,11 @@ def svf_session(
         _cmd_store=cmd_store,
         _master=master,
     )
+    observe._session = session  # ← wire back after construction
+
+    # Pre-inject initial commands before simulation starts
+    for name, value in initial_commands:
+        cmd_store.inject(name=name, value=value, source_id="initial_conditions")
 
     thread = threading.Thread(
         target=_run_in_thread,
@@ -196,7 +210,14 @@ def svf_session(
 
     yield session
 
-    thread.join(timeout=stop_time + 5.0)
+    # Always signal stop — test may have already called it, this is a no-op if so
+    if session._master is not None:
+        session._master.stop()
+
+    # Join with a short fixed timeout — independent of stop_time
+    thread.join(timeout=10.0)
+    if thread.is_alive():
+        logger.warning(f"Simulation thread did not stop cleanly for {request.node.nodeid}")
 
     test_id = request.node.nodeid
     rep = getattr(request.node, "_svf_rep", None)

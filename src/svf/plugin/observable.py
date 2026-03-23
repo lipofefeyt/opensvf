@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Callable, Optional, cast
+
+from typing import Callable, Optional, cast, Any
 
 from svf.parameter_store import ParameterStore
 
@@ -32,19 +33,15 @@ class WithinClause:
         variable: str,
         condition: Callable[[float], bool],
         condition_desc: str,
+        session: Optional[Any] = None,  # SimulationSession reference
     ) -> None:
         self._store = store
         self._variable = variable
         self._condition = condition
         self._condition_desc = condition_desc
+        self._session = session
 
     def within(self, seconds: float) -> float:
-        """
-        Poll until condition met or timeout expires.
-
-        Returns the value that satisfied the condition.
-        Raises ConditionNotMet with a descriptive message on timeout.
-        """
         deadline = time.monotonic() + seconds
         last_value: Optional[float] = None
 
@@ -59,6 +56,11 @@ class WithinClause:
                         f"got {entry.value} at t={entry.t:.3f}"
                     )
                     return entry.value
+
+            # If simulation is done and condition still not met — fail fast
+            if self._session is not None and self._session._done:
+                break
+
             time.sleep(0.001)
 
         raise ConditionNotMet(
@@ -71,35 +73,38 @@ class WithinClause:
 class ReachesClause:
     """Intermediate clause — specifies the condition to wait for."""
 
-    def __init__(self, store: ParameterStore, variable: str) -> None:
+    def __init__(
+        self, store: ParameterStore, variable: str, session: Optional[Any] = None
+    ) -> None:
         self._store = store
         self._variable = variable
+        self._session = session
 
     def reaches(self, value: float, tolerance: float = 1e-6) -> WithinClause:
-        """Assert the variable reaches at least this value."""
         return WithinClause(
             store=self._store,
             variable=self._variable,
             condition=lambda v: v >= value - tolerance,
             condition_desc=f"reaches {value}",
-    )
+            session=self._session,
+        )
 
     def exceeds(self, threshold: float) -> WithinClause:
-        """Assert the variable exceeds a threshold."""
         return WithinClause(
             store=self._store,
             variable=self._variable,
             condition=lambda v: v > threshold,
             condition_desc=f"exceeds {threshold}",
+            session=self._session,
         )
 
     def drops_below(self, threshold: float) -> WithinClause:
-        """Assert the variable drops to or below a threshold."""
         return WithinClause(
             store=self._store,
             variable=self._variable,
             condition=lambda v: v <= threshold,
             condition_desc=f"drops below {threshold}",
+            session=self._session,
         )
 
     def satisfies(
@@ -107,12 +112,12 @@ class ReachesClause:
         condition: Callable[[float], bool],
         description: str = "satisfies condition",
     ) -> WithinClause:
-        """Assert the variable satisfies an arbitrary condition."""
         return WithinClause(
             store=self._store,
             variable=self._variable,
             condition=condition,
             condition_desc=description,
+            session=self._session,
         )
 
 
@@ -126,17 +131,13 @@ class ObservableFactory:
             svf_session.observe("counter").reaches(1.0).within(2.0)
     """
 
-    def __init__(self, store: ParameterStore) -> None:
+    def __init__(self, store: ParameterStore, session: Optional[Any] = None) -> None:
         self._store = store
+        self._session = session
 
     def __call__(self, variable: str) -> ReachesClause:
-        """
-        Begin an observable assertion for the named parameter.
-
-        Args:
-            variable: The parameter name (e.g. "counter")
-
-        Returns:
-            A ReachesClause to complete the assertion chain.
-        """
-        return ReachesClause(store=self._store, variable=variable)
+        return ReachesClause(
+            store=self._store,
+            variable=variable,
+            session=self._session,
+        )
