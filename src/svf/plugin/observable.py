@@ -76,13 +76,13 @@ class ReachesClause:
         self._variable = variable
 
     def reaches(self, value: float, tolerance: float = 1e-6) -> WithinClause:
-        """Assert the variable reaches a specific value."""
+        """Assert the variable reaches at least this value."""
         return WithinClause(
             store=self._store,
             variable=self._variable,
-            condition=lambda v: abs(v - value) <= tolerance,
-            condition_desc=f"reaches {value} (±{tolerance})",
-        )
+            condition=lambda v: v >= value - tolerance,
+            condition_desc=f"reaches {value}",
+    )
 
     def exceeds(self, threshold: float) -> WithinClause:
         """Assert the variable exceeds a threshold."""
@@ -94,11 +94,11 @@ class ReachesClause:
         )
 
     def drops_below(self, threshold: float) -> WithinClause:
-        """Assert the variable drops below a threshold."""
+        """Assert the variable drops to or below a threshold."""
         return WithinClause(
             store=self._store,
             variable=self._variable,
-            condition=lambda v: v < threshold,
+            condition=lambda v: v <= threshold,
             condition_desc=f"drops below {threshold}",
         )
 

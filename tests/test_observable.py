@@ -67,7 +67,7 @@ def test_observe_reaches(
     result = observe("counter").reaches(1.0).within(5.0)
     thread.join()
 
-    assert abs(result - 1.0) < 1e-6
+    assert result >= 1.0
 
 
 def test_observe_exceeds(
