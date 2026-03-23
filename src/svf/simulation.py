@@ -2,6 +2,7 @@
 SVF Simulation Master
 Orchestrates simulation execution via dependency-injected abstractions.
 Depends only on TickSource, SyncProtocol, and ModelAdapter interfaces.
+The master drives models and waits for sync — it never speaks for models.
 Implements: SVF-DEV-016
 """
 
@@ -24,26 +25,25 @@ class SimulationMaster:
     """
     Orchestrates a simulation run across one or more models.
 
-    The master does not know about FMUs, DDS, or Python loops directly.
-    It depends exclusively on three injected abstractions:
-      - TickSource:    drives simulation time
-      - SyncProtocol:  coordinates model acknowledgements
-      - ModelAdapter[]: the models being simulated
+    The master:
+      - tells the TickSource to start
+      - on each tick: drives all models via on_tick()
+      - waits for all models to acknowledge via SyncProtocol
+      - never publishes telemetry or sync messages itself
 
     Usage:
         participant = DomainParticipant()
+        sync = DdsSyncProtocol(participant)
         master = SimulationMaster(
             tick_source=SoftwareTickSource(),
-            sync_protocol=DdsSyncProtocol(participant),
-            models=[FmuModelAdapter("power.fmu", "power")],
+            sync_protocol=sync,
+            models=[
+                FmuModelAdapter("power.fmu", "power", participant, sync),
+            ],
             dt=0.1,
             stop_time=10.0,
         )
         master.run()
-
-    Or as a context manager:
-        with SimulationMaster(...) as master:
-            master.run()
     """
 
     def __init__(
@@ -81,7 +81,6 @@ class SimulationMaster:
             f"dt={self._dt}s stop={self._stop_time}s"
         )
 
-        # Initialise all models
         for model in self._models:
             try:
                 model.initialise(start_time=start_time)
@@ -90,7 +89,6 @@ class SimulationMaster:
                     f"Failed to initialise model '{model.model_id}': {e}"
                 ) from e
 
-        # Hand control to the TickSource
         try:
             self._tick_source.start(
                 on_tick=self._on_tick,
@@ -110,7 +108,7 @@ class SimulationMaster:
     def _on_tick(self, t: float) -> None:
         """
         Called by TickSource on each tick.
-        Drives all models and waits for acknowledgements.
+        Drives all models then waits for their acknowledgements.
         """
         if not self._running:
             self._tick_source.stop()
@@ -119,23 +117,14 @@ class SimulationMaster:
         self._time = t
         self._sync_protocol.reset()
 
-        # Drive all models
         for model in self._models:
             try:
-                outputs = model.on_tick(t=t, dt=self._dt)
-                logger.debug(f"[{model.model_id}] t={t:.3f} outputs={outputs}")
+                model.on_tick(t=t, dt=self._dt)
             except Exception as e:
                 raise SimulationError(
                     f"Model '{model.model_id}' failed on tick t={t:.3f}: {e}"
                 ) from e
 
-            # Model publishes its own ready acknowledgement
-            self._sync_protocol.publish_ready(
-                model_id=model.model_id,
-                t=t,
-            )
-
-        # Wait for all models to acknowledge
         all_ready = self._sync_protocol.wait_for_ready(
             expected=self._model_ids,
             timeout=self._sync_timeout,

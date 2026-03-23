@@ -8,6 +8,11 @@ Implements: SVF-DEV-009, SVF-DEV-011, SVF-DEV-013, SVF-DEV-016
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Callable
+
+
+# Type alias for the tick callback signature
+TickCallback = Callable[[float], None]
 
 
 class TickSource(ABC):
@@ -46,7 +51,7 @@ class SyncProtocol(ABC):
 
     After broadcasting a tick, the master calls wait_for_ready() to
     block until all registered models have acknowledged. Each model
-    calls publish_ready() when it has finished processing the tick.
+    calls publish_ready() itself when it has finished processing the tick.
 
     Swap DdsSyncProtocol for SharedMemorySyncProtocol for sub-ms latency.
     """
@@ -69,6 +74,8 @@ class SyncProtocol(ABC):
     def publish_ready(self, model_id: str, t: float) -> None:
         """
         Publish a readiness acknowledgement for the given model and time.
+        Called by the ModelAdapter itself after on_tick() completes —
+        never by the SimulationMaster.
 
         Args:
             model_id: Unique identifier of the acknowledging model.
@@ -87,8 +94,12 @@ class ModelAdapter(ABC):
     Wraps any simulation model in a uniform interface.
 
     The SimulationMaster drives models exclusively through this interface.
-    FMUs, native Python models, and future hardware bridges all look
-    identical to the master.
+    Each adapter is responsible for:
+      - executing its model on each tick
+      - publishing telemetry outputs to DDS
+      - publishing its own sync acknowledgement via SyncProtocol
+
+    The master never publishes on behalf of a model.
     """
 
     @property
@@ -106,16 +117,18 @@ class ModelAdapter(ABC):
         ...
 
     @abstractmethod
-    def on_tick(self, t: float, dt: float) -> dict[str, float]:
+    def on_tick(self, t: float, dt: float) -> None:
         """
         Advance the model by one timestep.
+        The adapter is responsible for publishing outputs and
+        acknowledging readiness via its SyncProtocol.
 
         Args:
             t:  Current simulation time in seconds.
             dt: Timestep size in seconds.
 
-        Returns:
-            Dict of {variable_name: value} for all model outputs.
+        Raises:
+            Any exception signals a fault to the SimulationMaster.
         """
         ...
 
@@ -127,8 +140,3 @@ class ModelAdapter(ABC):
         was never called.
         """
         ...
-
-
-# Type alias for the tick callback signature
-from typing import Callable
-TickCallback = Callable[[float], None]
