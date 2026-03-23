@@ -1,8 +1,8 @@
 # SVF Development Requirements
 
-> **Status:** Draft — v0.5
+> **Status:** Draft — v0.6
 > **Last updated:** 2026-03
-> **Author:** lipofefeyt
+> **Author:** TBD
 
 ---
 
@@ -48,8 +48,8 @@ The simulation master shall support fixed-timestep execution of a single FMU.
 **SVF-DEV-003** `[SIM]` `DRAFT`
 The simulation master shall support variable-timestep execution where the FMU exposes a step-size negotiation interface.
 
-**SVF-DEV-004** `[SIM]` `DRAFT`
-The simulation master shall support co-simulation of multiple FMUs connected according to an SSP system description file.
+**SVF-DEV-004** `[SIM]` `BASELINED`
+The SimulationMaster shall accept an optional wiring map defining connections between model outputs (ParameterStore) and model inputs (CommandStore). After each tick the master shall copy wired values automatically, enabling model-to-model communication without direct coupling. Assigned to M4.5.
 
 **SVF-DEV-005** `[SIM]` `IMPLEMENTED`
 The simulation master shall record all FMU output variables to a time-stamped CSV log for each simulation run.
@@ -62,6 +62,9 @@ The simulation master shall handle FMU initialisation errors gracefully and repo
 
 **SVF-DEV-008** `[SIM]` `DEFERRED`
 The simulation master shall support FMI 3.0 Scheduled Execution mode for deterministic clock-driven stepping (prerequisite for real-time support).
+
+**SVF-DEV-004b** `[SIM]` `BASELINED`
+The SimulationMaster shall support SSP (System Structure and Parameterization) files as an alternative to programmatic wiring maps for describing multi-FMU system connections. Assigned to M4.5.
 
 ---
 
@@ -83,7 +86,7 @@ The platform shall provide a DdsSyncProtocol implementation of SyncProtocol that
 The platform shall define a ModelAdapter abstract interface with model_id, initialise(), on_tick(), and teardown(). on_tick() shall return None — data flows through the ParameterStore, faults flow as exceptions.
 
 **SVF-DEV-014** `[ABS]` `IMPLEMENTED`
-The platform shall provide an FmuModelAdapter implementation of ModelAdapter that wraps an FMI 3.0 FMU via fmpy, writes outputs to the ParameterStore, reads commands from the CommandStore, and calls publish_ready() after each tick.
+The platform shall provide an FmuModelAdapter implementation of ModelAdapter that wraps an FMI 3.0 FMU via fmpy, reads commands from the CommandStore, writes outputs to the ParameterStore, and calls publish_ready() after each tick.
 
 **SVF-DEV-015** `[ABS]` `IMPLEMENTED`
 The platform shall provide a NativeModelAdapter implementation of ModelAdapter that wraps a plain Python class. Output variable names shall be declared at construction time — never inferred by calling step() during initialise().
@@ -146,10 +149,10 @@ The ParameterStore shall expose write(), read(), and snapshot() methods. read() 
 **SVF-DEV-034** `[BUS]` `DEFERRED`
 The platform shall provide an optional ParameterStoreDdsBridge that mirrors store values to SVF/Telemetry/{variable} DDS topics for external inspection tools and ground segment simulation. The bridge shall be read-only from the external perspective.
 
-**SVF-DEV-035** `[BUS]` `BASELINED`
+**SVF-DEV-035** `[BUS]` `IMPLEMENTED`
 The platform shall implement a CommandStore separate from the ParameterStore. TM and TC shall be architecturally separate, mirroring spacecraft TM/TC separation. A model shall never read its own telemetry outputs as commands.
 
-**SVF-DEV-036** `[BUS]` `BASELINED`
+**SVF-DEV-036** `[BUS]` `IMPLEMENTED`
 Each CommandEntry shall carry: name (string), value (float), simulation time t (float), source_id (string), and a consumed flag (bool). The take() method shall read and mark a command as consumed atomically, preventing double-application.
 
 **SVF-DEV-037** `[BUS]` `DEFERRED`
@@ -168,8 +171,8 @@ The test orchestration layer shall be implemented as a pytest plugin registered 
 **SVF-DEV-041** `[ORC]` `IMPLEMENTED`
 The plugin shall provide an svf_session fixture that starts a SimulationMaster in a background thread before a test, and performs clean teardown after the test regardless of outcome.
 
-**SVF-DEV-042** `[ORC]` `BASELINED`
-The plugin shall provide a stimuli injection API allowing test procedures to write commands to the CommandStore, which model adapters consume before each tick.
+**SVF-DEV-042** `[ORC]` `IMPLEMENTED`
+The plugin shall provide a stimuli injection API (svf_session.inject()) allowing test procedures to write commands to the CommandStore, which model adapters consume before each tick.
 
 **SVF-DEV-043** `[ORC]` `IMPLEMENTED`
 The plugin shall provide an observable assertion API (observe().reaches().within()) that polls the ParameterStore until conditions are met or timeout expires. reaches(v) means the parameter has reached at least v.
@@ -221,11 +224,19 @@ The platform shall support FMUs authored in C or C++ compiled to shared librarie
 **SVF-DEV-062** `[MOD]` `DRAFT`
 The platform shall provide a Python decorator API (@svf.model, @svf.input, @svf.output, @svf.state) that generates FMI-compliant scaffolding with minimal boilerplate.
 
-**SVF-DEV-063** `[MOD]` `DRAFT`
-All SVF-native models shall produce FMI 3.0 compliant FMU archives, usable in any third-party FMI-compliant simulation environment.
+**SVF-DEV-063** `[MOD]` `BASELINED`
+The platform shall provide an integrated EPS FMU (solar array + battery + PCDU) as the first reference spacecraft model, demonstrating realistic power system behaviour with non-linear SoC/voltage curve, charge/discharge efficiency, and penumbra support.
 
 **SVF-DEV-064** `[MOD]` `DEFERRED`
 The platform shall provide an SMP2 model importer that converts SMP2-compliant model packages into FMI 3.0 FMUs.
+
+**SVF-DEV-065** `[MOD]` `BASELINED`
+The integrated EPS FMU shall expose the following interface:
+Inputs: solar_illumination (0.0–1.0), load_power (W).
+Outputs: bus_voltage (V), battery_soc (0.0–1.0), battery_voltage (V), generated_power (W), charge_current (A). Assigned to M4.
+
+**SVF-DEV-066** `[MOD]` `BASELINED`
+The EPS FMU shall be decomposed into three separate FMUs (SolarArray, Battery, PCDU) connected via the model wiring mechanism. Assigned to M4.5.
 
 ---
 
@@ -293,79 +304,82 @@ The platform shall support soft real-time execution on Linux hosts running the R
 
 ## Traceability Index
 
-| Requirement ID | Area | Status | Verified By |
-|---|---|---|---|
-| SVF-DEV-001 | SIM | IMPLEMENTED | test_fmu_adapter_initialises |
-| SVF-DEV-002 | SIM | IMPLEMENTED | test_simulation_master_with_fmu |
-| SVF-DEV-003 | SIM | DRAFT | — |
-| SVF-DEV-004 | SIM | DRAFT | — |
-| SVF-DEV-005 | SIM | IMPLEMENTED | test_csv_logger_wired_to_fmu_adapter |
-| SVF-DEV-006 | SIM | IMPLEMENTED | test_simulation_master_context_manager |
-| SVF-DEV-007 | SIM | IMPLEMENTED | test_fmu_adapter_missing_fmu |
-| SVF-DEV-008 | SIM | DEFERRED | — |
-| SVF-DEV-009 | ABS | IMPLEMENTED | test_simulation_master_runs |
-| SVF-DEV-010 | ABS | IMPLEMENTED | test_lockstep_single_fmu |
-| SVF-DEV-011 | ABS | IMPLEMENTED | test_lockstep_sync_timeout |
-| SVF-DEV-012 | ABS | IMPLEMENTED | test_lockstep_multiple_models |
-| SVF-DEV-013 | ABS | IMPLEMENTED | test_native_adapter_step |
-| SVF-DEV-014 | ABS | IMPLEMENTED | test_fmu_adapter_on_tick |
-| SVF-DEV-015 | ABS | IMPLEMENTED | test_native_adapter_step |
-| SVF-DEV-016 | ABS | IMPLEMENTED | test_simulation_master_runs |
-| SVF-DEV-017 | ABS | DEFERRED | — |
-| SVF-DEV-018 | ABS | DEFERRED | — |
-| SVF-DEV-020 | BUS | IMPLEMENTED | test_lockstep_single_fmu |
-| SVF-DEV-021 | BUS | IMPLEMENTED | test_lockstep_single_fmu |
-| SVF-DEV-022 | BUS | IMPLEMENTED | test_lockstep_single_fmu |
-| SVF-DEV-023 | BUS | IMPLEMENTED | test_lockstep_single_fmu |
-| SVF-DEV-024 | BUS | SUPERSEDED | SVF-DEV-031 |
-| SVF-DEV-025 | BUS | BASELINED | — |
-| SVF-DEV-026 | BUS | IMPLEMENTED | test_lockstep_multiple_models |
-| SVF-DEV-027 | BUS | BASELINED | — |
-| SVF-DEV-028 | BUS | IMPLEMENTED | test_lockstep_single_fmu |
-| SVF-DEV-029 | BUS | DEFERRED | — |
-| SVF-DEV-030 | BUS | DEFERRED | — |
-| SVF-DEV-031 | BUS | IMPLEMENTED | test_parameter_store_populated_after_run |
-| SVF-DEV-032 | BUS | IMPLEMENTED | test_write_and_read |
-| SVF-DEV-033 | BUS | IMPLEMENTED | test_late_reader_sees_value |
-| SVF-DEV-034 | BUS | DEFERRED | — |
-| SVF-DEV-035 | BUS | BASELINED | — |
-| SVF-DEV-036 | BUS | BASELINED | — |
-| SVF-DEV-037 | BUS | DEFERRED | — |
-| SVF-DEV-038 | BUS | DEFERRED | — |
-| SVF-DEV-040 | ORC | IMPLEMENTED | test_fixture_default_fmu |
-| SVF-DEV-041 | ORC | IMPLEMENTED | test_fixture_default_fmu |
-| SVF-DEV-042 | ORC | BASELINED | — |
-| SVF-DEV-043 | ORC | IMPLEMENTED | test_observe_reaches |
-| SVF-DEV-044 | ORC | IMPLEMENTED | test_verdict_pass |
-| SVF-DEV-045 | ORC | BASELINED | — |
-| SVF-DEV-046 | ORC | DRAFT | — |
-| SVF-DEV-047 | ORC | IMPLEMENTED | test_fixture_default_fmu |
-| SVF-DEV-050 | CAM | DRAFT | — |
-| SVF-DEV-051 | CAM | DRAFT | — |
-| SVF-DEV-052 | CAM | DRAFT | — |
-| SVF-DEV-053 | CAM | DRAFT | — |
-| SVF-DEV-054 | CAM | DRAFT | — |
-| SVF-DEV-055 | CAM | DEFERRED | — |
-| SVF-DEV-060 | MOD | IMPLEMENTED | validate_fmpy.py |
-| SVF-DEV-061 | MOD | DRAFT | — |
-| SVF-DEV-062 | MOD | DRAFT | — |
-| SVF-DEV-063 | MOD | DRAFT | — |
-| SVF-DEV-064 | MOD | DEFERRED | — |
-| SVF-DEV-070 | REP | DRAFT | — |
-| SVF-DEV-071 | REP | DRAFT | — |
-| SVF-DEV-072 | REP | DRAFT | — |
-| SVF-DEV-073 | REP | DRAFT | — |
-| SVF-DEV-074 | REP | DRAFT | — |
-| SVF-DEV-075 | REP | DRAFT | — |
-| SVF-DEV-076 | REP | DEFERRED | — |
-| SVF-DEV-077 | REP | DEFERRED | — |
-| SVF-DEV-080 | SYS | IMPLEMENTED | CI pipeline |
-| SVF-DEV-081 | SYS | IMPLEMENTED | CI pipeline (ubuntu-latest) |
-| SVF-DEV-082 | SYS | DRAFT | — |
-| SVF-DEV-083 | SYS | DRAFT | — |
-| SVF-DEV-084 | SYS | DRAFT | — |
-| SVF-DEV-085 | SYS | DRAFT | — |
-| SVF-DEV-086 | SYS | DRAFT | — |
-| SVF-DEV-087 | SYS | IMPLEMENTED | CI pipeline (pytest) |
-| SVF-DEV-088 | SYS | IMPLEMENTED | CI pipeline (mypy) |
-| SVF-DEV-089 | SYS | DEFERRED | — |
+| Requirement ID | Area | Status | Milestone | Verified By |
+|---|---|---|---|---|
+| SVF-DEV-001 | SIM | IMPLEMENTED | M1 | test_fmu_adapter_initialises |
+| SVF-DEV-002 | SIM | IMPLEMENTED | M1 | test_simulation_master_with_fmu |
+| SVF-DEV-003 | SIM | DRAFT | — | — |
+| SVF-DEV-004 | SIM | BASELINED | M4.5 | — |
+| SVF-DEV-004b | SIM | BASELINED | M4.5 | — |
+| SVF-DEV-005 | SIM | IMPLEMENTED | M1 | test_csv_logger_wired_to_fmu_adapter |
+| SVF-DEV-006 | SIM | IMPLEMENTED | M1 | test_simulation_master_context_manager |
+| SVF-DEV-007 | SIM | IMPLEMENTED | M1 | test_fmu_adapter_missing_fmu |
+| SVF-DEV-008 | SIM | DEFERRED | — | — |
+| SVF-DEV-009 | ABS | IMPLEMENTED | M2 | test_simulation_master_runs |
+| SVF-DEV-010 | ABS | IMPLEMENTED | M2 | test_lockstep_single_fmu |
+| SVF-DEV-011 | ABS | IMPLEMENTED | M2 | test_lockstep_sync_timeout |
+| SVF-DEV-012 | ABS | IMPLEMENTED | M2 | test_lockstep_multiple_models |
+| SVF-DEV-013 | ABS | IMPLEMENTED | M2 | test_native_adapter_step |
+| SVF-DEV-014 | ABS | IMPLEMENTED | M3 | test_fmu_adapter_on_tick |
+| SVF-DEV-015 | ABS | IMPLEMENTED | M2 | test_native_adapter_step |
+| SVF-DEV-016 | ABS | IMPLEMENTED | M2 | test_simulation_master_runs |
+| SVF-DEV-017 | ABS | DEFERRED | — | — |
+| SVF-DEV-018 | ABS | DEFERRED | — | — |
+| SVF-DEV-020 | BUS | IMPLEMENTED | M2 | test_lockstep_single_fmu |
+| SVF-DEV-021 | BUS | IMPLEMENTED | M2 | test_lockstep_single_fmu |
+| SVF-DEV-022 | BUS | IMPLEMENTED | M2 | test_lockstep_single_fmu |
+| SVF-DEV-023 | BUS | IMPLEMENTED | M2 | test_lockstep_single_fmu |
+| SVF-DEV-024 | BUS | SUPERSEDED | — | SVF-DEV-031 |
+| SVF-DEV-025 | BUS | BASELINED | M3 | — |
+| SVF-DEV-026 | BUS | IMPLEMENTED | M2 | test_lockstep_multiple_models |
+| SVF-DEV-027 | BUS | BASELINED | M3 | — |
+| SVF-DEV-028 | BUS | IMPLEMENTED | M2 | test_lockstep_single_fmu |
+| SVF-DEV-029 | BUS | DEFERRED | — | — |
+| SVF-DEV-030 | BUS | DEFERRED | — | — |
+| SVF-DEV-031 | BUS | IMPLEMENTED | M3 | test_parameter_store_populated_after_run |
+| SVF-DEV-032 | BUS | IMPLEMENTED | M3 | test_write_and_read |
+| SVF-DEV-033 | BUS | IMPLEMENTED | M3 | test_late_reader_sees_value |
+| SVF-DEV-034 | BUS | DEFERRED | — | — |
+| SVF-DEV-035 | BUS | IMPLEMENTED | M3 | test_inject_and_take |
+| SVF-DEV-036 | BUS | IMPLEMENTED | M3 | test_take_is_atomic |
+| SVF-DEV-037 | BUS | DEFERRED | — | — |
+| SVF-DEV-038 | BUS | DEFERRED | — | — |
+| SVF-DEV-040 | ORC | IMPLEMENTED | M3 | test_fixture_default_fmu |
+| SVF-DEV-041 | ORC | IMPLEMENTED | M3 | test_fixture_default_fmu |
+| SVF-DEV-042 | ORC | IMPLEMENTED | M3 | test_fixture_inject_command |
+| SVF-DEV-043 | ORC | IMPLEMENTED | M3 | test_observe_reaches |
+| SVF-DEV-044 | ORC | IMPLEMENTED | M3 | test_verdict_pass |
+| SVF-DEV-045 | ORC | BASELINED | M3 | — |
+| SVF-DEV-046 | ORC | DRAFT | — | — |
+| SVF-DEV-047 | ORC | IMPLEMENTED | M3 | test_fixture_default_fmu |
+| SVF-DEV-050 | CAM | DRAFT | — | — |
+| SVF-DEV-051 | CAM | DRAFT | — | — |
+| SVF-DEV-052 | CAM | DRAFT | — | — |
+| SVF-DEV-053 | CAM | DRAFT | — | — |
+| SVF-DEV-054 | CAM | DRAFT | — | — |
+| SVF-DEV-055 | CAM | DEFERRED | — | — |
+| SVF-DEV-060 | MOD | IMPLEMENTED | M1 | validate_fmpy.py |
+| SVF-DEV-061 | MOD | DRAFT | — | — |
+| SVF-DEV-062 | MOD | DRAFT | — | — |
+| SVF-DEV-063 | MOD | BASELINED | M4 | — |
+| SVF-DEV-064 | MOD | DEFERRED | — | — |
+| SVF-DEV-065 | MOD | BASELINED | M4 | — |
+| SVF-DEV-066 | MOD | BASELINED | M4.5 | — |
+| SVF-DEV-070 | REP | DRAFT | — | — |
+| SVF-DEV-071 | REP | DRAFT | — | — |
+| SVF-DEV-072 | REP | DRAFT | — | — |
+| SVF-DEV-073 | REP | DRAFT | — | — |
+| SVF-DEV-074 | REP | DRAFT | — | — |
+| SVF-DEV-075 | REP | DRAFT | — | — |
+| SVF-DEV-076 | REP | DEFERRED | — | — |
+| SVF-DEV-077 | REP | DEFERRED | — | — |
+| SVF-DEV-080 | SYS | IMPLEMENTED | M1 | CI pipeline |
+| SVF-DEV-081 | SYS | IMPLEMENTED | M1 | CI pipeline (ubuntu-latest) |
+| SVF-DEV-082 | SYS | DRAFT | — | — |
+| SVF-DEV-083 | SYS | DRAFT | — | — |
+| SVF-DEV-084 | SYS | DRAFT | — | — |
+| SVF-DEV-085 | SYS | DRAFT | — | — |
+| SVF-DEV-086 | SYS | DRAFT | — | — |
+| SVF-DEV-087 | SYS | IMPLEMENTED | M1 | CI pipeline (pytest) |
+| SVF-DEV-088 | SYS | IMPLEMENTED | M1 | CI pipeline (mypy) |
+| SVF-DEV-089 | SYS | DEFERRED | — | — |
