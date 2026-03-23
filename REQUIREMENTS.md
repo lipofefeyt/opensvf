@@ -1,8 +1,8 @@
 # SVF Development Requirements
 
-> **Status:** Draft — v0.2
+> **Status:** Draft — v0.3
 > **Last updated:** 2026-03
-> **Author:** TBD
+> **Author:** lipofefeyt
 
 ---
 
@@ -16,23 +16,23 @@ Requirements are identified by the prefix `SVF-DEV-` followed by a zero-padded s
 
 | Tag | Area |
 |---|---|
-| `[SIM]` | Simulation Core |
-| `[ABS]` | Abstraction Layer |
-| `[BUS]` | Communication Bus |
-| `[ORC]` | Test Orchestration |
-| `[CAM]` | Campaign Manager |
-| `[MOD]` | Model Authoring |
-| `[REP]` | Reporting & Traceability |
-| `[SYS]` | System & Infrastructure |
+| [SIM] | Simulation Core |
+| [ABS] | Abstraction Layer |
+| [BUS] | Communication Bus |
+| [ORC] | Test Orchestration |
+| [CAM] | Campaign Manager |
+| [MOD] | Model Authoring |
+| [REP] | Reporting & Traceability |
+| [SYS] | System & Infrastructure |
 
 ### Requirement Status Values
 
 | Status | Meaning |
 |---|---|
-| `DRAFT` | Under discussion, not yet baselined |
-| `BASELINED` | Agreed and frozen for current milestone |
-| `IMPLEMENTED` | Closed by a committed and merged implementation |
-| `DEFERRED` | Out of scope for current milestone, retained for future |
+| DRAFT | Under discussion, not yet baselined |
+| BASELINED | Agreed and frozen for current milestone |
+| IMPLEMENTED | Closed by a committed and merged implementation |
+| DEFERRED | Out of scope for current milestone, retained for future |
 
 ---
 
@@ -66,29 +66,29 @@ The simulation master shall support FMI 3.0 Scheduled Execution mode for determi
 
 ## Abstraction Layer Requirements [ABS]
 
-**SVF-DEV-009** `[ABS]` `BASELINED`
+**SVF-DEV-009** `[ABS]` `IMPLEMENTED`
 The platform shall define a TickSource abstract interface with start() and stop() methods. All simulation timing shall be driven through this interface.
 
-**SVF-DEV-010** `[ABS]` `BASELINED`
+**SVF-DEV-010** `[ABS]` `IMPLEMENTED`
 The platform shall provide a SoftwareTickSource implementation of TickSource that advances simulation time in a Python loop as fast as possible.
 
-**SVF-DEV-011** `[ABS]` `BASELINED`
-The platform shall define a SyncProtocol abstract interface with wait_for_ready() and publish_ready() methods. All tick synchronisation shall be driven through this interface.
+**SVF-DEV-011** `[ABS]` `IMPLEMENTED`
+The platform shall define a SyncProtocol abstract interface with wait_for_ready(), publish_ready(), and reset() methods. All tick synchronisation shall be driven through this interface.
 
-**SVF-DEV-012** `[ABS]` `BASELINED`
-The platform shall provide a DdsSyncProtocol implementation of SyncProtocol that exchanges tick acknowledgements over DDS topics.
+**SVF-DEV-012** `[ABS]` `IMPLEMENTED`
+The platform shall provide a DdsSyncProtocol implementation of SyncProtocol that exchanges tick acknowledgements over DDS topics using KEEP_ALL QoS.
 
-**SVF-DEV-013** `[ABS]` `BASELINED`
-The platform shall define a ModelAdapter abstract interface with a model_id property and an on_tick(t, dt) method. All model driving shall occur through this interface.
+**SVF-DEV-013** `[ABS]` `IMPLEMENTED`
+The platform shall define a ModelAdapter abstract interface with model_id, initialise(), on_tick(), and teardown(). on_tick() shall return None — data flows over DDS, faults flow as exceptions.
 
-**SVF-DEV-014** `[ABS]` `BASELINED`
-The platform shall provide an FmuModelAdapter implementation of ModelAdapter that wraps an FMI 3.0 FMU via fmpy.
+**SVF-DEV-014** `[ABS]` `IMPLEMENTED`
+The platform shall provide an FmuModelAdapter implementation of ModelAdapter that wraps an FMI 3.0 FMU via fmpy, publishes telemetry to SVF/Telemetry/{variable}, and calls publish_ready() after each tick.
 
-**SVF-DEV-015** `[ABS]` `BASELINED`
-The platform shall provide a NativeModelAdapter implementation of ModelAdapter that wraps a plain Python class for lightweight testing.
+**SVF-DEV-015** `[ABS]` `IMPLEMENTED`
+The platform shall provide a NativeModelAdapter implementation of ModelAdapter that wraps a plain Python class. Output variable names shall be declared at construction time — never inferred by calling step() during initialise().
 
-**SVF-DEV-016** `[ABS]` `BASELINED`
-The SimulationMaster shall accept TickSource, SyncProtocol, and a list of ModelAdapters via constructor injection. It shall not depend on any concrete implementation.
+**SVF-DEV-016** `[ABS]` `IMPLEMENTED`
+The SimulationMaster shall accept TickSource, SyncProtocol, and a list of ModelAdapters via constructor injection. It shall not depend on any concrete implementation. It shall never call publish_ready() on behalf of models.
 
 **SVF-DEV-017** `[ABS]` `DEFERRED`
 The platform shall provide a RealtimeTickSource implementation of TickSource driven by an RT_PREEMPT timer or external hardware sync pulse.
@@ -100,31 +100,31 @@ The platform shall provide a SharedMemorySyncProtocol implementation of SyncProt
 
 ## Communication Bus Requirements [BUS]
 
-**SVF-DEV-020** `[BUS]` `BASELINED`
+**SVF-DEV-020** `[BUS]` `IMPLEMENTED`
 The communication bus shall be implemented over Eclipse Cyclone DDS using the DDS publish/subscribe model.
 
-**SVF-DEV-021** `[BUS]` `BASELINED`
+**SVF-DEV-021** `[BUS]` `IMPLEMENTED`
 The bus shall define a standard topic naming convention: SVF/Sim/Tick, SVF/Sim/Ready/{model_id}, SVF/Telemetry/{variable}, SVF/Command/{variable}.
 
-**SVF-DEV-022** `[BUS]` `BASELINED`
+**SVF-DEV-022** `[BUS]` `IMPLEMENTED`
 The SimTick topic shall carry: simulation time t (float) and timestep dt (float).
 
-**SVF-DEV-023** `[BUS]` `BASELINED`
-The SimReady topic shall carry: model_id (string) and acknowledged time t (float).
+**SVF-DEV-023** `[BUS]` `IMPLEMENTED`
+The SimReady topic shall carry: model_id (bounded string) and acknowledged time t (float).
 
-**SVF-DEV-024** `[BUS]` `BASELINED`
-The TelemetrySample topic shall carry: time t (float), variable name (string), and value (float).
+**SVF-DEV-024** `[BUS]` `IMPLEMENTED`
+The TelemetrySample topic shall carry: model_id (bounded string), variable name (bounded string), time t (float), and value (float).
 
 **SVF-DEV-025** `[BUS]` `BASELINED`
-The CommandSample topic shall carry: time t (float), variable name (string), and value (float).
+The CommandSample topic shall carry: time t (float), variable name (bounded string), and value (float).
 
-**SVF-DEV-026** `[BUS]` `BASELINED`
-The bus shall support at minimum the following QoS modes: reliable delivery, best-effort delivery, and last-value caching.
+**SVF-DEV-026** `[BUS]` `IMPLEMENTED`
+All DDS writers and readers used for multi-model synchronisation shall use KEEP_ALL QoS to prevent message loss under concurrent publication.
 
 **SVF-DEV-027** `[BUS]` `BASELINED`
 The bus shall support deadline monitoring: flagging a topic as overdue if no sample has been received within a configured period.
 
-**SVF-DEV-028** `[BUS]` `BASELINED`
+**SVF-DEV-028** `[BUS]` `IMPLEMENTED`
 The bus integration shall be implemented as a plugin, such that alternative transport backends can be substituted without modifying the simulation master or orchestration layers.
 
 **SVF-DEV-029** `[BUS]` `DEFERRED`
@@ -137,28 +137,28 @@ A SpaceWire adapter plugin shall bridge DDS topics to SpaceWire logical address-
 
 ## Test Orchestration Requirements [ORC]
 
-**SVF-DEV-040** `[ORC]` `DRAFT`
-The test orchestration layer shall be implemented as a pytest plugin, compatible with pytest 7.x and above.
+**SVF-DEV-040** `[ORC]` `IMPLEMENTED`
+The test orchestration layer shall be implemented as a pytest plugin registered as a pytest11 entry point, compatible with pytest 7.x and above.
 
-**SVF-DEV-041** `[ORC]` `DRAFT`
-The plugin shall provide a simulation lifecycle fixture that starts the simulation master before a test, and performs clean teardown after the test regardless of outcome.
+**SVF-DEV-041** `[ORC]` `IMPLEMENTED`
+The plugin shall provide an svf_session fixture that starts a SimulationMaster in a background thread before a test, and performs clean teardown after the test regardless of outcome.
 
-**SVF-DEV-042** `[ORC]` `DRAFT`
+**SVF-DEV-042** `[ORC]` `BASELINED`
 The plugin shall provide a stimuli injection API allowing test procedures to publish commands to SVF/Command/{variable} DDS topics.
 
-**SVF-DEV-043** `[ORC]` `DRAFT`
-The plugin shall provide an observable assertion API that evaluates telemetry conditions received from SVF/Telemetry/{variable} DDS topics with configurable time bounds.
+**SVF-DEV-043** `[ORC]` `IMPLEMENTED`
+The plugin shall provide an observable assertion API (observe().reaches().within()) that evaluates telemetry conditions received from SVF/Telemetry/{variable} DDS topics with configurable time bounds.
 
-**SVF-DEV-044** `[ORC]` `DRAFT`
+**SVF-DEV-044** `[ORC]` `IMPLEMENTED`
 The plugin shall map test outcomes to ECSS-compatible verdicts: PASS, FAIL, INCONCLUSIVE, and ERROR.
 
-**SVF-DEV-045** `[ORC]` `DRAFT`
+**SVF-DEV-045** `[ORC]` `BASELINED`
 The plugin shall capture a full execution timeline for each test, recording timestamps of stimuli injection events, observable evaluations, and verdict assignment.
 
 **SVF-DEV-046** `[ORC]` `DRAFT`
 The orchestration layer shall support parallel test execution via pytest-xdist without requiring shared mutable simulation state between workers.
 
-**SVF-DEV-047** `[ORC]` `DRAFT`
+**SVF-DEV-047** `[ORC]` `IMPLEMENTED`
 Each test procedure shall be expressible as a standalone Python file with no mandatory inheritance from SVF base classes.
 
 ---
@@ -270,43 +270,43 @@ The platform shall support soft real-time execution on Linux hosts running the R
 
 | Requirement ID | Area | Status | Verified By |
 |---|---|---|---|
-| SVF-DEV-001 | SIM | IMPLEMENTED | test_simulation_master_initialises |
-| SVF-DEV-002 | SIM | IMPLEMENTED | test_simulation_master_steps |
+| SVF-DEV-001 | SIM | IMPLEMENTED | test_fmu_adapter_initialises |
+| SVF-DEV-002 | SIM | IMPLEMENTED | test_simulation_master_with_fmu |
 | SVF-DEV-003 | SIM | DRAFT | — |
 | SVF-DEV-004 | SIM | DRAFT | — |
-| SVF-DEV-005 | SIM | IMPLEMENTED | test_csv_logger_wired_to_simulation_master |
-| SVF-DEV-006 | SIM | IMPLEMENTED | test_simulation_master_context_manager_teardown |
-| SVF-DEV-007 | SIM | IMPLEMENTED | test_simulation_master_missing_fmu |
+| SVF-DEV-005 | SIM | IMPLEMENTED | test_csv_logger_wired_to_fmu_adapter |
+| SVF-DEV-006 | SIM | IMPLEMENTED | test_simulation_master_context_manager |
+| SVF-DEV-007 | SIM | IMPLEMENTED | test_fmu_adapter_missing_fmu |
 | SVF-DEV-008 | SIM | DEFERRED | — |
-| SVF-DEV-009 | ABS | BASELINED | — |
-| SVF-DEV-010 | ABS | BASELINED | — |
-| SVF-DEV-011 | ABS | BASELINED | — |
-| SVF-DEV-012 | ABS | BASELINED | — |
-| SVF-DEV-013 | ABS | BASELINED | — |
-| SVF-DEV-014 | ABS | BASELINED | — |
-| SVF-DEV-015 | ABS | BASELINED | — |
-| SVF-DEV-016 | ABS | BASELINED | — |
+| SVF-DEV-009 | ABS | IMPLEMENTED | test_simulation_master_runs |
+| SVF-DEV-010 | ABS | IMPLEMENTED | test_lockstep_single_fmu |
+| SVF-DEV-011 | ABS | IMPLEMENTED | test_lockstep_sync_timeout |
+| SVF-DEV-012 | ABS | IMPLEMENTED | test_lockstep_multiple_models |
+| SVF-DEV-013 | ABS | IMPLEMENTED | test_native_adapter_step |
+| SVF-DEV-014 | ABS | IMPLEMENTED | test_fmu_adapter_on_tick |
+| SVF-DEV-015 | ABS | IMPLEMENTED | test_native_adapter_step |
+| SVF-DEV-016 | ABS | IMPLEMENTED | test_simulation_master_runs |
 | SVF-DEV-017 | ABS | DEFERRED | — |
 | SVF-DEV-018 | ABS | DEFERRED | — |
-| SVF-DEV-020 | BUS | BASELINED | — |
-| SVF-DEV-021 | BUS | BASELINED | — |
-| SVF-DEV-022 | BUS | BASELINED | — |
-| SVF-DEV-023 | BUS | BASELINED | — |
-| SVF-DEV-024 | BUS | BASELINED | — |
+| SVF-DEV-020 | BUS | IMPLEMENTED | test_lockstep_single_fmu |
+| SVF-DEV-021 | BUS | IMPLEMENTED | test_lockstep_single_fmu |
+| SVF-DEV-022 | BUS | IMPLEMENTED | test_lockstep_single_fmu |
+| SVF-DEV-023 | BUS | IMPLEMENTED | test_lockstep_single_fmu |
+| SVF-DEV-024 | BUS | IMPLEMENTED | test_observe_reaches |
 | SVF-DEV-025 | BUS | BASELINED | — |
-| SVF-DEV-026 | BUS | BASELINED | — |
+| SVF-DEV-026 | BUS | IMPLEMENTED | test_lockstep_multiple_models |
 | SVF-DEV-027 | BUS | BASELINED | — |
-| SVF-DEV-028 | BUS | BASELINED | — |
+| SVF-DEV-028 | BUS | IMPLEMENTED | test_lockstep_single_fmu |
 | SVF-DEV-029 | BUS | DEFERRED | — |
 | SVF-DEV-030 | BUS | DEFERRED | — |
-| SVF-DEV-040 | ORC | DRAFT | — |
-| SVF-DEV-041 | ORC | DRAFT | — |
-| SVF-DEV-042 | ORC | DRAFT | — |
-| SVF-DEV-043 | ORC | DRAFT | — |
-| SVF-DEV-044 | ORC | DRAFT | — |
-| SVF-DEV-045 | ORC | DRAFT | — |
+| SVF-DEV-040 | ORC | IMPLEMENTED | test_fixture_default_fmu |
+| SVF-DEV-041 | ORC | IMPLEMENTED | test_fixture_default_fmu |
+| SVF-DEV-042 | ORC | BASELINED | — |
+| SVF-DEV-043 | ORC | IMPLEMENTED | test_observe_reaches |
+| SVF-DEV-044 | ORC | IMPLEMENTED | test_verdict_pass |
+| SVF-DEV-045 | ORC | BASELINED | — |
 | SVF-DEV-046 | ORC | DRAFT | — |
-| SVF-DEV-047 | ORC | DRAFT | — |
+| SVF-DEV-047 | ORC | IMPLEMENTED | test_fixture_default_fmu |
 | SVF-DEV-050 | CAM | DRAFT | — |
 | SVF-DEV-051 | CAM | DRAFT | — |
 | SVF-DEV-052 | CAM | DRAFT | — |
