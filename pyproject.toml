@@ -32,3 +32,6 @@ exclude = [
     "examples/",
     "setup_issues.py",
 ]
+
+[project.entry-points."pytest11"]
+svf = "svf.plugin"
