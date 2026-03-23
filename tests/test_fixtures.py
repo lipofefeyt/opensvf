@@ -45,3 +45,13 @@ def test_fixture_condition_not_met(svf_session) -> None:  # type: ignore[no-unty
     """ConditionNotMet raised when condition never satisfied."""
     with pytest.raises(ConditionNotMet):
         svf_session.observe("counter").reaches(999.0).within(1.0)
+
+def test_fixture_inject_command(svf_session) -> None:  # type: ignore[no-untyped-def]
+    """
+    inject() writes to CommandStore without error.
+    SimpleCounter has no inputs so command is injected but not consumed —
+    this test verifies the API works and pending() reflects the state.
+    """
+    svf_session.inject("some_cmd", 1.0)
+    pending = svf_session._cmd_store.pending()
+    assert "some_cmd" in pending

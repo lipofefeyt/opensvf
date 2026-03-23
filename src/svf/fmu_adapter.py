@@ -1,8 +1,8 @@
 """
 SVF FmuModelAdapter
 Wraps an FMI 3.0 FMU and implements the ModelAdapter interface.
-Writes outputs to ParameterStore and acknowledges sync after each tick.
-Implements: SVF-DEV-014, SVF-DEV-031, SVF-DEV-033
+Reads commands from CommandStore, writes outputs to ParameterStore.
+Implements: SVF-DEV-014, SVF-DEV-031, SVF-DEV-033, SVF-DEV-035, SVF-DEV-036
 """
 
 import logging
@@ -14,6 +14,7 @@ from fmpy.simulation import instantiate_fmu      # type: ignore[import-untyped]
 
 from svf.abstractions import ModelAdapter, SyncProtocol
 from svf.parameter_store import ParameterStore
+from svf.command_store import CommandStore
 from svf.logging import CsvLogger
 
 logger = logging.getLogger(__name__)
@@ -23,23 +24,23 @@ class FmuModelAdapter(ModelAdapter):
     """
     Wraps an FMI 3.0 FMU as a ModelAdapter.
 
-    After each tick:
-      - Steps the FMU via fmpy
-      - Writes each output variable to the ParameterStore
-      - Optionally records to CsvLogger
-      - Publishes sync acknowledgement via SyncProtocol
+    On each tick:
+      1. Reads pending commands from CommandStore and applies to FMU inputs
+      2. Steps the FMU via fmpy
+      3. Writes each output variable to the ParameterStore
+      4. Optionally records to CsvLogger
+      5. Publishes sync acknowledgement via SyncProtocol
 
     Usage:
         store = ParameterStore()
+        cmd_store = CommandStore()
         adapter = FmuModelAdapter(
             fmu_path="models/power.fmu",
             model_id="power",
             sync_protocol=sync,
             store=store,
+            command_store=cmd_store,
         )
-        adapter.initialise(start_time=0.0)
-        adapter.on_tick(t=0.0, dt=0.1)
-        adapter.teardown()
     """
 
     def __init__(
@@ -48,16 +49,19 @@ class FmuModelAdapter(ModelAdapter):
         model_id: str,
         sync_protocol: SyncProtocol,
         store: ParameterStore,
+        command_store: Optional[CommandStore] = None,
         csv_logger: Optional[CsvLogger] = None,
     ) -> None:
         self._fmu_path = Path(fmu_path)
         self._model_id = model_id
         self._sync_protocol = sync_protocol
         self._store = store
+        self._command_store = command_store
         self._csv_logger = csv_logger
         self._instance: Optional[Any] = None
         self._model_desc: Optional[Any] = None
         self._output_names: list[str] = []
+        self._input_names: list[str] = []
 
         if not self._fmu_path.exists():
             raise FileNotFoundError(f"FMU not found: {self._fmu_path}")
@@ -69,6 +73,10 @@ class FmuModelAdapter(ModelAdapter):
     @property
     def output_names(self) -> list[str]:
         return list(self._output_names)
+
+    @property
+    def input_names(self) -> list[str]:
+        return list(self._input_names)
 
     def initialise(self, start_time: float = 0.0) -> None:
         """Load and initialise the FMU ready for ticking."""
@@ -85,7 +93,12 @@ class FmuModelAdapter(ModelAdapter):
             v.name for v in self._model_desc.modelVariables
             if v.causality == "output"
         ]
-        logger.info(f"[{self._model_id}] Output variables: {self._output_names}")
+        self._input_names = [
+            v.name for v in self._model_desc.modelVariables
+            if v.causality == "input"
+        ]
+        logger.info(f"[{self._model_id}] Outputs: {self._output_names}")
+        logger.info(f"[{self._model_id}] Inputs: {self._input_names}")
 
         try:
             unzipdir = extract(str(self._fmu_path))
@@ -109,7 +122,7 @@ class FmuModelAdapter(ModelAdapter):
 
     def on_tick(self, t: float, dt: float) -> None:
         """
-        Step the FMU, write outputs to ParameterStore, acknowledge sync.
+        Apply pending commands, step the FMU, write outputs to store.
         Raises RuntimeError on any failure.
         """
         if self._instance is None or self._model_desc is None:
@@ -118,21 +131,38 @@ class FmuModelAdapter(ModelAdapter):
             )
 
         try:
+            # Step 1: apply any pending commands to FMU inputs
+            if self._command_store is not None:
+                for name in self._input_names:
+                    entry = self._command_store.take(name)
+                    if entry is not None:
+                        vrs = [
+                            v.valueReference
+                            for v in self._model_desc.modelVariables
+                            if v.name == name
+                        ]
+                        if vrs:
+                            self._instance.setReal(vrs, [entry.value])
+                            logger.info(
+                                f"[{self._model_id}] Applied command "
+                                f"{name}={entry.value} from {entry.source_id}"
+                            )
+
+            # Step 2: advance the FMU
             self._instance.doStep(
                 currentCommunicationPoint=t,
                 communicationStepSize=dt,
             )
 
+            # Step 3: read and store outputs
             vrs = [
                 v.valueReference for v in self._model_desc.modelVariables
                 if v.causality == "output"
             ]
             values = self._instance.getReal(vrs)
             outputs = dict(zip(self._output_names, values))
-
             stepped_t = round(t + dt, 9)
 
-            # Write all outputs to ParameterStore
             for name, value in outputs.items():
                 self._store.write(
                     name=name,
@@ -151,7 +181,6 @@ class FmuModelAdapter(ModelAdapter):
                 f"[{self._model_id}] Tick failed at t={t:.3f}: {e}"
             ) from e
 
-        # Adapter speaks for itself
         self._sync_protocol.publish_ready(model_id=self._model_id, t=t)
 
     def teardown(self) -> None:

@@ -2,7 +2,7 @@
 SVF Simulation Lifecycle Fixture
 Pytest fixtures that start a SimulationMaster before a test and tear it
 down cleanly after, regardless of outcome.
-Implements: SVF-DEV-040, SVF-DEV-041
+Implements: SVF-DEV-040, SVF-DEV-041, SVF-DEV-042
 """
 
 from __future__ import annotations
@@ -22,8 +22,8 @@ from svf.abstractions import ModelAdapter
 from svf.software_tick import SoftwareTickSource
 from svf.dds_sync import DdsSyncProtocol
 from svf.fmu_adapter import FmuModelAdapter
-from svf.native_adapter import NativeModelAdapter, NativeModel
 from svf.parameter_store import ParameterStore
+from svf.command_store import CommandStore
 from svf.plugin.observable import ObservableFactory
 from svf.plugin.verdict import Verdict, VerdictRecorder
 
@@ -51,8 +51,34 @@ class SimulationSession:
     observe: ObservableFactory
     store: ParameterStore
     verdicts: VerdictRecorder
+    _cmd_store: CommandStore = field(default_factory=CommandStore, repr=False)
     error: Optional[Exception] = None
     _master: Optional[SimulationMaster] = field(default=None, repr=False)
+
+    def inject(
+        self,
+        name: str,
+        value: float,
+        source_id: str = "test_procedure",
+    ) -> None:
+        """
+        Inject a command into the simulation.
+
+        The command is written to the CommandStore and consumed by the
+        relevant model adapter before its next tick.
+
+        Args:
+            name:      Target parameter or command name
+            value:     Commanded value
+            source_id: ID of the issuing entity (default: test_procedure)
+        """
+        self._cmd_store.inject(
+            name=name,
+            value=value,
+            t=0.0,
+            source_id=source_id,
+        )
+        logger.info(f"Injected command: {name}={value} from {source_id}")
 
     def stop(self) -> None:
         """Signal the simulation to stop early."""
@@ -90,19 +116,18 @@ def svf_session(
     Simulation lifecycle fixture.
 
     Starts a SimulationMaster in a background thread before the test,
-    provides observe() and direct store access, and tears down cleanly after.
+    provides observe(), inject(), and direct store access,
+    and tears down cleanly after.
 
-    Configure via pytest marks on the test:
+    Configure via pytest marks:
 
-        @pytest.mark.svf_fmus([
-            FmuConfig("models/power.fmu", "power"),
-        ])
+        @pytest.mark.svf_fmus([FmuConfig("models/power.fmu", "power")])
         @pytest.mark.svf_dt(0.1)
         @pytest.mark.svf_stop_time(10.0)
         def test_power_model(svf_session):
+            svf_session.inject("solar_angle", 45.0)
             svf_session.observe("battery_voltage").exceeds(3.3).within(5.0)
     """
-    # Read configuration from pytest marks or use defaults
     fmu_marker = request.node.get_closest_marker("svf_fmus")
     dt_marker = request.node.get_closest_marker("svf_dt")
     stop_marker = request.node.get_closest_marker("svf_stop_time")
@@ -113,19 +138,19 @@ def svf_session(
     dt: float = dt_marker.args[0] if dt_marker else 0.1
     stop_time: float = stop_marker.args[0] if stop_marker else 2.0
 
-    # Build shared ParameterStore and sync
     store = ParameterStore()
+    cmd_store = CommandStore()
     sync = DdsSyncProtocol(svf_participant)
     observe = ObservableFactory(store)
     verdicts = VerdictRecorder()
 
-    # Build model adapters
     models: List[ModelAdapter] = [
         FmuModelAdapter(
             fmu_path=cfg.fmu_path,
             model_id=cfg.model_id,
             sync_protocol=sync,
             store=store,
+            command_store=cmd_store,
         )
         for cfg in fmu_configs
     ]
@@ -141,6 +166,7 @@ def svf_session(
             model_id="counter",
             sync_protocol=sync,
             store=store,
+            command_store=cmd_store,
         )]
 
     master = SimulationMaster(
@@ -156,26 +182,22 @@ def svf_session(
         observe=observe,
         store=store,
         verdicts=verdicts,
+        _cmd_store=cmd_store,
         _master=master,
     )
 
-    # Start simulation in background thread
     thread = threading.Thread(
         target=_run_in_thread,
         args=(master, session),
         daemon=True,
     )
     thread.start()
-
-    # Give simulation time to initialise
     time.sleep(0.1)
 
     yield session
 
-    # Teardown
     thread.join(timeout=stop_time + 5.0)
 
-    # Record verdict based on test outcome
     test_id = request.node.nodeid
     rep = getattr(request.node, "_svf_rep", None)
     if session.error is not None:
