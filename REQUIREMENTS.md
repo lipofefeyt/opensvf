@@ -1,6 +1,6 @@
 # SVF Development Requirements
 
-> **Status:** Draft — v0.4
+> **Status:** Draft — v0.5
 > **Last updated:** 2026-03
 > **Author:** TBD
 
@@ -18,7 +18,7 @@ Requirements are identified by the prefix `SVF-DEV-` followed by a zero-padded s
 |---|---|
 | [SIM] | Simulation Core |
 | [ABS] | Abstraction Layer |
-| [BUS] | Communication Bus & Parameter Store |
+| [BUS] | Communication Bus, Parameter Store & Command Store |
 | [ORC] | Test Orchestration |
 | [CAM] | Campaign Manager |
 | [MOD] | Model Authoring |
@@ -83,7 +83,7 @@ The platform shall provide a DdsSyncProtocol implementation of SyncProtocol that
 The platform shall define a ModelAdapter abstract interface with model_id, initialise(), on_tick(), and teardown(). on_tick() shall return None — data flows through the ParameterStore, faults flow as exceptions.
 
 **SVF-DEV-014** `[ABS]` `IMPLEMENTED`
-The platform shall provide an FmuModelAdapter implementation of ModelAdapter that wraps an FMI 3.0 FMU via fmpy, writes outputs to the ParameterStore, and calls publish_ready() after each tick.
+The platform shall provide an FmuModelAdapter implementation of ModelAdapter that wraps an FMI 3.0 FMU via fmpy, writes outputs to the ParameterStore, reads commands from the CommandStore, and calls publish_ready() after each tick.
 
 **SVF-DEV-015** `[ABS]` `IMPLEMENTED`
 The platform shall provide a NativeModelAdapter implementation of ModelAdapter that wraps a plain Python class. Output variable names shall be declared at construction time — never inferred by calling step() during initialise().
@@ -99,7 +99,7 @@ The platform shall provide a SharedMemorySyncProtocol implementation of SyncProt
 
 ---
 
-## Communication Bus & Parameter Store Requirements [BUS]
+## Communication Bus, Parameter Store & Command Store Requirements [BUS]
 
 **SVF-DEV-020** `[BUS]` `IMPLEMENTED`
 The communication bus shall be implemented over Eclipse Cyclone DDS using the DDS publish/subscribe model for tick synchronisation.
@@ -134,17 +134,29 @@ A CCSDS adapter plugin shall bridge DDS topics to CCSDS APID-addressed TM/TC pac
 **SVF-DEV-030** `[BUS]` `DEFERRED`
 A SpaceWire adapter plugin shall bridge DDS topics to SpaceWire logical address-routed packets.
 
-**SVF-DEV-031** `[BUS]` `BASELINED`
+**SVF-DEV-031** `[BUS]` `IMPLEMENTED`
 The platform shall implement a thread-safe ParameterStore as the central state store for all simulation outputs. Models write to it after each tick. Observables and loggers read from it. No subscriber registration required.
 
-**SVF-DEV-032** `[BUS]` `BASELINED`
+**SVF-DEV-032** `[BUS]` `IMPLEMENTED`
 Each ParameterStore entry shall carry: value (float), timestamp (float), and model_id (string).
 
-**SVF-DEV-033** `[BUS]` `BASELINED`
+**SVF-DEV-033** `[BUS]` `IMPLEMENTED`
 The ParameterStore shall expose write(), read(), and snapshot() methods. read() shall return the last written value regardless of when the reader first calls it — eliminating the late-joiner problem by design.
 
 **SVF-DEV-034** `[BUS]` `DEFERRED`
 The platform shall provide an optional ParameterStoreDdsBridge that mirrors store values to SVF/Telemetry/{variable} DDS topics for external inspection tools and ground segment simulation. The bridge shall be read-only from the external perspective.
+
+**SVF-DEV-035** `[BUS]` `BASELINED`
+The platform shall implement a CommandStore separate from the ParameterStore. TM and TC shall be architecturally separate, mirroring spacecraft TM/TC separation. A model shall never read its own telemetry outputs as commands.
+
+**SVF-DEV-036** `[BUS]` `BASELINED`
+Each CommandEntry shall carry: name (string), value (float), simulation time t (float), source_id (string), and a consumed flag (bool). The take() method shall read and mark a command as consumed atomically, preventing double-application.
+
+**SVF-DEV-037** `[BUS]` `DEFERRED`
+The platform shall provide a PUS command adapter that formats and validates CCSDS/PUS telecommands (PUS services) before writing to the CommandStore. This adapter is the entry point for external ground-segment commanding.
+
+**SVF-DEV-038** `[BUS]` `DEFERRED`
+The platform shall provide bus protocol adapters (MIL-STD-1553, CAN, I2C, UART, SpaceWire, WizardLink) that bridge CommandStore entries to equipment model interfaces, reflecting the internal commanding architecture of real spacecraft.
 
 ---
 
@@ -157,10 +169,10 @@ The test orchestration layer shall be implemented as a pytest plugin registered 
 The plugin shall provide an svf_session fixture that starts a SimulationMaster in a background thread before a test, and performs clean teardown after the test regardless of outcome.
 
 **SVF-DEV-042** `[ORC]` `BASELINED`
-The plugin shall provide a stimuli injection API allowing test procedures to publish commands to SVF/Command/{variable} DDS topics.
+The plugin shall provide a stimuli injection API allowing test procedures to write commands to the CommandStore, which model adapters consume before each tick.
 
-**SVF-DEV-043** `[ORC]` `BASELINED`
-The plugin shall provide an observable assertion API (observe().reaches().within()) that polls the ParameterStore until conditions are met or timeout expires.
+**SVF-DEV-043** `[ORC]` `IMPLEMENTED`
+The plugin shall provide an observable assertion API (observe().reaches().within()) that polls the ParameterStore until conditions are met or timeout expires. reaches(v) means the parameter has reached at least v.
 
 **SVF-DEV-044** `[ORC]` `IMPLEMENTED`
 The plugin shall map test outcomes to ECSS-compatible verdicts: PASS, FAIL, INCONCLUSIVE, and ERROR.
@@ -312,14 +324,18 @@ The platform shall support soft real-time execution on Linux hosts running the R
 | SVF-DEV-028 | BUS | IMPLEMENTED | test_lockstep_single_fmu |
 | SVF-DEV-029 | BUS | DEFERRED | — |
 | SVF-DEV-030 | BUS | DEFERRED | — |
-| SVF-DEV-031 | BUS | BASELINED | — |
-| SVF-DEV-032 | BUS | BASELINED | — |
-| SVF-DEV-033 | BUS | BASELINED | — |
+| SVF-DEV-031 | BUS | IMPLEMENTED | test_parameter_store_populated_after_run |
+| SVF-DEV-032 | BUS | IMPLEMENTED | test_write_and_read |
+| SVF-DEV-033 | BUS | IMPLEMENTED | test_late_reader_sees_value |
 | SVF-DEV-034 | BUS | DEFERRED | — |
+| SVF-DEV-035 | BUS | BASELINED | — |
+| SVF-DEV-036 | BUS | BASELINED | — |
+| SVF-DEV-037 | BUS | DEFERRED | — |
+| SVF-DEV-038 | BUS | DEFERRED | — |
 | SVF-DEV-040 | ORC | IMPLEMENTED | test_fixture_default_fmu |
 | SVF-DEV-041 | ORC | IMPLEMENTED | test_fixture_default_fmu |
 | SVF-DEV-042 | ORC | BASELINED | — |
-| SVF-DEV-043 | ORC | BASELINED | — |
+| SVF-DEV-043 | ORC | IMPLEMENTED | test_observe_reaches |
 | SVF-DEV-044 | ORC | IMPLEMENTED | test_verdict_pass |
 | SVF-DEV-045 | ORC | BASELINED | — |
 | SVF-DEV-046 | ORC | DRAFT | — |

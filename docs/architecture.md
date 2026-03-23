@@ -1,8 +1,8 @@
 # SVF Architecture
 
-> **Status:** Draft — v0.3
+> **Status:** Draft — v0.4
 > **Last updated:** 2026-03
-> **Author:** lipofefeyt
+> **Author:** TBD
 
 ---
 
@@ -28,6 +28,8 @@ The platform is designed to start small — a single developer, a single spacecr
 
 **Models speak for themselves.** The SimulationMaster never publishes telemetry or sync acknowledgements on behalf of models. Each ModelAdapter is responsible for publishing its own outputs and acknowledging its own readiness. The master only drives and waits.
 
+**TM and TC are architecturally separate.** The ParameterStore holds telemetry outputs. The CommandStore holds telecommands. These are never conflated, mirroring the fundamental TM/TC separation in real spacecraft architecture.
+
 **CI/CD compatibility.** All outputs (test verdicts, reports, traceability records) are consumable by standard CI/CD pipelines. SVF fits into existing developer workflows, it does not replace them.
 
 ---
@@ -45,6 +47,7 @@ The platform is designed to start small — a single developer, a single spacecr
 |                  TEST ORCHESTRATOR                           |
 |               pytest core + SVF plugin                       |
 |    svf_session fixture | verdict mapper | observable API     |
+|    inject() stimuli API                                      |
 +------+--------------------------------------+----------------+
        |                                      |
 +------v--------------+            +----------v---------------+
@@ -53,8 +56,8 @@ The platform is designed to start small — a single developer, a single spacecr
 |  TickSource         |            |   svf_session fixture    |
 |  SyncProtocol       |            |   observe().reaches()    |
 |  ModelAdapter[]     |            |     .within()            |
-+------+--------------+            +--------------------------+
-       |
++------+--------------+            |   inject(name, value)    |
+       |                           +--------------------------+
 +------v--------------------------------------------------------------+
 |                 ABSTRACTION LAYER                                   |
 |                                                                     |
@@ -70,17 +73,29 @@ The platform is designed to start small — a single developer, a single spacecr
 |   [Spacecraft Bus]  [AOCS]  [OBDH]  [Environment]                  |
 |   [Ground Segment Sim]  [Failure Injector]  [Sensor Models]         |
 |          pythonfmu (Python FMUs)  |  C/C++ FMUs                     |
-+------+--------------------------------------------------------------+
++------+------+------------------------------------------------------+
+       |      |
++------v--+   +---v-------------------------------------------------+
+|PARAMETER|   | COMMAND STORE                                       |
+|STORE    |   |                                                     |
+|         |   | CommandEntry(name, value, t, source_id, consumed)  |
+| TM only |   | TC only — take() reads and marks consumed atomically|
+|         |   |                                                     |
+| written |   | written by: inject() API in test procedures         |
+| by models   | read by: FmuModelAdapter, NativeModelAdapter        |
+|         |   |                                                     |
+| read by |   | future: PUS adapter, bus protocol adapters          |
+| observables | (1553, CAN, I2C, UART, SpW, WizardLink)            |
++---------+   +-----------------------------------------------------+
        |
 +------v--------------------------------------------------------------+
 |              COMMUNICATION BUS (Cyclone DDS)                       |
 |                                                                     |
 |   SVF/Sim/Tick           <- simulation tick broadcasts              |
 |   SVF/Sim/Ready/{id}     <- model acknowledgements                 |
-|   SVF/Telemetry/{name}   <- FMU output variables                   |
-|   SVF/Command/{name}     <- injected commands                      |
+|   SVF/Command/{variable} <- injected commands (deferred bridge)    |
 |                                                                     |
-|   plugin adapters: CCSDS | SpaceWire | custom EGSE                  |
+|   plugin adapters: CCSDS/PUS | SpaceWire | 1553 | CAN | UART       |
 +------+--------------------------------------------------------------+
        |
 +------v--------------------------------------------------------------+
@@ -96,7 +111,7 @@ The platform is designed to start small — a single developer, a single spacecr
 
 ### 4.1 Tick-Based Lockstep Protocol
 
-The simulation master does not call models directly. Instead it broadcasts time ticks over DDS. Models subscribe to ticks, perform their computation, publish their outputs to telemetry topics, and acknowledge readiness. The master waits for all acknowledgements before advancing to the next tick.
+The simulation master does not call models directly. Instead it broadcasts time ticks. Models process each tick, write outputs to the ParameterStore, read any pending commands from the CommandStore, and acknowledge readiness. The master waits for all acknowledgements before advancing.
 
 ```
 Master                    Model A                 Model B
@@ -104,9 +119,10 @@ Master                    Model A                 Model B
   |--- tick(t=0.1) --------->|                       |
   |--- tick(t=0.1) --------------------------------->|
   |                          |                       |
-  |                     doStep()               doStep()
-  |                     publish telemetry      publish telemetry
-  |                     publish_ready()        publish_ready()
+  |                    read commands           read commands
+  |                    doStep()               doStep()
+  |                    write ParameterStore   write ParameterStore
+  |                    publish_ready()        publish_ready()
   |                          |                       |
   |<-- ready(A, t=0.1) ------|                       |
   |<-- ready(B, t=0.1) --------------------------------|
@@ -114,16 +130,22 @@ Master                    Model A                 Model B
   |--- tick(t=0.2) --------->|                       |
 ```
 
-This gives deterministic, reproducible simulation runs — essential for certification traceability.
+### 4.2 TM/TC Separation
 
-### 4.2 DDS Topic Naming Convention
+Mirroring real spacecraft architecture, telemetry and telecommands flow through separate stores:
+
+| Store | Direction | Written by | Read by |
+|---|---|---|---|
+| ParameterStore | TM (outputs) | Model adapters | Observables, loggers, reporters |
+| CommandStore | TC (inputs) | inject() API, future PUS adapter | Model adapters before each tick |
+
+### 4.3 DDS Topic Naming Convention
 
 | Topic | Direction | Payload |
 |---|---|---|
 | SVF/Sim/Tick | Master -> Models | SimTick(t, dt) |
 | SVF/Sim/Ready/{model_id} | Model -> Master | SimReady(model_id, t) |
-| SVF/Telemetry/{variable} | Model -> Subscribers | TelemetrySample(model_id, variable, t, value) |
-| SVF/Command/{variable} | Publisher -> Model | CommandSample(t, name, value) |
+| SVF/Command/{variable} | Future bridge only | CommandSample(t, name, value) |
 
 ---
 
@@ -132,8 +154,6 @@ This gives deterministic, reproducible simulation runs — essential for certifi
 The abstraction layer is the key to real-time readiness. The SimulationMaster depends only on three interfaces — never on concrete implementations.
 
 ### 5.1 TickSource
-
-Responsible for generating simulation time ticks.
 
 ```python
 class TickSource(ABC):
@@ -148,8 +168,6 @@ class TickSource(ABC):
 
 ### 5.2 SyncProtocol
 
-Responsible for coordinating tick acknowledgements. Each ModelAdapter calls publish_ready() itself after on_tick() — the master never speaks for models.
-
 ```python
 class SyncProtocol(ABC):
     def wait_for_ready(self, expected: list[str], timeout: float) -> bool: ...
@@ -159,12 +177,10 @@ class SyncProtocol(ABC):
 
 | Implementation | When used |
 |---|---|
-| DdsSyncProtocol | Default — acknowledgements over DDS topics |
-| SharedMemorySyncProtocol (deferred) | Lock-free ring buffer for sub-millisecond latency |
+| DdsSyncProtocol | Default — acknowledgements over DDS, KEEP_ALL QoS |
+| SharedMemorySyncProtocol (deferred) | Lock-free ring buffer, sub-millisecond latency |
 
 ### 5.3 ModelAdapter
-
-Wraps any simulation model. Each adapter publishes its own telemetry and sync acknowledgements.
 
 ```python
 class ModelAdapter(ABC):
@@ -177,9 +193,9 @@ class ModelAdapter(ABC):
 
 | Implementation | When used |
 |---|---|
-| FmuModelAdapter | Wraps an FMI 3.0 FMU via fmpy |
-| NativeModelAdapter | Wraps a plain Python class for lightweight testing |
-| Hardware adapter (deferred) | Bridges DDS topics to physical interfaces |
+| FmuModelAdapter | Wraps FMI 3.0 FMU, reads CommandStore, writes ParameterStore |
+| NativeModelAdapter | Wraps plain Python class for lightweight testing |
+| Hardware adapter (deferred) | Bridges to physical interfaces |
 
 ### 5.4 Real-Time Upgrade Path
 
@@ -192,23 +208,65 @@ class ModelAdapter(ABC):
 
 ---
 
-## 6. pytest Plugin
+## 6. ParameterStore & CommandStore
 
-The SVF pytest plugin turns the simulation infrastructure into a test tool. It is registered as a pytest11 entry point and is automatically available to any project that installs opensvf.
+### 6.1 ParameterStore
 
-### 6.1 Simulation Lifecycle Fixture
+Thread-safe central state store for simulation telemetry outputs.
 
-The svf_session fixture starts a SimulationMaster in a background thread before the test body runs, and tears it down cleanly after — regardless of whether the test passes or fails.
+```python
+store.write(name, value, t, model_id)   # called by model adapters
+store.read(name) -> ParameterEntry | None  # called by observables, loggers
+store.snapshot() -> dict[str, ParameterEntry]  # called by reporters
+```
+
+The store holds the last written value for each parameter. Any reader connecting at any time sees the current value — the late-joiner problem is eliminated by design.
+
+### 6.2 CommandStore
+
+Thread-safe store for telecommands. Architecturally separate from the ParameterStore — TM and TC are never conflated.
+
+```python
+store.inject(name, value, t, source_id)   # called by test procedures
+store.take(name) -> CommandEntry | None   # called by model adapters, atomic read+consume
+store.peek(name) -> CommandEntry | None   # non-consuming read for inspection
+```
+
+`take()` is atomic — it reads and marks the command as consumed in a single operation. This prevents a command from being applied more than once across consecutive ticks.
+
+### 6.3 Commanding Architecture
+
+SVF commanding mirrors real spacecraft TC architecture:
+
+```
+Test procedure (ground operator)
+    └── inject("thruster_cmd", 1.0)         [SVF inject() API today]
+            └── CommandStore
+                    └── FmuModelAdapter.on_tick()
+                            └── take("thruster_cmd") -> CommandEntry
+                            └── fmu.setReal(vr, entry.value)
+                            └── fmu.doStep()
+
+Future layers (deferred):
+    inject_pus(service=8, subservice=1)     [PUS adapter]
+        └── CommandStore
+    1553_bus.send(addr, cmd)               [Bus protocol adapter]
+        └── CommandStore
+```
+
+---
+
+## 7. pytest Plugin
+
+### 7.1 Simulation Lifecycle Fixture
 
 ```python
 @pytest.mark.svf_stop_time(10.0)
-@pytest.mark.svf_dt(0.1)
 @pytest.mark.svf_fmus([FmuConfig("models/power.fmu", "power")])
 def test_power_model(svf_session):
     svf_session.observe("battery_voltage").exceeds(3.3).within(5.0)
+    svf_session.inject("solar_panel_angle", 45.0)
 ```
-
-Configuration is via pytest marks:
 
 | Mark | Default | Description |
 |---|---|---|
@@ -216,84 +274,36 @@ Configuration is via pytest marks:
 | svf_dt(float) | 0.1 | Simulation timestep in seconds |
 | svf_stop_time(float) | 2.0 | Simulation stop time in seconds |
 
-### 6.2 Observable Assertion API
+### 7.2 Observable Assertion API
 
-Fluent API for time-bounded telemetry assertions. Subscribes to SVF/Telemetry/{variable} DDS topics and polls until the condition is met or the timeout expires.
+Polls the ParameterStore. Returns the value that satisfied the condition.
 
 ```python
-# Assert a variable reaches an exact value
 svf_session.observe("counter").reaches(1.0).within(2.0)
-
-# Assert a variable crosses a threshold
 svf_session.observe("voltage").exceeds(3.3).within(5.0)
-
-# Assert a variable drops below a threshold
 svf_session.observe("temperature").drops_below(100.0).within(10.0)
-
-# Assert an arbitrary condition
-svf_session.observe("status").satisfies(
-    lambda v: v > 0, description="status is active"
-).within(3.0)
+svf_session.observe("status").satisfies(lambda v: v > 0).within(3.0)
 ```
 
-Returns the value that satisfied the condition. Raises ConditionNotMet (a subclass of AssertionError) if the timeout expires, which pytest maps to a FAIL verdict.
+`reaches(v)` means the parameter has reached at least v — timing robust against the ParameterStore holding only the last written value.
 
-### 6.3 ECSS Verdict Mapper
+### 7.3 Stimuli Injection API (M3 — in progress)
 
-Maps pytest outcomes to ECSS-E-ST-10-02C compatible verdicts after each test:
+Writes to the CommandStore. Model adapters consume commands before each tick.
+
+```python
+svf_session.inject("thruster_cmd", 1.0)
+svf_session.inject("safe_mode_flag", 1.0, at_time=5.0)
+```
+
+### 7.4 ECSS Verdict Mapper
 
 | pytest outcome | ECSS Verdict |
 |---|---|
 | Passed | PASS |
 | Failed (AssertionError) | FAIL |
 | Error (infrastructure fault) | ERROR |
-| Neither passed nor failed | INCONCLUSIVE |
-
-Verdicts are recorded in the SimulationSession and included in JUnit XML output.
-
----
-
-## 7. Layer Descriptions
-
-### 7.1 Simulation Core — FMI 3.0 + SSP
-
-The simulation core is built around the Functional Mock-up Interface (FMI) 3.0 standard (Modelica Association).
-
-Key reasons for this choice:
-- Open standard with broad industry adoption (aerospace, automotive, energy)
-- Models from MATLAB/Simulink, OpenModelica, Dymola and others export as FMUs and plug in without modification
-- FMI 3.0 Scheduled Execution mode provides the foundation for future real-time support
-- FMI 3.0 adds arrays, binary variables, and clocks — all relevant for spacecraft modelling
-
-The Python library fmpy is used to load, instantiate, and step FMUs. The FmuModelAdapter wraps fmpy and implements the ModelAdapter interface.
-
-SSP (System Structure and Parameterization) is used for describing FMU interconnections. SSP files are version-controllable and allow subsystem models to be swapped between campaigns without changing test logic.
-
-For model authoring, pythonfmu allows models to be written as Python classes with minimal boilerplate. Performance-critical models are written in C and compiled to native FMUs.
-
-### 7.2 Communication Bus — Eclipse Cyclone DDS
-
-Eclipse Cyclone DDS (Apache 2.0) is the internal communication backbone.
-
-DDS (OMG standard) provides publish/subscribe with rich QoS policies. For aerospace this maps directly onto spacecraft TM/TC behaviour: reliable vs best-effort delivery, telemetry history windows, and deadline monitoring.
-
-All DDS writers and readers use KEEP_ALL QoS to ensure no messages are lost when multiple models publish concurrently.
-
-### 7.3 Test Orchestration — pytest + SVF Plugin
-
-pytest is the base test runner. The SVF plugin (registered as a pytest11 entry point) adds:
-- svf_session fixture for simulation lifecycle management
-- ObservableFactory for fluent telemetry assertions
-- ECSS verdict mapping via pytest hooks
-- Custom marks for simulation configuration
-
-### 7.4 Campaign Manager (M5)
-
-Test campaigns are defined in YAML files specifying: campaign ID, model configuration baseline, requirement IDs under verification, and ordered test case references. Campaign files are versioned artefacts forming the traceable link between requirements and execution.
-
-### 7.5 Reporting & Traceability (M5)
-
-Two output streams: JUnit XML for CI/CD pipelines, and structured ECSS-E-ST-10-02C aligned records for certification. Requirements traceability matrix generated automatically from pytest markers and campaign YAML declarations.
+| Neither | INCONCLUSIVE |
 
 ---
 
@@ -306,6 +316,8 @@ Two output streams: JUnit XML for CI/CD pipelines, and structured ECSS-E-ST-10-0
 | Model authoring | pythonfmu (Python), C FMUs | Low barrier, FMI-compliant output |
 | System description | SSP | Version-controllable wiring diagrams |
 | Communication bus | Eclipse Cyclone DDS | Open source, QoS-rich, RTPS-based |
+| Telemetry store | ParameterStore | Thread-safe, late-joiner safe, poll-based |
+| Command store | CommandStore | TM/TC separation, atomic take() |
 | Abstractions | Python ABC | Dependency injection, real-time switchable |
 | Test runner | pytest + SVF plugin | Ecosystem, CI compatibility, extensibility |
 | Plugin registration | pytest11 entry point | Auto-discovery, zero configuration |
@@ -341,7 +353,7 @@ This produces a standard FMI 3.0 compliant FMU via pythonfmu. An SMP2 importer i
 |---|---|---|
 | M1 - Simulation Master | fmpy stepping a single FMU, CSV output, CI pipeline | DONE |
 | M2 - Simulation Bus & Abstractions | TickSource, SyncProtocol, ModelAdapter + DDS implementations | DONE |
-| M3 - pytest Plugin | svf_session fixture, observable API, verdict mapper | IN PROGRESS |
+| M3 - pytest Plugin | svf_session, observable API, verdict mapper, ParameterStore, CommandStore | IN PROGRESS |
 | M4 - First Real Model | Spacecraft power or thermal model, full stack validation | PENDING |
 | M5 - Campaign & Reporting | YAML campaign loader, JUnit XML + traceability matrix | PENDING |
 
@@ -351,9 +363,12 @@ This produces a standard FMI 3.0 compliant FMU via pythonfmu. An SMP2 importer i
 
 - Real-time / HIL execution
 - SMP2 model import
+- CCSDS/PUS command adapter
+- Bus protocol adapters (1553, CAN, I2C, UART, SpaceWire, WizardLink)
 - DOORS NG / Jama Connect integration
 - Tool qualification (DO-178C, ECSS-E-ST-40C toolchain qualification)
 - Multi-node distributed simulation
 - GUI / visual modelling environment
 - SharedMemorySyncProtocol
 - RealtimeTickSource
+- ParameterStoreDdsBridge
