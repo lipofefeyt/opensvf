@@ -1,26 +1,26 @@
 [
   {
-    "title": "[BUS] Evaluate Cyclone DDS Python bindings with hello-world example",
-    "body": "## Objective\nConfirm that cyclonedds-python is correctly installed and can publish and subscribe to a DDS topic.\n\n## Acceptance Criteria\n- cyclonedds added as a dependency in `pyproject.toml`\n- A validation script `examples/validate_dds.py` publishes and receives a message on a local DDS topic\n- Output confirms message was sent and received\n\n## Implements\nSVF-DEV-010",
-    "labels": ["type: spike", "layer: comm-bus", "priority: now"],
-    "milestone": "M2 - DDS Integration"
+    "title": "[ORC] Implement simulation lifecycle pytest fixture",
+    "body": "## Objective\nProvide a pytest fixture that starts a SimulationMaster before a test and tears it down cleanly after, regardless of outcome.\n\n## Acceptance Criteria\n- `simulation` fixture defined in `src/svf/plugin.py`\n- Fixture accepts FMU path, dt, and stop_time via pytest marks or parameters\n- SimulationMaster is fully initialised before the test body runs\n- Teardown is guaranteed even if the test raises\n- Integration test confirms fixture behaviour\n\n## Implements\nSVF-DEV-040, SVF-DEV-041",
+    "labels": ["type: feature", "layer: orchestration", "priority: now"],
+    "milestone": "M3 - pytest Plugin"
   },
   {
-    "title": "[BUS] Design DDS topic schema for telemetry and commands",
-    "body": "## Objective\nDefine the DDS topic structure for SVF telemetry (FMU outputs) and commands (FMU inputs).\n\n## Acceptance Criteria\n- Topic schema defined in `src/svf/topics.py` using cyclonedds IDL\n- Telemetry topic carries: timestamp, variable name, value\n- Command topic carries: timestamp, variable name, value\n- Schema is documented with docstrings\n\n## Implements\nSVF-DEV-011, SVF-DEV-012",
-    "labels": ["type: feature", "layer: comm-bus", "priority: now"],
-    "milestone": "M2 - DDS Integration"
+    "title": "[ORC] Implement observable assertion API",
+    "body": "## Objective\nProvide a fluent API for test procedures to assert time-bounded telemetry conditions via DDS subscriptions.\n\n## Acceptance Criteria\n- `observe(variable).reaches(value).within(seconds)` API\n- Subscribes to SVF/Telemetry/{variable} DDS topic\n- Polls until condition met or timeout expires\n- Raises AssertionError with descriptive message on timeout\n- Integration test validates against running simulation\n\n## Implements\nSVF-DEV-043",
+    "labels": ["type: feature", "layer: orchestration", "priority: now"],
+    "milestone": "M3 - pytest Plugin"
   },
   {
-    "title": "[BUS] Implement DDS publisher bridge from FMU outputs",
-    "body": "## Objective\nPublish FMU output variables as typed DDS topics after each simulation step.\n\n## Acceptance Criteria\n- `DdsPublisher` class in `src/svf/bus.py`\n- Publishes all FMU outputs to their respective DDS topics after each step\n- Wired into SimulationMaster as an optional component alongside CsvLogger\n- Integration test confirms messages are published during a simulation run\n\n## Implements\nSVF-DEV-010, SVF-DEV-011",
-    "labels": ["type: feature", "layer: comm-bus", "priority: now"],
-    "milestone": "M2 - DDS Integration"
+    "title": "[ORC] Implement ECSS verdict mapper",
+    "body": "## Objective\nMap pytest outcomes to ECSS-compatible verdicts and include them in test reports.\n\n## Acceptance Criteria\n- Verdict enum: PASS, FAIL, INCONCLUSIVE, ERROR\n- pytest hook maps outcomes to verdicts after each test\n- Verdict recorded in JUnit XML output\n- Unit tests cover all verdict mappings\n\n## Implements\nSVF-DEV-044",
+    "labels": ["type: feature", "layer: orchestration", "priority: now"],
+    "milestone": "M3 - pytest Plugin"
   },
   {
-    "title": "[BUS] Implement DDS subscriber for command injection into FMU inputs",
-    "body": "## Objective\nSubscribe to DDS command topics and inject received values into FMU input variables.\n\n## Acceptance Criteria\n- `DdsSubscriber` class in `src/svf/bus.py`\n- Subscribes to command topics and applies values to FMU inputs before each step\n- Wired into SimulationMaster as an optional component\n- Integration test confirms commands received via DDS affect simulation outputs\n\n## Implements\nSVF-DEV-012",
-    "labels": ["type: feature", "layer: comm-bus", "priority: now"],
-    "milestone": "M2 - DDS Integration"
+    "title": "[ORC] Implement stimuli injection API",
+    "body": "## Objective\nProvide a clean API for test procedures to inject commands into the simulation via DDS command topics.\n\n## Acceptance Criteria\n- `inject(variable, value)` API publishes to SVF/Command/{variable}\n- FmuModelAdapter subscribes to command topics and applies values before next step\n- Integration test confirms injected command affects simulation output\n\n## Implements\nSVF-DEV-042",
+    "labels": ["type: feature", "layer: orchestration", "priority: now"],
+    "milestone": "M3 - pytest Plugin"
   }
 ]
