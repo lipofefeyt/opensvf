@@ -1,32 +1,8 @@
 [
   {
-    "title": "[MOD] Implement integrated EPS FMU (solar array + battery + PCDU)",
-    "body": "## Objective\nBuild a realistic integrated EPS FMU that models solar array, battery, and PCDU as internally decomposed subsystems behind a clean external interface.\n\n## Inputs\n- solar_illumination (0.0 to 1.0)\n- load_power (W)\n\n## Outputs\n- bus_voltage (V)\n- battery_soc (0.0 to 1.0)\n- battery_voltage (V)\n- generated_power (W)\n- charge_current (A)\n\n## Acceptance Criteria\n- Non-linear SoC/voltage curve\n- Separate charge and discharge efficiency\n- Penumbra support (partial illumination)\n- FMU authored with pythonfmu\n- Builds cleanly via pythonfmu build\n- Documented subsystem decomposition in docstring\n\n## Implements\nSVF-DEV-060, SVF-DEV-063",
-    "labels": ["type: feature", "layer: model-authoring", "priority: now"],
-    "milestone": "M4 - First Real Model"
-  },
-  {
-    "title": "[ORC] Write EPS test procedures using svf_session fixture",
-    "body": "## Objective\nWrite a complete set of test procedures validating the EPS FMU using the SVF pytest plugin.\n\n## Test Cases\n- TC-PWR-001: Battery charges in sunlight\n- TC-PWR-002: Battery discharges in eclipse\n- TC-PWR-003: Sunlight to eclipse transition\n- TC-PWR-004: Partial illumination (penumbra)\n- TC-PWR-005: Low battery recovery\n\n## Acceptance Criteria\n- All test procedures use svf_session fixture\n- Assertions use observe().reaches/exceeds/drops_below().within()\n- Commands injected via svf_session.inject()\n- All tests pass and CI is green\n- ECSS verdicts recorded correctly\n\n## Implements\nSVF-DEV-040, SVF-DEV-041, SVF-DEV-042, SVF-DEV-043",
+    "title": "[ORC] Implement scheduled command injection (svf_command_schedule mark)",
+    "body": "## Objective\nAllow test procedures to schedule commands at specific simulation times rather than wall-clock times. Required for multi-phase tests where the simulation runs faster than real time.\n\n## Problem\nSoftwareTickSource runs all simulation steps in milliseconds. Mid-test inject() calls fire into an already-completed simulation, making multi-phase test procedures unreliable.\n\n## Design\n- SimulationMaster writes current simulation time to ParameterStore as 'svf.sim_time'\n- New pytest mark: @pytest.mark.svf_command_schedule([(t, name, value), ...])\n- Fixture monitors 'svf.sim_time' from ParameterStore and fires commands when t is reached\n- Commands fired in a background thread that polls sim_time during the simulation run\n\n## Acceptance Criteria\n- svf_command_schedule mark accepted by svf_session fixture\n- Commands fired at correct simulation time (within one dt)\n- TC-PWR-003 and TC-PWR-005 rewritten to use scheduled commands\n- All EPS tests pass\n- mypy clean\n\n## Implements\nSVF-DEV-042",
     "labels": ["type: feature", "layer: orchestration", "priority: now"],
-    "milestone": "M4 - First Real Model"
-  },
-  {
-    "title": "[SIM] Implement model-to-model wiring via ParameterStore",
-    "body": "## Objective\nExtend SimulationMaster to wire model outputs to model inputs via the ParameterStore, enabling separate FMUs to communicate without direct coupling.\n\n## Design\nSimulationMaster accepts a wiring map at construction:\n  wiring = {('solar_array', 'generated_power'): ('pcdu', 'solar_input')}\nAfter each tick, master copies ParameterStore values to CommandStore entries according to the wiring map.\n\n## Acceptance Criteria\n- WiringMap type defined\n- SimulationMaster accepts optional wiring at construction\n- Copying happens after all models tick, before next tick\n- Integration test with two connected NativeModelAdapters\n- mypy clean\n\n## Implements\nSVF-DEV-004",
-    "labels": ["type: feature", "layer: sim-core", "priority: now"],
-    "milestone": "M4.5 - Model Wiring"
-  },
-  {
-    "title": "[MOD] Decompose integrated EPS into separate Solar, Battery, PCDU FMUs",
-    "body": "## Objective\nRefactor the integrated EPS FMU into three separate FMUs connected via the model wiring mechanism from SVF-DEV-004.\n\n## Models\n- SolarArrayFMU: illumination -> generated_power, array_voltage\n- BatteryFMU: charge_current -> battery_voltage, soc, temperature\n- PCDUFmu: generated_power + battery_voltage + load -> bus_voltage + charge_current\n\n## Acceptance Criteria\n- Three separate pythonfmu FMUs\n- Wired together via SimulationMaster wiring map\n- Existing EPS test procedures pass unchanged\n- SSP file describes the system structure\n\n## Implements\nSVF-DEV-004, SVF-DEV-060, SVF-DEV-063",
-    "labels": ["type: feature", "layer: model-authoring", "priority: now"],
-    "milestone": "M4.5 - Model Wiring"
-  },
-  {
-    "title": "[SIM] Add SSP system description support",
-    "body": "## Objective\nSupport SSP (System Structure and Parameterization) files as an alternative to programmatic wiring maps for describing multi-FMU system connections.\n\n## Acceptance Criteria\n- SimulationMaster accepts SSP file path\n- Parses SSP to derive wiring map\n- Integration test with SSP-described EPS system\n- SSP file for EPS system committed to examples/\n\n## Implements\nSVF-DEV-004",
-    "labels": ["type: feature", "layer: sim-core", "priority: next"],
-    "milestone": "M4.5 - Model Wiring"
+    "milestone": "M3 - pytest Plugin"
   }
 ]
