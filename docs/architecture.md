@@ -1,6 +1,6 @@
 # SVF Architecture
 
-> **Status:** Draft — v0.5
+> **Status:** Draft — v0.6
 > **Last updated:** 2026-03
 > **Author:** lipofefeyt
 
@@ -12,8 +12,6 @@ The Software Validation Facility (SVF) is an open-core platform for the validati
 
 The initial target domain is aerospace (small satellites, NewSpace), with architecture choices made to allow later extension into adjacent regulated industries (automotive, rail, medical).
 
-The platform is designed to start small — a single developer, a single spacecraft model — and scale toward distributed multi-model campaigns, hardware-in-the-loop, and real-time execution without requiring architectural rewrites.
-
 ---
 
 ## 2. Design Principles
@@ -22,17 +20,19 @@ The platform is designed to start small — a single developer, a single spacecr
 
 **Python orchestrates, C executes.** Python handles test logic, campaign management, and orchestration. C handles simulation model internals where timing and throughput matter.
 
-**Plugin-first design.** Every integration point is a plugin slot from day one, even if only one adapter is initially implemented. This is what allows later support for CCSDS, SpaceWire, real hardware interfaces, without touching the core.
+**Plugin-first design.** Every integration point is a plugin slot from day one.
 
-**Dependency injection for real-time readiness.** The SimulationMaster declares what it needs via abstract interfaces. Concrete implementations are injected at startup. Switching from software to real-time execution is a one-line change at the composition root.
+**Dependency injection for real-time readiness.** The SimulationMaster declares what it needs via abstract interfaces. Switching from software to real-time execution is a one-line change at the composition root.
 
-**Models speak for themselves.** The SimulationMaster never publishes telemetry or sync acknowledgements on behalf of models. Each ModelAdapter is responsible for publishing its own outputs and acknowledging its own readiness.
+**Equipment as the universal model abstraction.** Every spacecraft model — FMU, native Python, or future hardware — is an Equipment. Equipment extends ModelAdapter so every model is directly driveable by SimulationMaster. No parallel patterns, no adapter wrapping.
 
-**TM and TC are architecturally separate.** The ParameterStore holds telemetry outputs. The CommandStore holds telecommands. These are never conflated, mirroring the fundamental TM/TC separation in real spacecraft architecture.
+**Port-based inter-equipment communication.** Equipment models communicate through named ports (IN/OUT). The WiringMap defines point-to-point connections between ports. Wiring is declared in human-readable YAML — not a 1M-line XML file.
 
-**One data one source.** Every parameter has exactly one authoritative definition in the SRDB, shared across all engineering disciplines — simulation models, test procedures, reporters, and future ground segment tools.
+**TM and TC are architecturally separate.** The ParameterStore holds telemetry outputs (written by Equipment OUT ports). The CommandStore holds telecommands (written by test procedures or wiring, consumed by Equipment IN ports). These are never conflated.
 
-**CI/CD compatibility.** All outputs (test verdicts, reports, traceability records) are consumable by standard CI/CD pipelines. SVF fits into existing developer workflows, it does not replace them.
+**One data one source.** Every parameter has exactly one authoritative definition in the SRDB, shared across all engineering disciplines.
+
+**CI/CD compatibility.** All outputs are consumable by standard CI/CD pipelines. SVF fits into existing developer workflows.
 
 ---
 
@@ -40,7 +40,7 @@ The platform is designed to start small — a single developer, a single spacecr
 
 ```
 +--------------------------------------------------------------+
-|                    CAMPAIGN MANAGER                          |
+|                    CAMPAIGN MANAGER (M5)                     |
 |            YAML/TOML test campaign definitions               |
 |         requirements traceability  |  config baseline        |
 +----------------------+---------------------------------------+
@@ -49,62 +49,64 @@ The platform is designed to start small — a single developer, a single spacecr
 |                  TEST ORCHESTRATOR                           |
 |               pytest core + SVF plugin                       |
 |    svf_session fixture | verdict mapper | observable API     |
-|    inject() stimuli API | svf_initial_commands mark          |
+|    inject() | svf_initial_commands | svf_command_schedule    |
 +------+--------------------------------------+----------------+
        |                                      |
 +------v--------------+            +----------v---------------+
 |  SIMULATION MASTER  |            |   TEST PROCEDURES        |
-|                     |            |   Python scripts         |
-|  TickSource         |            |   svf_session fixture    |
-|  SyncProtocol       |            |   observe("eps.batt.soc")|
-|  ModelAdapter[]     |            |     .exceeds(0.8)        |
-+------+--------------+            |     .within(120.0)       |
-       |                           |   inject("eps.sol.", 1.0)|
-       |                           +--------------------------+
+|                     |            |                          |
+|  TickSource         |            |   observe("eps.bat.soc") |
+|  SyncProtocol       |            |     .exceeds(0.8)        |
+|  Equipment[]        |            |     .within(120.0)       |
+|  WiringMap          |            |   inject("eps.sol.", 1.0)|
++------+--------------+            +--------------------------+
+       |
 +------v--------------------------------------------------------------+
 |                 ABSTRACTION LAYER                                   |
 |                                                                     |
 |  TickSource         SyncProtocol          ModelAdapter              |
 |  (abstract)         (abstract)            (abstract)                |
 |      |                  |                     |                     |
-|  Software           DDS-based            FMU adapter                |
-|  Realtime(defer)    SHM(defer)           Native Python              |
+|  Software           DDS-based            Equipment (abstract)       |
+|  Realtime(defer)    SHM(defer)               |                      |
+|                                         FmuEquipment                |
+|                                         NativeEquipment             |
+|                                         Hardware(defer)             |
 +------+--------------------------------------------------------------+
        |
 +------v--------------------------------------------------------------+
-|                    FMU ECOSYSTEM                                    |
-|   [EPS]  [AOCS]  [TTC]  [OBDH]  [Thermal]  [Environment]          |
-|          pythonfmu (Python FMUs)  |  C/C++ FMUs                     |
-|   parameter_map: FMU name -> SRDB canonical name                    |
+|                 EQUIPMENT & PORT LAYER                              |
+|                                                                     |
+|  Equipment                                                          |
+|    equipment_id, ports (IN/OUT), write_port(), read_port()          |
+|    on_tick(): read CommandStore -> do_step() -> write ParameterStore|
+|                                                                     |
+|  FmuEquipment      NativeEquipment      FmuEquipment (decomposed)  |
+|  wraps FMU         wraps step_fn        SolarArray | Battery | PCDU |
+|  + parameter_map   + port declarations  (M4.5)                      |
 +------+------+------------------------------------------------------+
        |      |
 +------v--+   +---v-------------------------------------------------+
 |PARAMETER|   | COMMAND STORE                                       |
 |STORE    |   |                                                     |
-|         |   | CommandEntry(name, value, t, source_id, consumed)  |
 | TM only |   | TC only - take() atomic read+consume               |
-|         |   |                                                     |
-| keys:   |   | keys: SRDB canonical names                         |
-| SRDB    |   | e.g. "eps.solar_array.illumination"                |
+| SRDB    |   | SRDB canonical names                               |
 | canonical   |                                                     |
-| names   |   | written by: inject() API, svf_initial_commands     |
-|         |   | consumed by: FmuModelAdapter before each doStep()  |
+| names   |   | written by: inject(), svf_initial_commands, wiring |
+|         |   | consumed by: Equipment.on_tick() for each IN port  |
 +---------+   +-----------------------------------------------------+
        |              |
 +------v--------------v----------------------------------------------+
 |              SPACECRAFT REFERENCE DATABASE (SRDB)                  |
 |                                                                     |
-|  "one data one source" — inspired by ECSS-E-TM-10-23               |
-|                                                                     |
-|  ParameterDefinition:                                               |
-|    name, description, unit, dtype, valid_range                      |
-|    classification (TM/TC), domain, model_id                         |
-|    pus: {apid, service, subservice, parameter_id}                   |
+|  ParameterDefinition: name, unit, dtype, valid_range               |
+|  classification (TM/TC), domain, model_id, pus mapping             |
 |                                                                     |
 |  Domain baselines: EPS | AOCS | TTC | OBDH | Thermal               |
 |  Mission overrides: srdb/missions/{mission}.yaml                    |
+|  Equipment wiring:  srdb/wiring/{system}_wiring.yaml               |
 |                                                                     |
-|  Future: XTCE export | MIB import | calibration curves              |
+|  Runtime validation: range warnings, TM/TC separation warnings     |
 +------+--------------------------------------------------------------+
        |
 +------v--------------------------------------------------------------+
@@ -113,226 +115,223 @@ The platform is designed to start small — a single developer, a single spacecr
 |   SVF/Sim/Tick           <- simulation tick broadcasts              |
 |   SVF/Sim/Ready/{id}     <- model acknowledgements                 |
 |                                                                     |
-|   Future: SVF/Telemetry/{name} (ParameterStoreDdsBridge)           |
-|   Future: bus protocol adapters (1553, CAN, I2C, UART, SpW)        |
+|   Future (M6-M9): 1553 | CAN | SpW | UART | CCSDS/PUS             |
 +------+--------------------------------------------------------------+
        |
 +------v--------------------------------------------------------------+
-|              REPORTING & TRACEABILITY                               |
+|              REPORTING & TRACEABILITY (M5)                         |
 |     JUnit XML  |  Allure HTML  |  ECSS verdict records              |
 |     requirements linkage  |  full timeline export                   |
-|     Future: XTCE export  |  DOORS NG  |  Jama Connect               |
 +---------------------------------------------------------------------+
 ```
 
 ---
 
-## 4. Simulation Execution Model
+## 4. Equipment Model
 
-### 4.1 Tick-Based Lockstep Protocol
+### 4.1 Class Hierarchy
 
 ```
-Master                    Model A                 Model B
-  |                          |                       |
-  |--- tick(t=0.1) --------->|                       |
-  |--- tick(t=0.1) --------------------------------->|
-  |                          |                       |
-  |                    CommandStore.take()     CommandStore.take()
-  |                    doStep()               doStep()
-  |                    ParameterStore.write() ParameterStore.write()
-  |                    publish_ready()        publish_ready()
-  |                          |                       |
-  |<-- ready(A, t=0.1) ------|                       |
-  |<-- ready(B, t=0.1) --------------------------------|
-  |                          |                       |
-  |--- tick(t=0.2) --------->|                       |
+ModelAdapter (ABC)
+    └── Equipment (ABC)
+            ├── FmuEquipment     — wraps FMI 3.0 FMU
+            ├── NativeEquipment  — wraps Python step function
+            └── (future) HardwareEquipment — HIL bridge
 ```
 
-### 4.2 TM/TC Separation
+`Equipment` extends `ModelAdapter` directly. Every Equipment is driveable by `SimulationMaster` without any adapter wrapping.
+
+### 4.2 Equipment Lifecycle (on_tick)
+
+```
+Equipment.on_tick(t, dt):
+  1. For each IN port:
+       entry = CommandStore.take(port_name)
+       if entry: receive(port_name, entry.value)
+  2. do_step(t, dt)          ← subclass implements physics
+  3. For each OUT port:
+       ParameterStore.write(port_name, port_value, t+dt, equipment_id)
+  4. SyncProtocol.publish_ready(equipment_id, t)
+```
+
+### 4.3 Port Interface
+
+```python
+class Equipment(ModelAdapter):
+    def write_port(self, name: str, value: float) -> None: ...  # OUT ports only
+    def read_port(self, name: str) -> float: ...                # any port
+    def receive(self, port_name: str, value: float) -> None: ... # IN ports, called by master wiring
+```
+
+### 4.4 FmuEquipment
+
+Wraps an FMI 3.0 FMU. FMU inputs → IN ports, FMU outputs → OUT ports. `parameter_map` translates FMU variable names to SRDB canonical port names.
+
+```python
+eq = FmuEquipment(
+    fmu_path="models/EpsFmu.fmu",
+    equipment_id="eps",
+    sync_protocol=sync,
+    store=store,
+    command_store=cmd_store,
+    parameter_map={
+        "battery_soc":        "eps.battery.soc",
+        "solar_illumination": "eps.solar_array.illumination",
+        ...
+    }
+)
+```
+
+### 4.5 NativeEquipment
+
+Wraps a plain Python step function. Ports declared explicitly at construction.
+
+```python
+def rw_step(eq: NativeEquipment, t: float, dt: float) -> None:
+    if eq.read_port("power_enable") > 0.5:
+        speed = eq.read_port("speed") + 100.0 * dt
+        eq.write_port("speed", speed)
+
+eq = NativeEquipment(
+    equipment_id="rw1",
+    ports=[
+        PortDefinition("power_enable", PortDirection.IN),
+        PortDefinition("speed", PortDirection.OUT, unit="rpm"),
+    ],
+    step_fn=rw_step,
+    sync_protocol=sync,
+    store=store,
+    command_store=cmd_store,
+)
+```
+
+---
+
+## 5. Equipment Wiring
+
+### 5.1 WiringMap
+
+Point-to-point connections between equipment OUT ports and IN ports. Applied by `SimulationMaster` after every tick via `receive()`.
+
+```
+After tick t:
+  for each Connection(from_eq, from_port, to_eq, to_port):
+      value = equipment[from_eq].read_port(from_port)
+      equipment[to_eq].receive(to_port, value)
+      CommandStore.inject(to_port, value)   <- available for next tick
+```
+
+### 5.2 Wiring YAML Schema
+
+Human-readable, version-controllable, diffable. Not a 1M-line XML file.
+
+```yaml
+# srdb/wiring/eps_wiring.yaml
+connections:
+  - from: solar_array.eps.solar_array.generated_power
+    to:   pcdu.eps.solar_input
+    description: Solar array power to PCDU input
+
+  - from: battery.eps.battery.voltage
+    to:   pcdu.eps.battery_voltage_in
+    description: Battery voltage feedback to PCDU
+
+  - from: pcdu.eps.battery.charge_current
+    to:   battery.eps.battery.charge_current_cmd
+    description: PCDU charge current command to battery
+```
+
+### 5.3 WiringLoader
+
+```python
+loader = WiringLoader(equipment_dict)
+wiring = loader.load(Path("srdb/wiring/eps_wiring.yaml"))
+```
+
+Validates that all referenced equipment IDs and port names exist. Source must be OUT port, destination must be IN port. Duplicate connections raise `WiringLoadError`.
+
+---
+
+## 6. Simulation Execution Model
+
+### 6.1 Tick-Based Lockstep Protocol
+
+```
+Master                    Equipment A             Equipment B
+  |                            |                       |
+  |--- tick(t=0.1) ----------->|                       |
+  |--- tick(t=0.1) ---------------------------------->|
+  |                            |                       |
+  |                   CommandStore.take()    CommandStore.take()
+  |                   do_step()              do_step()
+  |                   ParameterStore.write() ParameterStore.write()
+  |                   publish_ready()        publish_ready()
+  |                            |                       |
+  |<-- ready(A) ---------------|                       |
+  |<-- ready(B) ----------------------------------------|
+  |                            |                       |
+  |   Apply wiring:            |                       |
+  |   A.out_port -> B.in_port  |                       |
+  |                            |                       |
+  |--- tick(t=0.2) ----------->|                       |
+```
+
+### 6.2 TM/TC Separation
 
 | Store | Direction | Written by | Read by | Keys |
 |---|---|---|---|---|
-| ParameterStore | TM (outputs) | Model adapters | Observables, loggers, reporters | SRDB canonical names |
-| CommandStore | TC (inputs) | inject() API | Model adapters before each tick | SRDB canonical names |
-
-### 4.3 Parameter Naming
-
-All parameters use SRDB canonical names throughout the platform. FMU variable names (constrained by FMI/pythonfmu) are mapped to canonical names via the `parameter_map` in `FmuModelAdapter`:
-
-```python
-EPS_PARAMETER_MAP = {
-    "battery_soc":        "eps.battery.soc",
-    "battery_voltage":    "eps.battery.voltage",
-    "bus_voltage":        "eps.bus.voltage",
-    "generated_power":    "eps.solar_array.generated_power",
-    "charge_current":     "eps.battery.charge_current",
-    "solar_illumination": "eps.solar_array.illumination",
-    "load_power":         "eps.load.power",
-}
-```
-
-Naming convention: `{domain}.{subsystem}.{parameter}`
-
-### 4.4 DDS Topic Convention
-
-| Topic | Direction | Payload |
-|---|---|---|
-| SVF/Sim/Tick | Master -> Models | SimTick(t, dt) |
-| SVF/Sim/Ready/{model_id} | Model -> Master | SimReady(model_id, t) |
+| ParameterStore | TM | Equipment OUT ports | Observables, loggers | SRDB canonical names |
+| CommandStore | TC | inject(), wiring | Equipment IN ports | SRDB canonical names |
 
 ---
 
-## 5. Spacecraft Reference Database (SRDB)
+## 7. Spacecraft Reference Database (SRDB)
 
-Inspired by the Astrium SRDB Next Generation and ECSS-E-TM-10-23. The SRDB is the parameter definition layer — it answers "what is this parameter?" while the ParameterStore answers "what is its current value?"
+Inspired by ECSS-E-TM-10-23 and the Astrium SRDB Next Generation. "One data one source."
 
-### 5.1 ParameterDefinition Schema
+### 7.1 ParameterDefinition
 
 ```python
-@dataclass(frozen=True)
-class PusMapping:
-    apid: int           # CCSDS APID (11-bit)
-    service: int        # PUS service type
-    subservice: int     # PUS subservice type
-    parameter_id: int   # Mission-specific parameter ID
-
 @dataclass(frozen=True)
 class ParameterDefinition:
-    name: str                              # Canonical name: domain.subsystem.param
+    name: str                    # canonical: domain.subsystem.parameter
     description: str
-    unit: str                              # SI unit or "" for dimensionless
-    dtype: Dtype                           # float | int | bool | string
-    classification: Classification         # TM | TC
-    domain: Domain                         # EPS | AOCS | TTC | OBDH | THERMAL
+    unit: str
+    dtype: Dtype                 # float | int | bool | string
+    classification: Classification  # TM | TC
+    domain: Domain               # EPS | AOCS | TTC | OBDH | THERMAL
     model_id: str
     valid_range: Optional[tuple[float, float]]
-    pus: Optional[PusMapping]
+    pus: Optional[PusMapping]    # APID, service, subservice, parameter_id
 ```
 
-### 5.2 Domain Baselines
+### 7.2 Domain Baselines
 
-Five YAML baseline files ship with SVF covering standard spacecraft subsystem parameters:
+| File | Domain |
+|---|---|
+| srdb/baseline/eps.yaml | EPS — battery, solar array, PCDU |
+| srdb/baseline/aocs.yaml | AOCS — attitude, rates, actuators |
+| srdb/baseline/ttc.yaml | TTC — transponder, antenna, link |
+| srdb/baseline/obdh.yaml | OBDH — OBC health, memory, modes |
+| srdb/baseline/thermal.yaml | Thermal — sensors, heaters |
 
-| File | Domain | Covers |
-|---|---|---|
-| srdb/baseline/eps.yaml | EPS | Battery, solar array, PCDU, bus |
-| srdb/baseline/aocs.yaml | AOCS | Attitude, angular rates, reaction wheels, magnetorquers |
-| srdb/baseline/ttc.yaml | TTC | Transponder, antenna, link budget |
-| srdb/baseline/obdh.yaml | OBDH | OBC health, memory, mode management |
-| srdb/baseline/thermal.yaml | THERMAL | Temperature sensors, heaters |
+### 7.3 Runtime Validation
 
-### 5.3 Mission Overrides
+When an `Srdb` is wired to `ParameterStore` and `CommandStore`:
+- Warning when value outside `valid_range`
+- Warning when model writes TC-classified parameter
+- Warning when test procedure injects TM-classified parameter
 
-Mission-specific YAML files override or extend domain baselines:
-
-```yaml
-# srdb/missions/my_mission.yaml
-parameters:
-  eps.battery.soc:
-    description: Battery SoC (mission margin applied)
-    valid_range: [0.2, 0.9]        # Conservative margins
-  eps.payload.power:               # New mission-specific parameter
-    description: Payload power consumption
-    unit: W
-    dtype: float
-    classification: TM
-    domain: EPS
-    model_id: eps
-    valid_range: [0.0, 50.0]
-```
-
-Classification (TM/TC) cannot be changed by mission overrides.
-
-### 5.4 SRDB Loader
-
-```python
-loader = SrdbLoader()
-for f in Path("srdb/baseline").glob("*.yaml"):
-    loader.load_baseline(f)
-loader.load_mission(Path("srdb/missions/my_mission.yaml"))
-srdb = loader.build()
-
-defn = srdb.require("eps.battery.soc")
-eps_params = srdb.by_domain(Domain.EPS)
-tm_params = srdb.by_classification(Classification.TM)
-```
-
-### 5.5 PUS Mapping
-
-Each parameter carries an optional PUS mapping enabling future CCSDS/PUS integration:
-
-```
-eps.battery.soc -> PUS Service 3 (Housekeeping), APID 0x100, param_id 0x1001
-eps.solar_array.illumination -> PUS Service 20 (Parameter Mgmt), APID 0x100
-```
-
-PUS service assignments follow ECSS-E-ST-70-41C (PUS-C).
+Warnings logged, never raised — simulation continues regardless.
 
 ---
 
-## 6. Abstraction Layer
+## 8. pytest Plugin
 
-### 6.1 TickSource
-
-```python
-class TickSource(ABC):
-    def start(self, on_tick: TickCallback, dt: float, stop_time: float) -> None: ...
-    def stop(self) -> None: ...
-```
-
-| Implementation | Status |
-|---|---|
-| SoftwareTickSource | Implemented — Python loop |
-| RealtimeTickSource | Deferred — RT_PREEMPT timer |
-
-### 6.2 SyncProtocol
+### 8.1 Simulation Lifecycle Fixture
 
 ```python
-class SyncProtocol(ABC):
-    def wait_for_ready(self, expected: list[str], timeout: float) -> bool: ...
-    def publish_ready(self, model_id: str, t: float) -> None: ...
-    def reset(self) -> None: ...
-```
-
-| Implementation | Status |
-|---|---|
-| DdsSyncProtocol | Implemented — DDS KEEP_ALL QoS |
-| SharedMemorySyncProtocol | Deferred — lock-free ring buffer |
-
-### 6.3 ModelAdapter
-
-```python
-class ModelAdapter(ABC):
-    @property
-    def model_id(self) -> str: ...
-    def initialise(self, start_time: float = 0.0) -> None: ...
-    def on_tick(self, t: float, dt: float) -> None: ...
-    def teardown(self) -> None: ...
-```
-
-| Implementation | Status |
-|---|---|
-| FmuModelAdapter | Implemented — FMI 3.0 FMU + parameter_map |
-| NativeModelAdapter | Implemented — plain Python class |
-| Hardware adapter | Deferred |
-
-### 6.4 Real-Time Upgrade Path
-
-| Step | What changes | What stays the same |
-|---|---|---|
-| Soft RT (RT_PREEMPT kernel) | Nothing in code | Everything |
-| Deterministic ticking | SoftwareTickSource -> RealtimeTickSource | Everything else |
-| Low-latency sync | DdsSyncProtocol -> SharedMemorySyncProtocol | Everything else |
-| HIL interface | New ModelAdapter for hardware bridge | Everything else |
-
----
-
-## 7. pytest Plugin
-
-### 7.1 Simulation Lifecycle Fixture
-
-```python
-@pytest.mark.svf_fmus([FmuConfig("models/eps.fmu", "eps", EPS_PARAMETER_MAP)])
+@pytest.mark.svf_fmus([FmuConfig("models/EpsFmu.fmu", "eps", EPS_MAP)])
 @pytest.mark.svf_dt(1.0)
 @pytest.mark.svf_stop_time(120.0)
 @pytest.mark.svf_initial_commands([("eps.solar_array.illumination", 1.0)])
@@ -343,14 +342,12 @@ def test_battery_charges(svf_session):
 
 | Mark | Default | Description |
 |---|---|---|
-| svf_fmus([FmuConfig(...)]) | SimpleCounter.fmu | FMUs with optional parameter_map |
-| svf_dt(float) | 0.1 | Simulation timestep in seconds |
-| svf_stop_time(float) | 2.0 | Simulation stop time in seconds |
-| svf_initial_commands([(name, value)]) | [] | Commands injected before simulation starts |
+| svf_fmus | SimpleCounter.fmu | FmuConfig list with optional parameter_map |
+| svf_dt | 0.1 | Timestep in seconds |
+| svf_stop_time | 2.0 | Stop time in seconds |
+| svf_initial_commands | [] | Commands injected before simulation starts |
 
-### 7.2 Observable Assertion API
-
-Polls the ParameterStore using SRDB canonical parameter names.
+### 8.2 Observable API
 
 ```python
 svf_session.observe("eps.battery.soc").exceeds(0.88).within(120.0)
@@ -359,62 +356,32 @@ svf_session.observe("eps.battery.soc").reaches(0.9).within(120.0)
 svf_session.observe("eps.battery.soc").satisfies(lambda v: 0.2 < v < 0.95).within(120.0)
 ```
 
-Observables fail fast when the simulation thread exits — no unnecessary waiting.
+Polls ParameterStore. Fails fast when simulation thread exits.
 
-### 7.3 Stimuli Injection
-
-```python
-svf_session.inject("eps.solar_array.illumination", 0.0)  # mid-test eclipse
-svf_session.inject("eps.load.power", 50.0)               # high load
-```
-
-### 7.4 ECSS Verdict Mapper
+### 8.3 ECSS Verdict Mapper
 
 | pytest outcome | ECSS Verdict |
 |---|---|
 | Passed | PASS |
 | Failed (AssertionError) | FAIL |
-| Error (infrastructure fault) | ERROR |
+| Error (infrastructure) | ERROR |
 | Neither | INCONCLUSIVE |
-
----
-
-## 8. Technology Stack Summary
-
-| Concern | Choice | Rationale |
-|---|---|---|
-| Simulation standard | FMI 3.0 | Open, widely adopted, real-time ready |
-| Simulation library | fmpy | Mature Python FMI implementation |
-| Model authoring | pythonfmu (Python), C FMUs | Low barrier, FMI-compliant output |
-| Parameter database | SRDB (YAML + Python loader) | ECSS-E-TM-10-23 inspired, one data one source |
-| Communication bus | Eclipse Cyclone DDS | Open source, QoS-rich, RTPS-based |
-| Telemetry store | ParameterStore | Thread-safe, late-joiner safe, SRDB-keyed |
-| Command store | CommandStore | TM/TC separation, atomic take() |
-| Abstractions | Python ABC | Dependency injection, real-time switchable |
-| Test runner | pytest + SVF plugin | Ecosystem, CI compatibility |
-| Plugin registration | pytest11 entry point | Auto-discovery, zero configuration |
-| SRDB format | YAML | Human-readable, version-controllable |
-| Build system | CMake + scikit-build-core | Mixed C/Python |
-| Packaging | pyproject.toml | pip-installable |
-| Containerisation | Docker | Parallel execution, cloud-scalable |
 
 ---
 
 ## 9. Reference Model — Integrated EPS FMU
 
-The first reference spacecraft model shipped with SVF is an integrated EPS (Electrical Power System) FMU comprising Solar Array, Battery (Li-Ion), and PCDU subsystems.
-
 ### 9.1 Interface
 
-| Variable | Direction | Canonical Name | Unit | Range |
+| FMU Variable | Port Name | Direction | Unit | Range |
 |---|---|---|---|---|
-| solar_illumination | Input (TC) | eps.solar_array.illumination | — | 0.0–1.0 |
-| load_power | Input (TC) | eps.load.power | W | 0–200 |
-| battery_soc | Output (TM) | eps.battery.soc | — | 0.05–1.0 |
-| battery_voltage | Output (TM) | eps.battery.voltage | V | 3.0–4.2 |
-| bus_voltage | Output (TM) | eps.bus.voltage | V | 3.0–4.2 |
-| generated_power | Output (TM) | eps.solar_array.generated_power | W | 0–120 |
-| charge_current | Output (TM) | eps.battery.charge_current | A | -20–20 |
+| solar_illumination | eps.solar_array.illumination | IN (TC) | — | 0–1 |
+| load_power | eps.load.power | IN (TC) | W | 0–200 |
+| battery_soc | eps.battery.soc | OUT (TM) | — | 0.05–1.0 |
+| battery_voltage | eps.battery.voltage | OUT (TM) | V | 3.0–4.2 |
+| bus_voltage | eps.bus.voltage | OUT (TM) | V | 3.0–4.2 |
+| generated_power | eps.solar_array.generated_power | OUT (TM) | W | 0–120 |
+| charge_current | eps.battery.charge_current | OUT (TM) | A | -20–20 |
 
 ### 9.2 Validated Test Procedures
 
@@ -429,40 +396,64 @@ The first reference spacecraft model shipped with SVF is an integrated EPS (Elec
 ### 9.3 Documented Simplifications
 
 - Solar array modelled as ideal current source (no I-V curve)
-- No temperature dependence on capacity or panel efficiency
+- No temperature dependence on capacity or efficiency
 - Bus voltage equals battery voltage (no active PCU regulation)
 - No battery thermal model
-- Subsystem decomposition into separate FMUs deferred to M4.5
+- Subsystem decomposition (SolarArray, Battery, PCDU) deferred to M4.5
 
 ---
 
-## 10. Development Milestones
+## 10. Technology Stack
+
+| Concern | Choice | Rationale |
+|---|---|---|
+| Simulation standard | FMI 3.0 | Open, widely adopted, real-time ready |
+| Simulation library | fmpy | Mature Python FMI implementation |
+| Model abstraction | Equipment (extends ModelAdapter) | Single coherent pattern, port-based |
+| Model authoring | pythonfmu (Python), C FMUs | Low barrier, FMI-compliant |
+| Parameter database | SRDB (YAML + Python loader) | ECSS-E-TM-10-23 inspired |
+| Equipment wiring | WiringMap + YAML | Human-readable, not 1M-line XML |
+| Communication bus | Eclipse Cyclone DDS | Tick synchronisation |
+| Telemetry store | ParameterStore | Thread-safe, SRDB-keyed, late-joiner safe |
+| Command store | CommandStore | TM/TC separation, atomic take() |
+| Test runner | pytest + SVF plugin | Ecosystem, CI compatibility |
+| Plugin registration | pytest11 entry point | Auto-discovery |
+| Build system | CMake + scikit-build-core | Mixed C/Python |
+| Packaging | pyproject.toml | pip-installable |
+
+---
+
+## 11. Development Milestones
 
 | Milestone | Objective | Status |
 |---|---|---|
 | M1 - Simulation Master | fmpy, CSV, CI | DONE |
 | M2 - Simulation Bus & Abstractions | TickSource, SyncProtocol, ModelAdapter, DDS | DONE |
 | M3 - pytest Plugin | svf_session, observable, verdict, ParameterStore, CommandStore | DONE |
-| M3.5 - SRDB | Parameter definitions, domain baselines, PUS mapping, loader | IN PROGRESS |
-| M4 - First Real Model | Integrated EPS FMU, full stack validation | DONE |
-| M4.5 - Model Wiring | SSP-like wiring, decomposed EPS FMUs | PENDING |
-| M5 - Campaign & Reporting | YAML campaigns, traceability matrix | PENDING |
+| M3.5 - SRDB | Parameter definitions, domain baselines, PUS mapping | DONE |
+| M4 - First Real Model | Integrated EPS FMU, 5 test procedures | DONE |
+| M4.5 - Model Wiring | Equipment ABC, FmuEquipment, WiringMap, decomposed EPS | IN PROGRESS |
+| M5 - Campaign & Reporting | YAML campaigns, ECSS reports, traceability matrix | PENDING |
+| M6 - Bus Protocols | 1553, SpW, CAN, UART, WizardLink adapters | PENDING |
+| M7 - ICD Integration | ICD parser, wiring YAML generator | PENDING |
+| M8 - Real-Time & HIL | RT_PREEMPT, shared memory sync, HIL adapter | PENDING |
+| M9 - Ground Segment | CCSDS/PUS, YAMCS, XTCE export, MIB import | PENDING |
 
 ---
 
-## 11. Out of Scope (Initial Version)
+## 12. Out of Scope (Initial Version)
 
-- Real-time / HIL execution
+- Real-time / HIL execution (M8)
 - SMP2 model import
-- CCSDS/PUS command adapter (SVF-DEV-037)
-- Bus protocol adapters: 1553, CAN, I2C, UART, SpaceWire, WizardLink (SVF-DEV-038)
-- SRDB calibration curves (SVF-DEV-096)
-- XTCE export adapter (SVF-DEV-097)
-- MIB import adapter (SVF-DEV-098)
+- CCSDS/PUS command adapter (M9)
+- Bus protocol adapters (M6)
+- ICD parser (M7)
 - DOORS NG / Jama Connect integration
 - Tool qualification (DO-178C, ECSS-E-ST-40C)
 - Multi-node distributed simulation
 - GUI / visual modelling environment
-- SharedMemorySyncProtocol
-- RealtimeTickSource
-- ParameterStoreDdsBridge
+- SharedMemorySyncProtocol (M8)
+- RealtimeTickSource (M8)
+- ParameterStoreDdsBridge (M9)
+- SRDB calibration curves
+- XTCE export / MIB import (M9)
