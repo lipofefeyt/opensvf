@@ -293,3 +293,51 @@ parameters:
     loader = SrdbLoader()
     with pytest.raises(SrdbLoadError, match="domain"):
         loader.load_baseline(f)
+
+
+# ── Full baseline integration test ────────────────────────────────────────────
+
+def test_load_all_baselines() -> None:
+    """All five domain baselines load cleanly and produce correct counts."""
+    baseline_dir = Path(__file__).parent.parent.parent / "srdb" / "baseline"
+    loader = SrdbLoader()
+    for f in sorted(baseline_dir.glob("*.yaml")):
+        loader.load_baseline(f)
+    srdb = loader.build()
+
+    # Confirm all five domains are present
+    for domain in Domain:
+        params = srdb.by_domain(domain)
+        assert len(params) > 0, f"No parameters found for domain {domain.value}"
+
+    # Confirm TM/TC split — both should exist
+    assert len(srdb.by_classification(Classification.TM)) > 0
+    assert len(srdb.by_classification(Classification.TC)) > 0
+
+    # Confirm EPS FMU parameters are covered
+    assert "eps.battery.soc" in srdb
+    assert "eps.battery.voltage" in srdb
+    assert "eps.bus.voltage" in srdb
+    assert "eps.solar_array.illumination" in srdb
+    assert "eps.load.power" in srdb
+
+
+def test_load_baselines_with_mission_override() -> None:
+    """Mission override applies correctly on top of all baselines."""
+    baseline_dir = Path(__file__).parent.parent.parent / "srdb" / "baseline"
+    mission_file = (
+        Path(__file__).parent.parent.parent
+        / "srdb" / "missions" / "example_mission.yaml"
+    )
+    loader = SrdbLoader()
+    for f in sorted(baseline_dir.glob("*.yaml")):
+        loader.load_baseline(f)
+    loader.load_mission(mission_file)
+    srdb = loader.build()
+
+    # Battery SoC range overridden
+    soc = srdb.require("eps.battery.soc")
+    assert soc.valid_range == (0.2, 0.9)
+
+    # Mission-specific parameter added
+    assert "eps.payload.power" in srdb

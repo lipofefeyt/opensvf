@@ -1,0 +1,94 @@
+# SVF SRDB — TTC Domain Baseline
+# Telemetry, Tracking and Command subsystem parameters
+
+parameters:
+
+  # ── Transponder ────────────────────────────────────────────────────────────
+
+  ttc.transponder.rx_signal_level:
+    description: Uplink received signal level
+    unit: dBm
+    dtype: float
+    classification: TM
+    domain: TTC
+    model_id: ttc
+    valid_range: [-120.0, -50.0]
+    pus:
+      apid: 0x102
+      service: 3
+      subservice: 25
+      parameter_id: 0x3001
+
+  ttc.transponder.tx_power:
+    description: Downlink transmit power
+    unit: dBm
+    dtype: float
+    classification: TM
+    domain: TTC
+    model_id: ttc
+    valid_range: [0.0, 40.0]
+    pus:
+      apid: 0x102
+      service: 3
+      subservice: 25
+      parameter_id: 0x3002
+
+  ttc.transponder.lock_status:
+    description: Uplink carrier lock status (0=unlocked, 1=locked)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: TTC
+    model_id: ttc
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x102
+      service: 3
+      subservice: 25
+      parameter_id: 0x3003
+
+  # ── Antenna ────────────────────────────────────────────────────────────────
+
+  ttc.antenna.mode:
+    description: Antenna mode (0=omni, 1=high-gain)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: TTC
+    model_id: ttc
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x102
+      service: 3
+      subservice: 25
+      parameter_id: 0x3010
+
+  ttc.antenna.mode_cmd:
+    description: Antenna mode command (0=omni, 1=high-gain)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: TTC
+    model_id: ttc
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x102
+      service: 20
+      subservice: 1
+      parameter_id: 0x3011
+
+  # ── Link budget ────────────────────────────────────────────────────────────
+
+  ttc.link.bit_error_rate:
+    description: Downlink bit error rate
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: TTC
+    model_id: ttc
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x102
+      service: 3
+      subservice: 25
+      parameter_id: 0x3020

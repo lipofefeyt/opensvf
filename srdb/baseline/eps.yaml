@@ -1,0 +1,111 @@
+# SVF SRDB — EPS Domain Baseline
+# Electrical Power System parameters
+# PUS service assignments per ECSS-E-ST-70-41C (PUS-C):
+#   Service 3:  Housekeeping and Diagnostic Data Reporting
+#   Service 20: On-Board Parameter Management
+
+parameters:
+
+  # ── Battery ────────────────────────────────────────────────────────────────
+
+  eps.battery.soc:
+    description: Battery state of charge
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: EPS
+    model_id: eps
+    valid_range: [0.05, 1.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1001
+
+  eps.battery.voltage:
+    description: Battery terminal voltage
+    unit: V
+    dtype: float
+    classification: TM
+    domain: EPS
+    model_id: eps
+    valid_range: [3.0, 4.2]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1002
+
+  eps.battery.charge_current:
+    description: Battery charge current. Positive = charging, negative = discharging.
+    unit: A
+    dtype: float
+    classification: TM
+    domain: EPS
+    model_id: eps
+    valid_range: [-20.0, 20.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1003
+
+  # ── Solar Array ────────────────────────────────────────────────────────────
+
+  eps.solar_array.generated_power:
+    description: Solar array generated power
+    unit: W
+    dtype: float
+    classification: TM
+    domain: EPS
+    model_id: eps
+    valid_range: [0.0, 120.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1010
+
+  eps.solar_array.illumination:
+    description: Solar illumination fraction (0.0=eclipse, 1.0=full sun)
+    unit: ""
+    dtype: float
+    classification: TC
+    domain: EPS
+    model_id: eps
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 20
+      subservice: 1
+      parameter_id: 0x1011
+
+  # ── PCDU / Bus ─────────────────────────────────────────────────────────────
+
+  eps.bus.voltage:
+    description: Regulated power bus voltage
+    unit: V
+    dtype: float
+    classification: TM
+    domain: EPS
+    model_id: eps
+    valid_range: [3.0, 4.2]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1020
+
+  eps.load.power:
+    description: Spacecraft load power demand
+    unit: W
+    dtype: float
+    classification: TC
+    domain: EPS
+    model_id: eps
+    valid_range: [0.0, 200.0]
+    pus:
+      apid: 0x100
+      service: 20
+      subservice: 1
+      parameter_id: 0x1021

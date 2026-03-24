@@ -1,0 +1,106 @@
+# SVF SRDB — Thermal Domain Baseline
+# Thermal Control subsystem parameters
+
+parameters:
+
+  # ── Temperature sensors ────────────────────────────────────────────────────
+
+  thermal.obc.temperature:
+    description: OBC board temperature
+    unit: degC
+    dtype: float
+    classification: TM
+    domain: THERMAL
+    model_id: thermal
+    valid_range: [-40.0, 85.0]
+    pus:
+      apid: 0x104
+      service: 3
+      subservice: 25
+      parameter_id: 0x5001
+
+  thermal.battery.temperature:
+    description: Battery pack temperature
+    unit: degC
+    dtype: float
+    classification: TM
+    domain: THERMAL
+    model_id: thermal
+    valid_range: [-20.0, 60.0]
+    pus:
+      apid: 0x104
+      service: 3
+      subservice: 25
+      parameter_id: 0x5002
+
+  thermal.solar_panel.temperature:
+    description: Solar panel temperature
+    unit: degC
+    dtype: float
+    classification: TM
+    domain: THERMAL
+    model_id: thermal
+    valid_range: [-100.0, 150.0]
+    pus:
+      apid: 0x104
+      service: 3
+      subservice: 25
+      parameter_id: 0x5003
+
+  thermal.structure.temperature:
+    description: Spacecraft structure temperature
+    unit: degC
+    dtype: float
+    classification: TM
+    domain: THERMAL
+    model_id: thermal
+    valid_range: [-40.0, 80.0]
+    pus:
+      apid: 0x104
+      service: 3
+      subservice: 25
+      parameter_id: 0x5004
+
+  # ── Heaters ────────────────────────────────────────────────────────────────
+
+  thermal.heater.battery_cmd:
+    description: Battery heater enable command (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: THERMAL
+    model_id: thermal
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x104
+      service: 20
+      subservice: 1
+      parameter_id: 0x5010
+
+  thermal.heater.obc_cmd:
+    description: OBC heater enable command (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: THERMAL
+    model_id: thermal
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x104
+      service: 20
+      subservice: 1
+      parameter_id: 0x5011
+
+  thermal.heater.battery_status:
+    description: Battery heater status (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: THERMAL
+    model_id: thermal
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x104
+      service: 3
+      subservice: 25
+      parameter_id: 0x5012

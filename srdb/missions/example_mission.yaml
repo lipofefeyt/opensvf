@@ -1,0 +1,30 @@
+# SVF SRDB — Example Mission Override
+# Demonstrates mission-level customisation of domain baselines.
+# This file overrides specific parameters for a fictional LEO mission.
+
+parameters:
+
+  # Override battery SoC range for a mission with conservative margins
+  eps.battery.soc:
+    description: Battery state of charge (mission margin applied)
+    valid_range: [0.2, 0.9]
+
+  # Override solar panel range for a higher-power panel
+  eps.solar_array.generated_power:
+    description: Solar array generated power (200W panel)
+    valid_range: [0.0, 220.0]
+
+  # Mission-specific parameter — payload power consumption
+  eps.payload.power:
+    description: Payload power consumption
+    unit: W
+    dtype: float
+    classification: TM
+    domain: EPS
+    model_id: eps
+    valid_range: [0.0, 50.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1100

@@ -1,0 +1,106 @@
+# SVF SRDB — OBDH Domain Baseline
+# On-Board Data Handling subsystem parameters
+
+parameters:
+
+  # ── OBC health ─────────────────────────────────────────────────────────────
+
+  obdh.obc.cpu_load:
+    description: OBC CPU load percentage
+    unit: "%"
+    dtype: float
+    classification: TM
+    domain: OBDH
+    model_id: obdh
+    valid_range: [0.0, 100.0]
+    pus:
+      apid: 0x103
+      service: 3
+      subservice: 25
+      parameter_id: 0x4001
+
+  obdh.obc.memory_free:
+    description: OBC free memory
+    unit: kB
+    dtype: float
+    classification: TM
+    domain: OBDH
+    model_id: obdh
+    valid_range: [0.0, 524288.0]
+    pus:
+      apid: 0x103
+      service: 3
+      subservice: 25
+      parameter_id: 0x4002
+
+  obdh.obc.uptime:
+    description: OBC uptime since last reset
+    unit: s
+    dtype: float
+    classification: TM
+    domain: OBDH
+    model_id: obdh
+    pus:
+      apid: 0x103
+      service: 3
+      subservice: 25
+      parameter_id: 0x4003
+
+  # ── Mode management ────────────────────────────────────────────────────────
+
+  obdh.mode.current:
+    description: Current spacecraft operating mode (0=safe, 1=nominal, 2=payload)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: OBDH
+    model_id: obdh
+    valid_range: [0.0, 2.0]
+    pus:
+      apid: 0x103
+      service: 3
+      subservice: 25
+      parameter_id: 0x4010
+
+  obdh.mode.cmd:
+    description: Spacecraft mode transition command
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: OBDH
+    model_id: obdh
+    valid_range: [0.0, 2.0]
+    pus:
+      apid: 0x103
+      service: 20
+      subservice: 1
+      parameter_id: 0x4011
+
+  # ── Mass memory ────────────────────────────────────────────────────────────
+
+  obdh.memory.storage_used:
+    description: Mass memory storage used
+    unit: MB
+    dtype: float
+    classification: TM
+    domain: OBDH
+    model_id: obdh
+    valid_range: [0.0, 32768.0]
+    pus:
+      apid: 0x103
+      service: 3
+      subservice: 25
+      parameter_id: 0x4020
+
+  obdh.watchdog.reset_count:
+    description: Watchdog reset counter since launch
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: OBDH
+    model_id: obdh
+    pus:
+      apid: 0x103
+      service: 3
+      subservice: 25
+      parameter_id: 0x4030

@@ -1,0 +1,166 @@
+# SVF SRDB — AOCS Domain Baseline
+# Attitude and Orbit Control System parameters
+# PUS service assignments per ECSS-E-ST-70-41C (PUS-C)
+
+parameters:
+
+  # ── Attitude (quaternion) ──────────────────────────────────────────────────
+
+  aocs.attitude.quaternion_w:
+    description: Attitude quaternion scalar component
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: aocs
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2001
+
+  aocs.attitude.quaternion_x:
+    description: Attitude quaternion X component
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: aocs
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2002
+
+  aocs.attitude.quaternion_y:
+    description: Attitude quaternion Y component
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: aocs
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2003
+
+  aocs.attitude.quaternion_z:
+    description: Attitude quaternion Z component
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: aocs
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2004
+
+  # ── Angular rates ──────────────────────────────────────────────────────────
+
+  aocs.rate.x:
+    description: Angular rate around X axis
+    unit: rad/s
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: aocs
+    valid_range: [-0.5, 0.5]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2010
+
+  aocs.rate.y:
+    description: Angular rate around Y axis
+    unit: rad/s
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: aocs
+    valid_range: [-0.5, 0.5]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2011
+
+  aocs.rate.z:
+    description: Angular rate around Z axis
+    unit: rad/s
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: aocs
+    valid_range: [-0.5, 0.5]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2012
+
+  # ── Reaction wheels ────────────────────────────────────────────────────────
+
+  aocs.rw1.speed:
+    description: Reaction wheel 1 speed
+    unit: rpm
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: aocs
+    valid_range: [-6000.0, 6000.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2020
+
+  aocs.rw1.torque_cmd:
+    description: Reaction wheel 1 torque command
+    unit: Nm
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: aocs
+    valid_range: [-0.2, 0.2]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2021
+
+  # ── Magnetorquer ───────────────────────────────────────────────────────────
+
+  aocs.mtq.dipole_x:
+    description: Magnetorquer dipole moment X axis command
+    unit: Am2
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: aocs
+    valid_range: [-10.0, 10.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2030
+
+  aocs.mode:
+    description: AOCS operating mode (0=safe, 1=detumbling, 2=nadir, 3=target)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: AOCS
+    model_id: aocs
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2040
