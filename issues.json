@@ -1,8 +1,44 @@
 [
   {
-    "title": "[ORC] Implement scheduled command injection (svf_command_schedule mark)",
-    "body": "## Objective\nAllow test procedures to schedule commands at specific simulation times rather than wall-clock times. Required for multi-phase tests where the simulation runs faster than real time.\n\n## Problem\nSoftwareTickSource runs all simulation steps in milliseconds. Mid-test inject() calls fire into an already-completed simulation, making multi-phase test procedures unreliable.\n\n## Design\n- SimulationMaster writes current simulation time to ParameterStore as 'svf.sim_time'\n- New pytest mark: @pytest.mark.svf_command_schedule([(t, name, value), ...])\n- Fixture monitors 'svf.sim_time' from ParameterStore and fires commands when t is reached\n- Commands fired in a background thread that polls sim_time during the simulation run\n\n## Acceptance Criteria\n- svf_command_schedule mark accepted by svf_session fixture\n- Commands fired at correct simulation time (within one dt)\n- TC-PWR-003 and TC-PWR-005 rewritten to use scheduled commands\n- All EPS tests pass\n- mypy clean\n\n## Implements\nSVF-DEV-042",
-    "labels": ["type: feature", "layer: orchestration", "priority: now"],
-    "milestone": "M3 - pytest Plugin"
+    "title": "[SDB] Define ParameterDefinition schema and Python dataclasses",
+    "body": "## Objective\nImplement the core ParameterDefinition schema covering all fields needed for spacecraft parameter management.\n\n## Acceptance Criteria\n- ParameterDefinition dataclass: name, description, unit, dtype, valid_range, classification, domain, model_id, pus\n- PusMapping dataclass: apid, service, subservice, parameter_id\n- Classification enum: TM, TC\n- Domain enum: EPS, AOCS, TTC, OBDH, THERMAL\n- All fields typed, frozen dataclasses\n- mypy strict clean\n- Unit tests cover construction and validation\n\n## Implements\nSVF-DEV-090",
+    "labels": ["type: feature", "layer: sim-core", "priority: now"],
+    "milestone": "M3.5 - SRDB"
+  },
+  {
+    "title": "[SDB] Implement YAML schema and Python SRDB loader",
+    "body": "## Objective\nImplement a YAML schema for parameter definitions and a Python loader that parses YAML into typed ParameterDefinition objects with validation.\n\n## Acceptance Criteria\n- YAML schema documented and versioned\n- SrdbLoader class parses YAML into dict[str, ParameterDefinition]\n- Schema validation: missing required fields raise descriptive errors\n- Duplicate parameter names raise errors\n- Invalid classification/domain values raise errors\n- Unit tests cover valid load, missing fields, duplicates, invalid values\n\n## Implements\nSVF-DEV-092",
+    "labels": ["type: feature", "layer: sim-core", "priority: now"],
+    "milestone": "M3.5 - SRDB"
+  },
+  {
+    "title": "[SDB] Write domain baseline YAML files (EPS, AOCS, TTC, OBDH, Thermal)",
+    "body": "## Objective\nProvide baseline parameter definitions for five spacecraft domains.\n\n## Acceptance Criteria\n- srdb/baseline/eps.yaml: battery, solar array, PCDU parameters\n- srdb/baseline/aocs.yaml: attitude, angular rates, actuator commands\n- srdb/baseline/ttc.yaml: transponder, antenna, link parameters\n- srdb/baseline/obdh.yaml: OBC health, memory, mode management\n- srdb/baseline/thermal.yaml: temperature sensors, heater commands\n- All existing EPS FMU parameters covered in eps.yaml\n- All files load cleanly via SrdbLoader\n- PUS mappings consistent with ECSS PUS-C service catalogue\n\n## Implements\nSVF-DEV-091",
+    "labels": ["type: feature", "layer: sim-core", "priority: now"],
+    "milestone": "M3.5 - SRDB"
+  },
+  {
+    "title": "[SDB] Implement mission-level YAML override support",
+    "body": "## Objective\nAllow mission-specific YAML files to override or extend domain baselines without modifying them.\n\n## Acceptance Criteria\n- SrdbLoader accepts a mission YAML file in addition to baseline files\n- Mission file can override valid_range, description, PUS mappings\n- Mission file can add new parameters not in baselines\n- Mission file cannot change classification (TM/TC) of baseline parameters\n- srdb/missions/example_mission.yaml provided as reference\n- Unit tests cover override, extension, and illegal classification change\n\n## Implements\nSVF-DEV-093",
+    "labels": ["type: feature", "layer: sim-core", "priority: next"],
+    "milestone": "M3.5 - SRDB"
+  },
+  {
+    "title": "[SDB] Wire SRDB into ParameterStore for runtime validation",
+    "body": "## Objective\nParameterStore optionally accepts an SRDB instance and validates writes against parameter definitions at runtime.\n\n## Acceptance Criteria\n- ParameterStore accepts optional Srdb instance at construction\n- write() issues warning when value outside valid_range\n- write() issues warning when writing to a TC-classified parameter\n- CommandStore.inject() issues warning when injecting to a TM-classified parameter\n- Warnings logged via Python logging, never raise exceptions\n- Unit tests cover range violation, TM write, TC read warnings\n\n## Implements\nSVF-DEV-094, SVF-DEV-095",
+    "labels": ["type: feature", "layer: sim-core", "priority: now"],
+    "milestone": "M3.5 - SRDB"
+  },
+  {
+    "title": "[SDB] Implement XTCE export adapter",
+    "body": "## Objective\nExport the SRDB to XTCE 1.2 format for interoperability with ground segment tools (YAMCS, SCOS-2000, etc.).\n\n## Acceptance Criteria\n- XtceExporter class serialises Srdb to valid XTCE 1.2 XML\n- Covers: SpaceSystem, TelemetryMetaData, CommandMetaData\n- Parameter types, valid ranges, and PUS mappings exported\n- Output validated against XTCE 1.2 schema\n- Integration test exports EPS baseline and validates output\n\n## Implements\nSVF-DEV-097",
+    "labels": ["type: feature", "layer: sim-core", "priority: later"],
+    "milestone": "M3.5 - SRDB"
+  },
+  {
+    "title": "[SDB] Implement MIB import adapter",
+    "body": "## Objective\nImport an existing Mission Information Base (MIB) file into the SRDB, enabling migration from legacy ground segment databases.\n\n## Acceptance Criteria\n- MibImporter class parses MIB format into ParameterDefinition objects\n- Covers pcf.dat (parameter calibration), plf.dat (parameter location), ccf.dat (command)\n- Unmappable fields logged as warnings, not errors\n- Integration test imports a sample MIB and validates key parameters\n\n## Implements\nSVF-DEV-098",
+    "labels": ["type: feature", "layer: sim-core", "priority: later"],
+    "milestone": "M3.5 - SRDB"
   }
 ]
