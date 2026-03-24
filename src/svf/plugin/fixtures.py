@@ -21,7 +21,7 @@ from svf.simulation import SimulationMaster, SimulationError
 from svf.abstractions import ModelAdapter
 from svf.software_tick import SoftwareTickSource
 from svf.dds_sync import DdsSyncProtocol
-from svf.fmu_adapter import FmuModelAdapter
+from svf.fmu_equipment import FmuEquipment
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
 from svf.plugin.observable import ObservableFactory
@@ -29,9 +29,10 @@ from svf.plugin.verdict import Verdict, VerdictRecorder
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class FmuConfig:
-    """Configuration for a single FMU in a simulation session."""
+    """Configuration for a single FMU equipment in a simulation session."""
     fmu_path: str | Path
     model_id: str
     parameter_map: dict[str, str] = field(default_factory=dict)
@@ -48,14 +49,13 @@ class SimulationSession:
         verdicts:  VerdictRecorder populated after the test completes
         error:     Any SimulationError raised during the run
     """
-    
     observe: ObservableFactory
     store: ParameterStore
     verdicts: VerdictRecorder
     _cmd_store: CommandStore = field(default_factory=CommandStore, repr=False)
     error: Optional[Exception] = None
     _master: Optional[SimulationMaster] = field(default=None, repr=False)
-    _done: bool = field(default=False, repr=False)  # ← add this
+    _done: bool = field(default=False, repr=False)
 
     def inject(
         self,
@@ -63,23 +63,8 @@ class SimulationSession:
         value: float,
         source_id: str = "test_procedure",
     ) -> None:
-        """
-        Inject a command into the simulation.
-
-        The command is written to the CommandStore and consumed by the
-        relevant model adapter before its next tick.
-
-        Args:
-            name:      Target parameter or command name
-            value:     Commanded value
-            source_id: ID of the issuing entity (default: test_procedure)
-        """
-        self._cmd_store.inject(
-            name=name,
-            value=value,
-            t=0.0,
-            source_id=source_id,
-        )
+        """Inject a command into the simulation via the CommandStore."""
+        self._cmd_store.inject(name=name, value=value, t=0.0, source_id=source_id)
         logger.info(f"Injected command: {name}={value} from {source_id}")
 
     def stop(self) -> None:
@@ -92,6 +77,7 @@ def _run_in_thread(
     master: SimulationMaster,
     session: SimulationSession,
 ) -> None:
+    """Run the simulation master in a background thread."""
     try:
         master.run()
     except SimulationError as e:
@@ -101,7 +87,7 @@ def _run_in_thread(
         session.error = e
         logger.error(f"Unexpected simulation error: {e}")
     finally:
-        session._done = True  # ← always set when thread exits
+        session._done = True
 
 
 @pytest.fixture
@@ -118,45 +104,38 @@ def svf_session(
     """
     Simulation lifecycle fixture.
 
-    Starts a SimulationMaster in a background thread before the test,
-    provides observe(), inject(), and direct store access,
-    and tears down cleanly after.
-
     Configure via pytest marks:
 
-        @pytest.mark.svf_fmus([FmuConfig("models/power.fmu", "power")])
-        @pytest.mark.svf_dt(0.1)
-        @pytest.mark.svf_stop_time(10.0)
-        def test_power_model(svf_session):
-            svf_session.inject("solar_angle", 45.0)
-            svf_session.observe("battery_voltage").exceeds(3.3).within(5.0)
+        @pytest.mark.svf_fmus([FmuConfig("models/eps.fmu", "eps", EPS_MAP)])
+        @pytest.mark.svf_dt(1.0)
+        @pytest.mark.svf_stop_time(120.0)
+        @pytest.mark.svf_initial_commands([("eps.solar_array.illumination", 1.0)])
+        def test_something(svf_session):
+            svf_session.observe("eps.battery.soc").exceeds(0.88).within(120.0)
+            svf_session.stop()
     """
-    fmu_marker = request.node.get_closest_marker("svf_fmus")
-    dt_marker = request.node.get_closest_marker("svf_dt")
-    stop_marker = request.node.get_closest_marker("svf_stop_time")
+    fmu_marker    = request.node.get_closest_marker("svf_fmus")
+    dt_marker     = request.node.get_closest_marker("svf_dt")
+    stop_marker   = request.node.get_closest_marker("svf_stop_time")
+    cmd_marker    = request.node.get_closest_marker("svf_initial_commands")
 
-    fmu_configs: List[FmuConfig] = (
-        fmu_marker.args[0] if fmu_marker else []
-    )
-
-    cmd_marker = request.node.get_closest_marker("svf_initial_commands")
+    fmu_configs: List[FmuConfig] = fmu_marker.args[0] if fmu_marker else []
+    dt: float          = dt_marker.args[0]   if dt_marker   else 0.1
+    stop_time: float   = stop_marker.args[0] if stop_marker else 2.0
     initial_commands: List[tuple[str, float]] = (
         cmd_marker.args[0] if cmd_marker else []
     )
 
-    dt: float = dt_marker.args[0] if dt_marker else 0.1
-    stop_time: float = stop_marker.args[0] if stop_marker else 2.0
-
-    store = ParameterStore()
+    store     = ParameterStore()
     cmd_store = CommandStore()
-    sync = DdsSyncProtocol(svf_participant)
-    observe = ObservableFactory(store)
-    verdicts = VerdictRecorder()
+    sync      = DdsSyncProtocol(svf_participant)
+    observe   = ObservableFactory(store)
+    verdicts  = VerdictRecorder()
 
     models: List[ModelAdapter] = [
-        FmuModelAdapter(
+        FmuEquipment(
             fmu_path=cfg.fmu_path,
-            model_id=cfg.model_id,
+            equipment_id=cfg.model_id,
             sync_protocol=sync,
             store=store,
             command_store=cmd_store,
@@ -168,12 +147,11 @@ def svf_session(
     if not models:
         default_fmu = (
             Path(__file__).parent.parent.parent.parent
-            / "examples"
-            / "SimpleCounter.fmu"
+            / "examples" / "SimpleCounter.fmu"
         )
-        models = [FmuModelAdapter(
+        models = [FmuEquipment(
             fmu_path=default_fmu,
-            model_id="counter",
+            equipment_id="counter",
             sync_protocol=sync,
             store=store,
             command_store=cmd_store,
@@ -195,9 +173,9 @@ def svf_session(
         _cmd_store=cmd_store,
         _master=master,
     )
-    observe._session = session  # ← wire back after construction
+    observe._session = session
 
-    # Pre-inject initial commands before simulation starts
+    # Pre-inject initial commands
     for name, value in initial_commands:
         cmd_store.inject(name=name, value=value, source_id="initial_conditions")
 
@@ -211,14 +189,11 @@ def svf_session(
 
     yield session
 
-    # Always signal stop — test may have already called it, this is a no-op if so
     if session._master is not None:
         session._master.stop()
-
-    # Join with a short fixed timeout — independent of stop_time
     thread.join(timeout=10.0)
     if thread.is_alive():
-        logger.warning(f"Simulation thread did not stop cleanly for {request.node.nodeid}")
+        logger.warning(f"Simulation thread did not stop cleanly")
 
     test_id = request.node.nodeid
     rep = getattr(request.node, "_svf_rep", None)

@@ -6,7 +6,7 @@ from pathlib import Path
 from svf.simulation import SimulationMaster
 from svf.software_tick import SoftwareTickSource
 from svf.dds_sync import DdsSyncProtocol
-from svf.fmu_adapter import FmuModelAdapter
+from svf.fmu_equipment import FmuEquipment
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
 from cyclonedds.domain import DomainParticipant
@@ -26,7 +26,7 @@ def run_scenario(name: str, illumination: float, load: float, stop_time: float) 
     master = SimulationMaster(
         tick_source=SoftwareTickSource(),
         sync_protocol=sync,
-        models=[FmuModelAdapter(FMU_PATH, "eps", sync, store, cmd_store)],
+        models=[FmuEquipment(FMU_PATH, "eps", sync, store, cmd_store)],
         dt=1.0,
         stop_time=stop_time,
         sync_timeout=10.0,

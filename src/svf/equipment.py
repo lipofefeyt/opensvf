@@ -1,26 +1,34 @@
 """
 SVF Equipment Abstract Base Class
 Defines the standard interface for all spacecraft equipment models.
-Every equipment model inherits from Equipment and implements its ports.
+Extends ModelAdapter so Equipment instances are directly driveable
+by SimulationMaster without any adapter wrapping.
 
-Implements: SVF-DEV-004
+Implements: SVF-DEV-004, SVF-DEV-013
 """
 
 from __future__ import annotations
 
 import enum
 import logging
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+from svf.abstractions import ModelAdapter, SyncProtocol
+from svf.parameter_store import ParameterStore
+from svf.command_store import CommandStore
+
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
 
 class PortDirection(enum.Enum):
     """Direction of an equipment port."""
-    IN  = "IN"   # Input — receives commands/values from other equipment
-    OUT = "OUT"  # Output — produces values read by other equipment
+    IN  = "IN"   # Input — receives values from other equipment or test procedures
+    OUT = "OUT"  # Output — produces values read by other equipment or observables
 
 
 @dataclass(frozen=True)
@@ -29,11 +37,11 @@ class PortDefinition:
     Definition of a single equipment port.
 
     Attributes:
-        name:      Port name, unique within the equipment.
-                   Convention: subsystem.signal e.g. "bus.lcl1", "power_enable"
-        direction: IN (input) or OUT (output)
-        unit:      Engineering unit, empty string for dimensionless
-        dtype:     Data type of the port value
+        name:        Port name, unique within the equipment.
+                     Convention: subsystem.signal e.g. "bus.lcl1"
+        direction:   IN (input) or OUT (output)
+        unit:        Engineering unit, empty string for dimensionless
+        dtype:       Data type of the port value
         description: Human-readable description
     """
     name: str
@@ -43,48 +51,62 @@ class PortDefinition:
     description: str = ""
 
 
-class Equipment(ABC):
+class Equipment(ModelAdapter):
     """
     Abstract base class for all spacecraft equipment models.
 
-    Every equipment model inherits from Equipment and:
-      - Declares its ports via _declare_ports()
-      - Implements initialise(), do_step()
-      - Uses write_port() and read_port() for inter-equipment data exchange
+    Extends ModelAdapter so Equipment instances are directly driveable
+    by SimulationMaster. Provides a port-based interface for inter-equipment
+    data exchange via the WiringMap.
 
-    The SimulationMaster drives Equipment instances via the standard
-    lifecycle: initialise() once, then do_step() on every tick.
-    Inter-equipment connections are applied by the master between ticks
-    via write_port() calls according to the wiring map.
+    on_tick() implements the standard ModelAdapter contract:
+      1. Read CommandStore for each IN port and receive() into port
+      2. Call do_step() — subclass implements physics here
+      3. Write each OUT port value to ParameterStore
+      4. Call sync_protocol.publish_ready()
+
+    Subclasses must implement:
+      - _declare_ports(): return list of PortDefinition
+      - initialise(start_time): prepare for simulation
+      - do_step(t, dt): advance physics, read IN ports, write OUT ports
 
     Usage:
-        class MyEquipment(Equipment):
-            def _declare_ports(self) -> list[PortDefinition]:
+        class ReactionWheel(Equipment):
+            def _declare_ports(self):
                 return [
                     PortDefinition("power_enable", PortDirection.IN),
+                    PortDefinition("torque_cmd", PortDirection.IN, unit="Nm"),
                     PortDefinition("speed", PortDirection.OUT, unit="rpm"),
                 ]
 
-            def initialise(self, start_time: float = 0.0) -> None:
+            def initialise(self, start_time=0.0):
                 self._speed = 0.0
 
-            def do_step(self, t: float, dt: float) -> None:
-                enabled = self.read_port("power_enable")
-                if enabled and enabled > 0.5:
-                    self._speed += 10.0 * dt
+            def do_step(self, t, dt):
+                if self.read_port("power_enable") > 0.5:
+                    self._speed += self.read_port("torque_cmd") * dt * 100
                 self.write_port("speed", self._speed)
     """
 
-    def __init__(self, equipment_id: str) -> None:
+    def __init__(
+        self,
+        equipment_id: str,
+        sync_protocol: SyncProtocol,
+        store: ParameterStore,
+        command_store: Optional[CommandStore] = None,
+    ) -> None:
         self._equipment_id = equipment_id
+        self._sync_protocol = sync_protocol
+        self._store = store
+        self._command_store = command_store
         self._ports: dict[str, PortDefinition] = {}
         self._port_values: dict[str, float] = {}
 
-        # Register all declared ports
         for port in self._declare_ports():
             if port.name in self._ports:
                 raise ValueError(
-                    f"Equipment '{equipment_id}': duplicate port name '{port.name}'"
+                    f"Equipment '{equipment_id}': "
+                    f"duplicate port name '{port.name}'"
                 )
             self._ports[port.name] = port
             self._port_values[port.name] = 0.0
@@ -94,9 +116,55 @@ class Equipment(ABC):
             f"{list(self._ports.keys())}"
         )
 
+    # ── ModelAdapter interface ────────────────────────────────────────────────
+
+    @property
+    def model_id(self) -> str:
+        """Unique identifier — satisfies ModelAdapter contract."""
+        return self._equipment_id
+
+    def on_tick(self, t: float, dt: float) -> None:
+        """
+        ModelAdapter tick implementation.
+        Reads CommandStore into IN ports, calls do_step(),
+        writes OUT ports to ParameterStore, acknowledges sync.
+        """
+        # Step 1: read CommandStore into IN ports
+        if self._command_store is not None:
+            for name, port in self._ports.items():
+                if port.direction == PortDirection.IN:
+                    entry = self._command_store.take(name)
+                    if entry is not None:
+                        self._port_values[name] = entry.value
+                        logger.debug(
+                            f"[{self._equipment_id}] IN {name} "
+                            f"= {entry.value} from {entry.source_id}"
+                        )
+
+        # Step 2: advance physics
+        self.do_step(t, dt)
+
+        # Step 3: write OUT ports to ParameterStore
+        stepped_t = round(t + dt, 9)
+        for name, port in self._ports.items():
+            if port.direction == PortDirection.OUT:
+                self._store.write(
+                    name=name,
+                    value=self._port_values[name],
+                    t=stepped_t,
+                    model_id=self._equipment_id,
+                )
+
+        # Step 4: acknowledge sync
+        self._sync_protocol.publish_ready(
+            model_id=self._equipment_id, t=t
+        )
+
+    # ── Equipment interface ───────────────────────────────────────────────────
+
     @property
     def equipment_id(self) -> str:
-        """Unique identifier for this equipment instance."""
+        """Alias for model_id — equipment-specific terminology."""
         return self._equipment_id
 
     @property
@@ -106,26 +174,17 @@ class Equipment(ABC):
 
     def in_ports(self) -> list[PortDefinition]:
         """All input ports."""
-        return [p for p in self._ports.values() if p.direction == PortDirection.IN]
+        return [p for p in self._ports.values()
+                if p.direction == PortDirection.IN]
 
     def out_ports(self) -> list[PortDefinition]:
         """All output ports."""
-        return [p for p in self._ports.values() if p.direction == PortDirection.OUT]
+        return [p for p in self._ports.values()
+                if p.direction == PortDirection.OUT]
 
     @abstractmethod
     def _declare_ports(self) -> list[PortDefinition]:
-        """
-        Declare all ports for this equipment.
-        Called once during __init__ before initialise().
-        """
-        ...
-
-    @abstractmethod
-    def initialise(self, start_time: float = 0.0) -> None:
-        """
-        Prepare the equipment for simulation.
-        Called once before the first tick.
-        """
+        """Declare all ports. Called once during __init__."""
         ...
 
     @abstractmethod
@@ -133,29 +192,15 @@ class Equipment(ABC):
         """
         Advance the equipment by one timestep.
         Read inputs via read_port(), write outputs via write_port().
-
-        Args:
-            t:  Current simulation time in seconds.
-            dt: Timestep size in seconds.
         """
         ...
 
     def teardown(self) -> None:
-        """
-        Clean up equipment resources.
-        Default implementation is a no-op. Override if needed.
-        """
+        """Default teardown — no-op. Override if needed."""
         logger.debug(f"[{self._equipment_id}] Teardown")
 
     def write_port(self, name: str, value: float) -> None:
-        """
-        Write a value to an output port.
-        Raises ValueError if port does not exist or is not an OUT port.
-
-        Args:
-            name:  Port name
-            value: Value to write
-        """
+        """Write a value to an OUT port."""
         if name not in self._ports:
             raise ValueError(
                 f"[{self._equipment_id}] Unknown port '{name}'"
@@ -165,19 +210,9 @@ class Equipment(ABC):
                 f"[{self._equipment_id}] Cannot write to IN port '{name}'"
             )
         self._port_values[name] = value
-        logger.debug(f"[{self._equipment_id}] {name} = {value}")
 
     def read_port(self, name: str) -> float:
-        """
-        Read the current value of a port.
-        Raises ValueError if port does not exist.
-
-        Args:
-            name: Port name
-
-        Returns:
-            Current port value. Defaults to 0.0 until written.
-        """
+        """Read the current value of any port."""
         if name not in self._ports:
             raise ValueError(
                 f"[{self._equipment_id}] Unknown port '{name}'"
@@ -186,13 +221,8 @@ class Equipment(ABC):
 
     def receive(self, port_name: str, value: float) -> None:
         """
-        Receive an externally-driven value into an IN port.
-        Called by the SimulationMaster when applying wiring connections.
-        Raises ValueError if port is not an IN port.
-
-        Args:
-            port_name: Target IN port name
-            value:     Value to inject
+        Inject a value into an IN port.
+        Called by SimulationMaster when applying wiring connections.
         """
         if port_name not in self._ports:
             raise ValueError(
@@ -203,14 +233,9 @@ class Equipment(ABC):
                 f"[{self._equipment_id}] Cannot receive into OUT port '{port_name}'"
             )
         self._port_values[port_name] = value
-        logger.debug(
-            f"[{self._equipment_id}] Received {port_name} = {value}"
-        )
 
     def __repr__(self) -> str:
-        in_count = len(self.in_ports())
-        out_count = len(self.out_ports())
         return (
             f"Equipment(id={self._equipment_id!r}, "
-            f"in={in_count}, out={out_count})"
+            f"in={len(self.in_ports())}, out={len(self.out_ports())})"
         )

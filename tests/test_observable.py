@@ -9,10 +9,12 @@ from cyclonedds.domain import DomainParticipant
 
 from svf.plugin.observable import ObservableFactory, ConditionNotMet
 from svf.parameter_store import ParameterStore
+from svf.command_store import CommandStore
 from svf.simulation import SimulationMaster
 from svf.software_tick import SoftwareTickSource
 from svf.dds_sync import DdsSyncProtocol
-from svf.native_adapter import NativeModelAdapter
+from svf.native_equipment import NativeEquipment
+from svf.equipment import PortDefinition, PortDirection
 
 
 @pytest.fixture
@@ -36,15 +38,21 @@ def _run_simulation(
     stop_time: float = 2.0,
 ) -> None:
     """Run a simple counter simulation in the background."""
-    class _CounterModel:
-        def step(self, t: float, dt: float) -> dict[str, float]:
-            return {"counter": round(t + dt, 9)}
+    cmd_store = CommandStore()
+
+    def counter_step(eq: NativeEquipment, t: float, dt: float) -> None:
+        eq.write_port("counter", round(t + dt, 9))
 
     master = SimulationMaster(
         tick_source=SoftwareTickSource(),
         sync_protocol=sync,
-        models=[NativeModelAdapter(
-            _CounterModel(), "counter", ["counter"], sync, store
+        models=[NativeEquipment(
+            "counter",
+            [PortDefinition("counter", PortDirection.OUT)],
+            counter_step,
+            sync,
+            store,
+            cmd_store,
         )],
         dt=0.1,
         stop_time=stop_time,
@@ -97,12 +105,21 @@ def test_observe_drops_below(
         def step(self, t: float, dt: float) -> dict[str, float]:
             return {"countdown": round(1.0 - (t + dt), 9)}
 
+    def countdown_step(eq: NativeEquipment, t: float, dt: float) -> None:
+            eq.write_port("countdown", round(1.0 - (t + dt), 9))
+
     countdown_sync = DdsSyncProtocol(DomainParticipant())
+    countdown_cmd = CommandStore()
     master = SimulationMaster(
         tick_source=SoftwareTickSource(),
         sync_protocol=countdown_sync,
-        models=[NativeModelAdapter(
-            _CountdownModel(), "countdown", ["countdown"], countdown_sync, store
+        models=[NativeEquipment(
+            "countdown",
+            [PortDefinition("countdown", PortDirection.OUT)],
+            countdown_step,
+            countdown_sync,
+            store,
+            countdown_cmd,
         )],
         dt=0.1,
         stop_time=2.0,

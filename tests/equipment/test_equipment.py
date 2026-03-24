@@ -6,6 +6,26 @@ Implements: SVF-DEV-004
 import pytest
 from svf.equipment import Equipment, PortDefinition, PortDirection
 
+from svf.abstractions import SyncProtocol
+from svf.parameter_store import ParameterStore
+from svf.command_store import CommandStore
+
+class _NoSync(SyncProtocol):
+    def reset(self) -> None: pass
+    def publish_ready(self, model_id: str, t: float) -> None: pass
+    def wait_for_ready(self, expected: list[str], timeout: float) -> bool: return True
+
+@pytest.fixture
+def sync() -> _NoSync:
+    return _NoSync()
+
+@pytest.fixture
+def store() -> ParameterStore:
+    return ParameterStore()
+
+@pytest.fixture
+def cmd_store() -> CommandStore:
+    return CommandStore()
 
 # ── Test equipment implementations ───────────────────────────────────────────
 
@@ -62,23 +82,24 @@ class _BidirectionalEquipment(Equipment):
 
 # ── Construction tests ────────────────────────────────────────────────────────
 
-def test_equipment_construction() -> None:
+def test_equipment_construction(sync: _NoSync, store: ParameterStore) -> None:
     """Equipment constructs with correct id and ports."""
-    eq = _SimpleSource("source_1")
+    eq = _SimpleSource("source_1", sync_protocol=sync, store=store)
     assert eq.equipment_id == "source_1"
     assert "power_out" in eq.ports
 
 
-def test_equipment_port_directions() -> None:
+def test_equipment_port_directions(sync: _NoSync, store: ParameterStore) -> None:
     """in_ports() and out_ports() filter correctly."""
-    eq = _BidirectionalEquipment("bi_eq")
+    eq = _BidirectionalEquipment("bi_eq", sync_protocol=sync, store=store)
     assert len(eq.in_ports()) == 1
     assert len(eq.out_ports()) == 2
     assert eq.in_ports()[0].name == "enable"
 
 
-def test_equipment_duplicate_port_raises() -> None:
-    """Duplicate port name raises ValueError."""
+def test_equipment_duplicate_port_raises(
+    sync: _NoSync, store: ParameterStore
+) -> None:
     class _DuplicatePort(Equipment):
         def _declare_ports(self) -> list[PortDefinition]:
             return [
@@ -89,70 +110,69 @@ def test_equipment_duplicate_port_raises() -> None:
         def do_step(self, t: float, dt: float) -> None: pass
 
     with pytest.raises(ValueError, match="duplicate port"):
-        _DuplicatePort("bad")
-
+        _DuplicatePort("bad", sync_protocol=sync, store=store)
 
 # ── Port read/write tests ─────────────────────────────────────────────────────
 
-def test_write_port_out() -> None:
+def test_write_port_out(sync: _NoSync, store: ParameterStore) -> None:
     """write_port() sets OUT port value."""
-    eq = _SimpleSource("src")
+    eq = _SimpleSource("src", sync_protocol=sync, store=store)
     eq.initialise()
     eq.do_step(0.0, 0.1)
     assert eq.read_port("power_out") == pytest.approx(10.0)
 
 
-def test_write_port_to_in_raises() -> None:
+def test_write_port_to_in_raises(sync: _NoSync, store: ParameterStore) -> None:
     """write_port() on IN port raises ValueError."""
-    eq = _SimpleSink("sink")
+    eq = _SimpleSink("sink", sync_protocol=sync, store=store)
     eq.initialise()
     with pytest.raises(ValueError, match="Cannot write to IN port"):
         eq.write_port("power_in", 5.0)
 
 
-def test_read_port_unknown_raises() -> None:
+def test_read_port_unknown_raises(sync: _NoSync, store: ParameterStore) -> None:
     """read_port() on unknown port raises ValueError."""
-    eq = _SimpleSource("src")
+    eq = _SimpleSource("src", sync_protocol=sync, store=store)
     with pytest.raises(ValueError, match="Unknown port"):
         eq.read_port("nonexistent")
 
 
-def test_port_default_value_is_zero() -> None:
+def test_port_default_value_is_zero(sync: _NoSync, store: ParameterStore) -> None:
     """Unwritten port defaults to 0.0."""
-    eq = _SimpleSink("sink")
+    eq = _SimpleSink("sink", sync_protocol=sync, store=store)
     assert eq.read_port("power_in") == pytest.approx(0.0)
 
 
 # ── receive() tests ───────────────────────────────────────────────────────────
 
-def test_receive_into_in_port() -> None:
+def test_receive_into_in_port(sync: _NoSync, store: ParameterStore) -> None:
     """receive() injects value into IN port."""
-    eq = _SimpleSink("sink")
+    eq = _SimpleSink("sink", sync_protocol=sync, store=store)
     eq.initialise()
     eq.receive("power_in", 42.0)
     assert eq.read_port("power_in") == pytest.approx(42.0)
 
 
-def test_receive_into_out_port_raises() -> None:
+def test_receive_into_out_port_raises(sync: _NoSync, store: ParameterStore) -> None:
     """receive() on OUT port raises ValueError."""
-    eq = _SimpleSource("src")
+    eq = _SimpleSource("src", sync_protocol=sync, store=store)
     with pytest.raises(ValueError, match="Cannot receive into OUT port"):
         eq.receive("power_out", 1.0)
 
 
-def test_receive_unknown_port_raises() -> None:
+def test_receive_unknown_port_raises(sync: _NoSync, store: ParameterStore) -> None:
     """receive() on unknown port raises ValueError."""
-    eq = _SimpleSource("src")
+    eq = _SimpleSource("src", sync_protocol=sync, store=store)
     with pytest.raises(ValueError, match="Unknown port"):
         eq.receive("nonexistent", 1.0)
 
 
 # ── Integration: source -> sink ───────────────────────────────────────────────
 
-def test_source_to_sink_wiring() -> None:
+def test_source_to_sink_wiring(sync: _NoSync, store: ParameterStore) -> None:
     """Source OUT port wired to sink IN port via receive()."""
-    source = _SimpleSource("src")
-    sink = _SimpleSink("sink")
+    source = _SimpleSource("src", sync_protocol=sync, store=store)
+    sink = _SimpleSink("sink", sync_protocol=sync, store=store)
 
     source.initialise()
     sink.initialise()
@@ -169,9 +189,9 @@ def test_source_to_sink_wiring() -> None:
     assert sink.received[-1] == pytest.approx(10.0)
 
 
-def test_bidirectional_equipment_step() -> None:
+def test_bidirectional_equipment_step(sync: _NoSync, store: ParameterStore) -> None:
     """Equipment reads IN port and writes OUT port correctly."""
-    eq = _BidirectionalEquipment("rw")
+    eq = _BidirectionalEquipment("rw", sync_protocol=sync, store=store)
     eq.initialise()
 
     # Not enabled — speed stays 0
