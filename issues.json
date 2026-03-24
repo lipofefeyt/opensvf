@@ -1,44 +1,80 @@
 [
   {
-    "title": "[SDB] Define ParameterDefinition schema and Python dataclasses",
-    "body": "## Objective\nImplement the core ParameterDefinition schema covering all fields needed for spacecraft parameter management.\n\n## Acceptance Criteria\n- ParameterDefinition dataclass: name, description, unit, dtype, valid_range, classification, domain, model_id, pus\n- PusMapping dataclass: apid, service, subservice, parameter_id\n- Classification enum: TM, TC\n- Domain enum: EPS, AOCS, TTC, OBDH, THERMAL\n- All fields typed, frozen dataclasses\n- mypy strict clean\n- Unit tests cover construction and validation\n\n## Implements\nSVF-DEV-090",
-    "labels": ["type: feature", "layer: sim-core", "priority: now"],
-    "milestone": "M3.5 - SRDB"
+    "title": "[BUS] Implement MIL-STD-1553 bus protocol adapter",
+    "body": "## Objective\nBridge CommandStore entries to equipment model interfaces over a simulated MIL-STD-1553 bus.\n\n## Background\nSpacecraft internal commanding between OBC and equipment (reaction wheels, sensors) commonly uses MIL-STD-1553. This adapter simulates the bus timing and addressing behaviour.\n\n## Acceptance Criteria\n- 1553Adapter class wraps CommandStore entries in 1553 message framing\n- Supports RT (Remote Terminal) addressing\n- Message word structure follows MIL-STD-1553B\n- Integration test with OBC model commanding a simulated equipment\n\n## Implements\nSVF-DEV-038",
+    "labels": ["type: feature", "layer: comm-bus", "priority: later"],
+    "milestone": "M6 - Bus Protocols"
   },
   {
-    "title": "[SDB] Implement YAML schema and Python SRDB loader",
-    "body": "## Objective\nImplement a YAML schema for parameter definitions and a Python loader that parses YAML into typed ParameterDefinition objects with validation.\n\n## Acceptance Criteria\n- YAML schema documented and versioned\n- SrdbLoader class parses YAML into dict[str, ParameterDefinition]\n- Schema validation: missing required fields raise descriptive errors\n- Duplicate parameter names raise errors\n- Invalid classification/domain values raise errors\n- Unit tests cover valid load, missing fields, duplicates, invalid values\n\n## Implements\nSVF-DEV-092",
-    "labels": ["type: feature", "layer: sim-core", "priority: now"],
-    "milestone": "M3.5 - SRDB"
+    "title": "[BUS] Implement SpaceWire adapter",
+    "body": "## Objective\nBridge CommandStore entries to equipment model interfaces over a simulated SpaceWire network.\n\n## Background\nSpaceWire is commonly used for high-speed data interfaces between OBC and payload instruments in ESA missions.\n\n## Acceptance Criteria\n- SpWAdapter simulates SpaceWire logical address routing\n- Supports RMAP (Remote Memory Access Protocol) read/write\n- Integration test with payload model over SpaceWire\n\n## Implements\nSVF-DEV-038",
+    "labels": ["type: feature", "layer: comm-bus", "priority: later"],
+    "milestone": "M6 - Bus Protocols"
   },
   {
-    "title": "[SDB] Write domain baseline YAML files (EPS, AOCS, TTC, OBDH, Thermal)",
-    "body": "## Objective\nProvide baseline parameter definitions for five spacecraft domains.\n\n## Acceptance Criteria\n- srdb/baseline/eps.yaml: battery, solar array, PCDU parameters\n- srdb/baseline/aocs.yaml: attitude, angular rates, actuator commands\n- srdb/baseline/ttc.yaml: transponder, antenna, link parameters\n- srdb/baseline/obdh.yaml: OBC health, memory, mode management\n- srdb/baseline/thermal.yaml: temperature sensors, heater commands\n- All existing EPS FMU parameters covered in eps.yaml\n- All files load cleanly via SrdbLoader\n- PUS mappings consistent with ECSS PUS-C service catalogue\n\n## Implements\nSVF-DEV-091",
-    "labels": ["type: feature", "layer: sim-core", "priority: now"],
-    "milestone": "M3.5 - SRDB"
+    "title": "[BUS] Implement CAN bus adapter",
+    "body": "## Objective\nBridge CommandStore entries to equipment model interfaces over a simulated CAN bus.\n\n## Acceptance Criteria\n- CANAdapter simulates CAN 2.0B frame structure\n- Supports standard and extended identifiers\n- Integration test with equipment model over CAN\n\n## Implements\nSVF-DEV-038",
+    "labels": ["type: feature", "layer: comm-bus", "priority: later"],
+    "milestone": "M6 - Bus Protocols"
   },
   {
-    "title": "[SDB] Implement mission-level YAML override support",
-    "body": "## Objective\nAllow mission-specific YAML files to override or extend domain baselines without modifying them.\n\n## Acceptance Criteria\n- SrdbLoader accepts a mission YAML file in addition to baseline files\n- Mission file can override valid_range, description, PUS mappings\n- Mission file can add new parameters not in baselines\n- Mission file cannot change classification (TM/TC) of baseline parameters\n- srdb/missions/example_mission.yaml provided as reference\n- Unit tests cover override, extension, and illegal classification change\n\n## Implements\nSVF-DEV-093",
-    "labels": ["type: feature", "layer: sim-core", "priority: next"],
-    "milestone": "M3.5 - SRDB"
+    "title": "[BUS] Implement UART, I2C and WizardLink adapters",
+    "body": "## Objective\nBridge CommandStore entries to equipment model interfaces over UART, I2C, and WizardLink.\n\n## Acceptance Criteria\n- UARTAdapter, I2CAdapter, WizardLinkAdapter implemented\n- Each simulates the respective framing and addressing\n- Integration tests for each adapter type\n\n## Implements\nSVF-DEV-038",
+    "labels": ["type: feature", "layer: comm-bus", "priority: later"],
+    "milestone": "M6 - Bus Protocols"
   },
   {
-    "title": "[SDB] Wire SRDB into ParameterStore for runtime validation",
-    "body": "## Objective\nParameterStore optionally accepts an SRDB instance and validates writes against parameter definitions at runtime.\n\n## Acceptance Criteria\n- ParameterStore accepts optional Srdb instance at construction\n- write() issues warning when value outside valid_range\n- write() issues warning when writing to a TC-classified parameter\n- CommandStore.inject() issues warning when injecting to a TM-classified parameter\n- Warnings logged via Python logging, never raise exceptions\n- Unit tests cover range violation, TM write, TC read warnings\n\n## Implements\nSVF-DEV-094, SVF-DEV-095",
-    "labels": ["type: feature", "layer: sim-core", "priority: now"],
-    "milestone": "M3.5 - SRDB"
-  },
-  {
-    "title": "[SDB] Implement XTCE export adapter",
-    "body": "## Objective\nExport the SRDB to XTCE 1.2 format for interoperability with ground segment tools (YAMCS, SCOS-2000, etc.).\n\n## Acceptance Criteria\n- XtceExporter class serialises Srdb to valid XTCE 1.2 XML\n- Covers: SpaceSystem, TelemetryMetaData, CommandMetaData\n- Parameter types, valid ranges, and PUS mappings exported\n- Output validated against XTCE 1.2 schema\n- Integration test exports EPS baseline and validates output\n\n## Implements\nSVF-DEV-097",
+    "title": "[SDB] Implement ICD parser and wiring YAML generator",
+    "body": "## Objective\nParse a spacecraft Interface Control Document (ICD) and automatically generate a mission wiring YAML file, removing the need for manual wiring definition.\n\n## Background\nCurrently the wiring YAML is written manually by the engineer from the spacecraft ICD. This issue tracks automation of that step.\n\n## Acceptance Criteria\n- IcdParser class accepts a structured ICD format (TBD - Excel/CSV/XML)\n- Generates a valid wiring YAML from parsed interface definitions\n- Handles point-to-point and bus connections\n- Integration test with sample ICD produces valid wiring YAML\n- Output reviewed and manually adjustable\n\n## Implements\nSVF-DEV-004",
     "labels": ["type: feature", "layer: sim-core", "priority: later"],
-    "milestone": "M3.5 - SRDB"
+    "milestone": "M7 - ICD Integration"
+  },
+  {
+    "title": "[SDB] Define ICD input format specification",
+    "body": "## Objective\nDefine the input format that the ICD parser accepts. This must be agreed before implementation.\n\n## Candidates\n- Structured Excel (common in industry)\n- CSV with defined column schema\n- Custom YAML/JSON ICD format\n- ECSS-E-TM-10-23 compliant XML\n\n## Acceptance Criteria\n- Format specification documented in docs/icd-format.md\n- At least one sample ICD in the agreed format committed to examples/\n- Format reviewed against real spacecraft ICDs\n\n## Implements\nSVF-DEV-004",
+    "labels": ["type: spike", "layer: sim-core", "priority: later"],
+    "milestone": "M7 - ICD Integration"
+  },
+  {
+    "title": "[ABS] Implement RealtimeTickSource driven by RT_PREEMPT timer",
+    "body": "## Objective\nProvide a real-time TickSource implementation driven by an RT_PREEMPT kernel timer for deterministic simulation stepping.\n\n## Acceptance Criteria\n- RealtimeTickSource implements TickSource interface\n- Driven by POSIX timer (timer_create) on RT_PREEMPT patched Linux\n- Jitter measured and documented\n- Drop-in replacement for SoftwareTickSource at composition root\n- Integration test confirms deterministic stepping within 1ms tolerance\n\n## Implements\nSVF-DEV-017",
+    "labels": ["type: feature", "layer: sim-core", "priority: later"],
+    "milestone": "M8 - Real-Time & HIL"
+  },
+  {
+    "title": "[ABS] Implement SharedMemorySyncProtocol",
+    "body": "## Objective\nProvide a lock-free shared memory SyncProtocol for sub-millisecond tick acknowledgement latency.\n\n## Acceptance Criteria\n- SharedMemorySyncProtocol implements SyncProtocol interface\n- Lock-free ring buffer implementation\n- Latency measured and documented (target: <1ms)\n- Drop-in replacement for DdsSyncProtocol\n\n## Implements\nSVF-DEV-018",
+    "labels": ["type: feature", "layer: sim-core", "priority: later"],
+    "milestone": "M8 - Real-Time & HIL"
+  },
+  {
+    "title": "[ABS] Implement HIL hardware bridge ModelAdapter",
+    "body": "## Objective\nProvide a ModelAdapter implementation that bridges DDS topics to physical hardware interfaces for hardware-in-the-loop simulation.\n\n## Acceptance Criteria\n- HilModelAdapter implements ModelAdapter interface\n- Bridges ParameterStore writes to physical output (e.g. SpaceWire card, CAN interface)\n- Reads physical inputs and writes to CommandStore\n- Integration test with representative hardware interface\n\n## Implements\nSVF-DEV-017",
+    "labels": ["type: feature", "layer: sim-core", "priority: later"],
+    "milestone": "M8 - Real-Time & HIL"
+  },
+  {
+    "title": "[BUS] Implement CCSDS/PUS command adapter",
+    "body": "## Objective\nFormat and validate CCSDS/PUS telecommands before writing to the CommandStore. Entry point for external ground-segment commanding.\n\n## Acceptance Criteria\n- PusCommandAdapter formats PUS-C service/subservice/parameter_id\n- Validates TC against SRDB PUS mappings\n- Writes validated commands to CommandStore\n- Integration test with YAMCS or simulated ground station\n\n## Implements\nSVF-DEV-037",
+    "labels": ["type: feature", "layer: comm-bus", "priority: later"],
+    "milestone": "M9 - Ground Segment"
+  },
+  {
+    "title": "[BUS] Implement ParameterStoreDdsBridge for external inspection",
+    "body": "## Objective\nMirror ParameterStore values to DDS topics for external inspection tools and ground segment simulation.\n\n## Acceptance Criteria\n- ParameterStoreDdsBridge mirrors store writes to SVF/Telemetry/{variable}\n- Read-only from external perspective\n- Optional component — simulation runs without it\n- Integration test confirms YAMCS or DDS subscriber receives telemetry\n\n## Implements\nSVF-DEV-034",
+    "labels": ["type: feature", "layer: comm-bus", "priority: later"],
+    "milestone": "M9 - Ground Segment"
+  },
+  {
+    "title": "[SDB] Implement XTCE 1.2 export adapter",
+    "body": "## Objective\nExport the SRDB to XTCE 1.2 format for interoperability with ground segment tools.\n\n## Acceptance Criteria\n- XtceExporter serialises Srdb to valid XTCE 1.2 XML\n- Covers SpaceSystem, TelemetryMetaData, CommandMetaData\n- Output validated against XTCE 1.2 schema\n- Integration test exports EPS baseline and validates\n\n## Implements\nSVF-DEV-097",
+    "labels": ["type: feature", "layer: sim-core", "priority: later"],
+    "milestone": "M9 - Ground Segment"
   },
   {
     "title": "[SDB] Implement MIB import adapter",
-    "body": "## Objective\nImport an existing Mission Information Base (MIB) file into the SRDB, enabling migration from legacy ground segment databases.\n\n## Acceptance Criteria\n- MibImporter class parses MIB format into ParameterDefinition objects\n- Covers pcf.dat (parameter calibration), plf.dat (parameter location), ccf.dat (command)\n- Unmappable fields logged as warnings, not errors\n- Integration test imports a sample MIB and validates key parameters\n\n## Implements\nSVF-DEV-098",
+    "body": "## Objective\nImport an existing Mission Information Base (MIB) into the SRDB, enabling migration from legacy ground segment databases.\n\n## Acceptance Criteria\n- MibImporter parses pcf.dat, plf.dat, ccf.dat\n- Produces ParameterDefinition objects\n- Unmappable fields logged as warnings\n- Integration test with sample MIB\n\n## Implements\nSVF-DEV-098",
     "labels": ["type: feature", "layer: sim-core", "priority: later"],
-    "milestone": "M3.5 - SRDB"
+    "milestone": "M9 - Ground Segment"
   }
 ]
