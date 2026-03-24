@@ -1,8 +1,8 @@
 # SVF Development Requirements
 
-> **Status:** Draft — v0.6
+> **Status:** Draft — v0.7
 > **Last updated:** 2026-03
-> **Author:** lipofefeyt
+> **Author:** TBD
 
 ---
 
@@ -19,6 +19,7 @@ Requirements are identified by the prefix `SVF-DEV-` followed by a zero-padded s
 | [SIM] | Simulation Core |
 | [ABS] | Abstraction Layer |
 | [BUS] | Communication Bus, Parameter Store & Command Store |
+| [SDB] | Spacecraft Reference Database (SRDB) |
 | [ORC] | Test Orchestration |
 | [CAM] | Campaign Manager |
 | [MOD] | Model Authoring |
@@ -51,6 +52,9 @@ The simulation master shall support variable-timestep execution where the FMU ex
 **SVF-DEV-004** `[SIM]` `BASELINED`
 The SimulationMaster shall accept an optional wiring map defining connections between model outputs (ParameterStore) and model inputs (CommandStore). After each tick the master shall copy wired values automatically, enabling model-to-model communication without direct coupling. Assigned to M4.5.
 
+**SVF-DEV-004b** `[SIM]` `BASELINED`
+The SimulationMaster shall support SSP (System Structure and Parameterization) files as an alternative to programmatic wiring maps for describing multi-FMU system connections. Assigned to M4.5.
+
 **SVF-DEV-005** `[SIM]` `IMPLEMENTED`
 The simulation master shall record all FMU output variables to a time-stamped CSV log for each simulation run.
 
@@ -62,9 +66,6 @@ The simulation master shall handle FMU initialisation errors gracefully and repo
 
 **SVF-DEV-008** `[SIM]` `DEFERRED`
 The simulation master shall support FMI 3.0 Scheduled Execution mode for deterministic clock-driven stepping (prerequisite for real-time support).
-
-**SVF-DEV-004b** `[SIM]` `BASELINED`
-The SimulationMaster shall support SSP (System Structure and Parameterization) files as an alternative to programmatic wiring maps for describing multi-FMU system connections. Assigned to M4.5.
 
 ---
 
@@ -163,6 +164,39 @@ The platform shall provide bus protocol adapters (MIL-STD-1553, CAN, I2C, UART, 
 
 ---
 
+## Spacecraft Reference Database Requirements [SDB]
+
+The SRDB is the parameter definition layer — it answers "what is this parameter?" while the ParameterStore answers "what is its current value?". Inspired by the Astrium SRDB Next Generation and ECSS-E-TM-10-23, it follows the "one data one source" principle: every parameter has exactly one authoritative definition shared across all engineering disciplines.
+
+**SVF-DEV-090** `[SDB]` `BASELINED`
+The platform shall implement a ParameterDefinition schema covering: name, description, unit, dtype, valid_range, classification (TM/TC), domain, model_id, and PUS mapping (APID, service, subservice, parameter_id).
+
+**SVF-DEV-091** `[SDB]` `BASELINED`
+The platform shall provide YAML-based baseline parameter definitions for five spacecraft domains: EPS, AOCS, TTC, OBDH, and Thermal. All parameters used by the EPS FMU shall be covered in the EPS baseline.
+
+**SVF-DEV-092** `[SDB]` `BASELINED`
+The platform shall provide a Python SRDB loader (SrdbLoader) that parses YAML definitions into typed ParameterDefinition objects with schema validation. Missing required fields, duplicate names, and invalid classification/domain values shall raise descriptive errors.
+
+**SVF-DEV-093** `[SDB]` `BASELINED`
+The SRDB shall support mission-level YAML files that override or extend domain baselines without modifying them. Mission files shall not be permitted to change the TM/TC classification of baseline parameters.
+
+**SVF-DEV-094** `[SDB]` `BASELINED`
+The ParameterStore shall optionally accept an Srdb instance at construction. When provided, write() shall issue a warning (never an exception) when a value falls outside the parameter's valid_range.
+
+**SVF-DEV-095** `[SDB]` `BASELINED`
+When an SRDB is wired to the ParameterStore and CommandStore, the platform shall issue warnings when: a model writes to a TC-classified parameter, or a test procedure injects a command to a TM-classified parameter. Warnings shall be logged via Python logging and never raise exceptions.
+
+**SVF-DEV-096** `[SDB]` `DEFERRED`
+The SRDB shall support raw-to-engineering calibration definitions (polynomial coefficients, discrete lookup table) for each parameter.
+
+**SVF-DEV-097** `[SDB]` `DEFERRED`
+The platform shall provide an XTCE 1.2 export adapter that serialises the SRDB to valid XTCE XML for interoperability with ground segment tools (YAMCS, SCOS-2000, etc.).
+
+**SVF-DEV-098** `[SDB]` `DEFERRED`
+The platform shall provide a MIB import adapter that populates the SRDB from an existing Mission Information Base file, covering pcf.dat (parameter calibration), plf.dat (parameter location), and ccf.dat (command definition).
+
+---
+
 ## Test Orchestration Requirements [ORC]
 
 **SVF-DEV-040** `[ORC]` `IMPLEMENTED`
@@ -188,6 +222,9 @@ The orchestration layer shall support parallel test execution via pytest-xdist w
 
 **SVF-DEV-047** `[ORC]` `IMPLEMENTED`
 Each test procedure shall be expressible as a standalone Python file with no mandatory inheritance from SVF base classes.
+
+**SVF-DEV-048** `[ORC]` `BASELINED`
+The plugin shall provide an svf_command_schedule mark allowing test procedures to schedule commands at specific simulation times. The SimulationMaster shall write the current simulation time to the ParameterStore as svf.sim_time after each tick. The fixture shall monitor svf.sim_time and fire scheduled commands when the target time is reached. Assigned to M3 close-out.
 
 ---
 
@@ -224,16 +261,16 @@ The platform shall support FMUs authored in C or C++ compiled to shared librarie
 **SVF-DEV-062** `[MOD]` `DRAFT`
 The platform shall provide a Python decorator API (@svf.model, @svf.input, @svf.output, @svf.state) that generates FMI-compliant scaffolding with minimal boilerplate.
 
-**SVF-DEV-063** `[MOD]` `BASELINED`
+**SVF-DEV-063** `[MOD]` `IMPLEMENTED`
 The platform shall provide an integrated EPS FMU (solar array + battery + PCDU) as the first reference spacecraft model, demonstrating realistic power system behaviour with non-linear SoC/voltage curve, charge/discharge efficiency, and penumbra support.
 
 **SVF-DEV-064** `[MOD]` `DEFERRED`
 The platform shall provide an SMP2 model importer that converts SMP2-compliant model packages into FMI 3.0 FMUs.
 
-**SVF-DEV-065** `[MOD]` `BASELINED`
+**SVF-DEV-065** `[MOD]` `IMPLEMENTED`
 The integrated EPS FMU shall expose the following interface:
-Inputs: solar_illumination (0.0–1.0), load_power (W).
-Outputs: bus_voltage (V), battery_soc (0.0–1.0), battery_voltage (V), generated_power (W), charge_current (A). Assigned to M4.
+Inputs: solar_illumination (0.0-1.0), load_power (W).
+Outputs: bus_voltage (V), battery_soc (0.0-1.0), battery_voltage (V), generated_power (W), charge_current (A).
 
 **SVF-DEV-066** `[MOD]` `BASELINED`
 The EPS FMU shall be decomposed into three separate FMUs (SolarArray, Battery, PCDU) connected via the model wiring mechanism. Assigned to M4.5.
@@ -344,6 +381,15 @@ The platform shall support soft real-time execution on Linux hosts running the R
 | SVF-DEV-036 | BUS | IMPLEMENTED | M3 | test_take_is_atomic |
 | SVF-DEV-037 | BUS | DEFERRED | — | — |
 | SVF-DEV-038 | BUS | DEFERRED | — | — |
+| SVF-DEV-090 | SDB | BASELINED | M3.5 | — |
+| SVF-DEV-091 | SDB | BASELINED | M3.5 | — |
+| SVF-DEV-092 | SDB | BASELINED | M3.5 | — |
+| SVF-DEV-093 | SDB | BASELINED | M3.5 | — |
+| SVF-DEV-094 | SDB | BASELINED | M3.5 | — |
+| SVF-DEV-095 | SDB | BASELINED | M3.5 | — |
+| SVF-DEV-096 | SDB | DEFERRED | — | — |
+| SVF-DEV-097 | SDB | DEFERRED | — | — |
+| SVF-DEV-098 | SDB | DEFERRED | — | — |
 | SVF-DEV-040 | ORC | IMPLEMENTED | M3 | test_fixture_default_fmu |
 | SVF-DEV-041 | ORC | IMPLEMENTED | M3 | test_fixture_default_fmu |
 | SVF-DEV-042 | ORC | IMPLEMENTED | M3 | test_fixture_inject_command |
@@ -352,6 +398,7 @@ The platform shall support soft real-time execution on Linux hosts running the R
 | SVF-DEV-045 | ORC | BASELINED | M3 | — |
 | SVF-DEV-046 | ORC | DRAFT | — | — |
 | SVF-DEV-047 | ORC | IMPLEMENTED | M3 | test_fixture_default_fmu |
+| SVF-DEV-048 | ORC | BASELINED | M3 | — |
 | SVF-DEV-050 | CAM | DRAFT | — | — |
 | SVF-DEV-051 | CAM | DRAFT | — | — |
 | SVF-DEV-052 | CAM | DRAFT | — | — |
@@ -361,9 +408,9 @@ The platform shall support soft real-time execution on Linux hosts running the R
 | SVF-DEV-060 | MOD | IMPLEMENTED | M1 | validate_fmpy.py |
 | SVF-DEV-061 | MOD | DRAFT | — | — |
 | SVF-DEV-062 | MOD | DRAFT | — | — |
-| SVF-DEV-063 | MOD | BASELINED | M4 | — |
+| SVF-DEV-063 | MOD | IMPLEMENTED | M4 | test_tc_pwr_001 |
 | SVF-DEV-064 | MOD | DEFERRED | — | — |
-| SVF-DEV-065 | MOD | BASELINED | M4 | — |
+| SVF-DEV-065 | MOD | IMPLEMENTED | M4 | test_tc_pwr_001 |
 | SVF-DEV-066 | MOD | BASELINED | M4.5 | — |
 | SVF-DEV-070 | REP | DRAFT | — | — |
 | SVF-DEV-071 | REP | DRAFT | — | — |
