@@ -1,8 +1,8 @@
 """
 SVF CommandStore
 Thread-safe store for telecommands.
-Architecturally separate from ParameterStore — TM and TC are never conflated.
-Implements: SVF-DEV-035, SVF-DEV-036
+Optionally validates inject() against SRDB definitions.
+Implements: SVF-DEV-035, SVF-DEV-036, SVF-DEV-095
 """
 
 from __future__ import annotations
@@ -10,7 +10,10 @@ from __future__ import annotations
 import logging
 import threading
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from svf.srdb.loader import Srdb
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +27,7 @@ class CommandEntry:
         name:      The target parameter or command name.
         value:     The commanded value.
         t:         Simulation time at which the command was injected.
-        source_id: ID of the issuing entity (test procedure, ground segment).
+        source_id: ID of the issuing entity.
         consumed:  True if the command has been taken by a model adapter.
     """
     name: str
@@ -39,27 +42,19 @@ class CommandStore:
     Thread-safe store for telecommands.
 
     Test procedures inject commands here. Model adapters consume them
-    via take() before each tick. TM and TC are never mixed — this store
-    holds only commands, never telemetry outputs.
+    via take() before each tick. Architecturally separate from
+    ParameterStore — TM and TC are never mixed.
 
-    The take() method is atomic: it reads and marks a command as consumed
-    in a single operation, preventing double-application across ticks.
+    Optionally accepts an Srdb instance for runtime validation:
+      - Warns when a TM-classified parameter is injected as a command
 
-    Usage:
-        store = CommandStore()
-
-        # Test procedure (ground operator)
-        store.inject("thruster_cmd", value=1.0, t=0.0, source_id="TC-001")
-
-        # Model adapter (before doStep)
-        entry = store.take("thruster_cmd")
-        if entry is not None:
-            fmu.setReal(vr, entry.value)
+    Warnings are logged, never raised — the command is still stored.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, srdb: Optional[Srdb] = None) -> None:
         self._store: dict[str, CommandEntry] = {}
         self._lock = threading.RLock()
+        self._srdb = srdb
 
     def inject(
         self,
@@ -71,8 +66,8 @@ class CommandStore:
         """
         Inject a command into the store.
 
-        If a command for this name already exists and has not been consumed,
-        it is overwritten — the latest command wins.
+        If an SRDB is configured, warns when injecting to a
+        TM-classified parameter.
 
         Args:
             name:      Target parameter or command name
@@ -80,6 +75,28 @@ class CommandStore:
             t:         Simulation time of injection
             source_id: ID of the issuing entity
         """
+        if self._srdb is not None:
+            defn = self._srdb.get(name)
+            if defn is not None:
+                from svf.srdb.definitions import Classification
+                if defn.classification == Classification.TM:
+                    logger.warning(
+                        f"[SRDB] '{source_id}' injected command to "
+                        f"TM-classified parameter '{name}' — "
+                        f"TM/TC separation violation"
+                    )
+                if defn.valid_range is not None:
+                    if not defn.is_in_range(value):
+                        lo, hi = defn.valid_range
+                        logger.warning(
+                            f"[SRDB] Command value {value} for '{name}' "
+                            f"is outside valid range [{lo}, {hi}]"
+                        )
+            else:
+                logger.debug(
+                    f"[SRDB] Command parameter '{name}' not found in SRDB"
+                )
+
         with self._lock:
             self._store[name] = CommandEntry(
                 name=name,
@@ -93,16 +110,7 @@ class CommandStore:
     def take(self, name: str) -> Optional[CommandEntry]:
         """
         Atomically read and consume a command.
-
-        Returns the command entry if one exists and has not been consumed.
-        Marks it as consumed immediately — subsequent calls return None
-        until a new command is injected.
-
-        Args:
-            name: Command name to take
-
-        Returns:
-            CommandEntry if a fresh command exists, None otherwise.
+        Returns None if no fresh command exists.
         """
         with self._lock:
             entry = self._store.get(name)
@@ -113,34 +121,18 @@ class CommandStore:
             return None
 
     def peek(self, name: str) -> Optional[CommandEntry]:
-        """
-        Read a command without consuming it.
-
-        Used for inspection and debugging — does not affect whether
-        the command will be taken by a model adapter.
-
-        Args:
-            name: Command name to peek
-
-        Returns:
-            CommandEntry if one exists (consumed or not), None otherwise.
-        """
+        """Read a command without consuming it."""
         with self._lock:
             return self._store.get(name)
 
     def clear(self) -> None:
-        """
-        Clear all commands. Typically called between simulation runs.
-        """
+        """Clear all commands."""
         with self._lock:
             self._store.clear()
         logger.debug("CommandStore cleared")
 
     def pending(self) -> list[str]:
-        """
-        Names of all commands that have been injected but not yet consumed.
-        Useful for debugging and post-run inspection.
-        """
+        """Names of all unconsumed commands."""
         with self._lock:
             return [
                 name for name, entry in self._store.items()
