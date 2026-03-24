@@ -29,12 +29,12 @@ from svf.plugin.verdict import Verdict, VerdictRecorder
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class FmuConfig:
     """Configuration for a single FMU in a simulation session."""
     fmu_path: str | Path
     model_id: str
+    parameter_map: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -160,6 +160,7 @@ def svf_session(
             sync_protocol=sync,
             store=store,
             command_store=cmd_store,
+            parameter_map=cfg.parameter_map if cfg.parameter_map else None,
         )
         for cfg in fmu_configs
     ]

@@ -2,6 +2,7 @@
 SVF FmuModelAdapter
 Wraps an FMI 3.0 FMU and implements the ModelAdapter interface.
 Reads commands from CommandStore, writes outputs to ParameterStore.
+Supports optional parameter_map for SRDB canonical name mapping.
 Implements: SVF-DEV-014, SVF-DEV-031, SVF-DEV-033, SVF-DEV-035, SVF-DEV-036
 """
 
@@ -31,16 +32,18 @@ class FmuModelAdapter(ModelAdapter):
       4. Optionally records to CsvLogger
       5. Publishes sync acknowledgement via SyncProtocol
 
-    Usage:
-        store = ParameterStore()
-        cmd_store = CommandStore()
-        adapter = FmuModelAdapter(
-            fmu_path="models/power.fmu",
-            model_id="power",
-            sync_protocol=sync,
-            store=store,
-            command_store=cmd_store,
-        )
+    Parameter mapping:
+      The optional parameter_map translates between FMU variable names
+      and SRDB canonical names. For outputs: FMU name -> canonical name.
+      For inputs: canonical name -> FMU name (reverse lookup).
+
+      Example:
+          parameter_map = {
+              "battery_soc": "eps.battery.soc",
+              "solar_illumination": "eps.solar_array.illumination",
+          }
+
+      If no mapping exists for a variable, the raw FMU name is used.
     """
 
     def __init__(
@@ -51,6 +54,7 @@ class FmuModelAdapter(ModelAdapter):
         store: ParameterStore,
         command_store: Optional[CommandStore] = None,
         csv_logger: Optional[CsvLogger] = None,
+        parameter_map: Optional[dict[str, str]] = None,
     ) -> None:
         self._fmu_path = Path(fmu_path)
         self._model_id = model_id
@@ -58,6 +62,14 @@ class FmuModelAdapter(ModelAdapter):
         self._store = store
         self._command_store = command_store
         self._csv_logger = csv_logger
+
+        # FMU name -> canonical name (outputs)
+        self._parameter_map: dict[str, str] = parameter_map or {}
+        # canonical name -> FMU name (inputs, reverse lookup)
+        self._reverse_map: dict[str, str] = {
+            v: k for k, v in self._parameter_map.items()
+        }
+
         self._instance: Optional[Any] = None
         self._model_desc: Optional[Any] = None
         self._output_names: list[str] = []
@@ -66,17 +78,27 @@ class FmuModelAdapter(ModelAdapter):
         if not self._fmu_path.exists():
             raise FileNotFoundError(f"FMU not found: {self._fmu_path}")
 
+    def _canonical(self, fmu_name: str) -> str:
+        """Translate FMU variable name to canonical SRDB name."""
+        return self._parameter_map.get(fmu_name, fmu_name)
+
+    def _fmu_name(self, canonical: str) -> str:
+        """Translate canonical SRDB name to FMU variable name."""
+        return self._reverse_map.get(canonical, canonical)
+
     @property
     def model_id(self) -> str:
         return self._model_id
 
     @property
     def output_names(self) -> list[str]:
-        return list(self._output_names)
+        """Canonical output parameter names."""
+        return [self._canonical(n) for n in self._output_names]
 
     @property
     def input_names(self) -> list[str]:
-        return list(self._input_names)
+        """Canonical input parameter names."""
+        return [self._canonical(n) for n in self._input_names]
 
     def initialise(self, start_time: float = 0.0) -> None:
         """Load and initialise the FMU ready for ticking."""
@@ -97,8 +119,10 @@ class FmuModelAdapter(ModelAdapter):
             v.name for v in self._model_desc.modelVariables
             if v.causality == "input"
         ]
-        logger.info(f"[{self._model_id}] Outputs: {self._output_names}")
-        logger.info(f"[{self._model_id}] Inputs: {self._input_names}")
+        logger.info(
+            f"[{self._model_id}] Outputs: {self.output_names} "
+            f"Inputs: {self.input_names}"
+        )
 
         try:
             unzipdir = extract(str(self._fmu_path))
@@ -116,14 +140,13 @@ class FmuModelAdapter(ModelAdapter):
             ) from e
 
         if self._csv_logger is not None:
-            self._csv_logger.open(self._output_names)
+            self._csv_logger.open(self.output_names)
 
         logger.info(f"[{self._model_id}] Initialised at t={start_time}")
 
     def on_tick(self, t: float, dt: float) -> None:
         """
         Apply pending commands, step the FMU, write outputs to store.
-        Raises RuntimeError on any failure.
         """
         if self._instance is None or self._model_desc is None:
             raise RuntimeError(
@@ -131,21 +154,26 @@ class FmuModelAdapter(ModelAdapter):
             )
 
         try:
-            # Step 1: apply any pending commands to FMU inputs
+            # Step 1: apply pending commands using canonical -> FMU name
             if self._command_store is not None:
-                for name in self._input_names:
-                    entry = self._command_store.take(name)
+                for fmu_input_name in self._input_names:
+                    canonical = self._canonical(fmu_input_name)
+                    entry = self._command_store.take(canonical)
+                    # Also try raw FMU name if canonical lookup fails
+                    if entry is None:
+                        entry = self._command_store.take(fmu_input_name)
                     if entry is not None:
                         vrs = [
                             v.valueReference
                             for v in self._model_desc.modelVariables
-                            if v.name == name
+                            if v.name == fmu_input_name
                         ]
                         if vrs:
                             self._instance.setReal(vrs, [entry.value])
                             logger.info(
                                 f"[{self._model_id}] Applied command "
-                                f"{name}={entry.value} from {entry.source_id}"
+                                f"{canonical}={entry.value} "
+                                f"from {entry.source_id}"
                             )
 
             # Step 2: advance the FMU
@@ -154,22 +182,24 @@ class FmuModelAdapter(ModelAdapter):
                 communicationStepSize=dt,
             )
 
-            # Step 3: read and store outputs
+            # Step 3: read outputs and write to ParameterStore
             vrs = [
                 v.valueReference for v in self._model_desc.modelVariables
                 if v.causality == "output"
             ]
             values = self._instance.getReal(vrs)
-            outputs = dict(zip(self._output_names, values))
             stepped_t = round(t + dt, 9)
 
-            for name, value in outputs.items():
+            outputs: dict[str, float] = {}
+            for fmu_name, value in zip(self._output_names, values):
+                canonical = self._canonical(fmu_name)
                 self._store.write(
-                    name=name,
+                    name=canonical,
                     value=value,
                     t=stepped_t,
                     model_id=self._model_id,
                 )
+                outputs[canonical] = value
 
             if self._csv_logger is not None:
                 self._csv_logger.record(time=stepped_t, outputs=outputs)
