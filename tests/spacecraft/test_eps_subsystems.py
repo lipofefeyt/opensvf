@@ -10,6 +10,7 @@ from svf.abstractions import SyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
 from svf.fmu_equipment import FmuEquipment
+from svf.simulation import SimulationMaster
 
 MODELS = Path(__file__).parent.parent.parent / "models"
 
@@ -224,8 +225,7 @@ def test_pcdu_bus_voltage_equals_battery_voltage(pcdu: FmuEquipment) -> None:
 
 @pytest.fixture
 def eps_wired(sync: _NoSync, store: ParameterStore,
-              cmd_store: CommandStore):  # type: ignore[no-untyped-def]
-    """Full decomposed EPS wired via WiringMap."""
+              cmd_store: CommandStore) -> tuple[SimulationMaster, ParameterStore, CommandStore]:
     from cyclonedds.domain import DomainParticipant
     from svf.simulation import SimulationMaster
     from svf.software_tick import SoftwareTickSource
@@ -280,7 +280,9 @@ def eps_wired(sync: _NoSync, store: ParameterStore,
 
 
 @pytest.mark.requirement("EPS-014", "EPS-016")
-def test_decomposed_eps_charges_in_sunlight(eps_wired) -> None:  # type: ignore[no-untyped-def]
+def test_decomposed_eps_charges_in_sunlight(
+    eps_wired: tuple[SimulationMaster, ParameterStore, CommandStore]
+) -> None:
     """Decomposed EPS charges battery in full sunlight."""
     master, store, cmd_store = eps_wired
     cmd_store.inject("eps.solar_array.illumination", 1.0, source_id="test")
@@ -294,7 +296,9 @@ def test_decomposed_eps_charges_in_sunlight(eps_wired) -> None:  # type: ignore[
 
 
 @pytest.mark.requirement("EPS-015", "EPS-016")
-def test_decomposed_eps_discharges_in_eclipse(eps_wired) -> None:  # type: ignore[no-untyped-def]
+def test_decomposed_eps_discharges_in_eclipse(
+    eps_wired: tuple[SimulationMaster, ParameterStore, CommandStore]
+) -> None:
     """Decomposed EPS discharges battery in eclipse."""
     master, store, cmd_store = eps_wired
     cmd_store.inject("eps.solar_array.illumination", 0.0, source_id="test")
