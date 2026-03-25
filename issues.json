@@ -1,32 +1,32 @@
 [
   {
-    "title": "[SIM] Define Equipment abstract base class with port interface",
-    "body": "## Objective\nDefine the Equipment abstract base class providing standard lifecycle and port access for all spacecraft equipment models.\n\n## Acceptance Criteria\n- Equipment ABC with: equipment_id, initialise(), do_step(), write_port(), read_port()\n- PortDirection enum: IN, OUT\n- PortDefinition dataclass: name, direction, unit, dtype\n- Equipment.declare_ports() class method for port registration\n- mypy strict clean\n- Unit tests cover port registration and access\n\n## Implements\nSVF-DEV-004",
-    "labels": ["type: feature", "layer: sim-core", "priority: now"],
-    "milestone": "M4.5 - Model Wiring"
+    "title": "[REQ] Add EQP functional area to REQUIREMENTS.md",
+    "body": "## Objective\nDefine requirements for the generic Equipment contract. Every equipment model must satisfy these regardless of type.\n\n## Requirements to add\n- EQP-001: Port declaration before initialise()\n- EQP-002: No write_port() on IN ports\n- EQP-003: No read from undeclared ports\n- EQP-004: on_tick() reads CommandStore into IN ports before do_step()\n- EQP-005: on_tick() writes OUT ports to ParameterStore after do_step()\n- EQP-006: on_tick() calls publish_ready() after ParameterStore writes\n- EQP-007: FmuEquipment maps FMU variable names via parameter_map\n- EQP-008: FmuEquipment applies IN ports to FMU inputs before doStep()\n- EQP-009: FmuEquipment reads FMU outputs into OUT ports after doStep()\n- EQP-010: NativeEquipment calls step_fn with (equipment, t, dt)\n\n## Acceptance Criteria\n- All EQP requirements added to REQUIREMENTS.md\n- Traceability index updated\n- Status: BASELINED",
+    "labels": ["type: docs", "priority: now"],
+    "milestone": "M3.6 - Requirements Engineering"
   },
   {
-    "title": "[SIM] Implement FmuEquipment wrapping FMU as Equipment",
-    "body": "## Objective\nWrap an FMI 3.0 FMU as an Equipment implementation, mapping FMU variables to named ports via parameter_map.\n\n## Acceptance Criteria\n- FmuEquipment extends Equipment\n- FMU inputs exposed as IN ports\n- FMU outputs exposed as OUT ports\n- write_port() sets FMU input before doStep()\n- read_port() reads FMU output after doStep()\n- Existing EPS FMU wrappable as FmuEquipment\n- Unit tests cover port read/write\n\n## Implements\nSVF-DEV-004, SVF-DEV-014",
-    "labels": ["type: feature", "layer: sim-core", "priority: now"],
-    "milestone": "M4.5 - Model Wiring"
+    "title": "[REQ] Add EPS functional area to REQUIREMENTS.md",
+    "body": "## Objective\nDefine requirements for the EPS spacecraft models (SolarArray, Battery, PCDU, integrated and decomposed).\n\n## Requirements to add\n- EPS-001: SolarArray power proportional to illumination\n- EPS-002: SolarArray zero power in eclipse\n- EPS-003: Battery SoC decreases when charge_current negative\n- EPS-004: Battery SoC increases when charge_current positive\n- EPS-005: Battery voltage follows non-linear SoC curve (3.0V-4.2V)\n- EPS-006: PCDU positive charge_current when generation exceeds load\n- EPS-007: PCDU negative charge_current when load exceeds generation\n- EPS-008: Integrated EPS charges battery in full sunlight\n- EPS-009: Integrated EPS discharges battery in eclipse\n- EPS-010: Decomposed EPS matches integrated EPS behaviour\n\n## Acceptance Criteria\n- All EPS requirements added to REQUIREMENTS.md\n- Traceability index updated\n- Status: BASELINED",
+    "labels": ["type: docs", "priority: now"],
+    "milestone": "M3.6 - Requirements Engineering"
   },
   {
-    "title": "[SIM] Implement wiring YAML schema and loader",
-    "body": "## Objective\nDefine a simple human-readable YAML schema for spacecraft equipment wiring and implement a Python loader.\n\n## Schema\n```yaml\nconnections:\n  - from: pcdu.bus.lcl1\n    to: rw1.power_enable\n    description: RW1 power line\n```\n\n## Acceptance Criteria\n- WiringLoader parses YAML into list of Connection(from, to, description)\n- Validates that all referenced equipment_id.port combinations exist\n- Duplicate connections raise WiringLoadError\n- Unit tests cover valid wiring, missing equipment, duplicates\n\n## Implements\nSVF-DEV-004",
-    "labels": ["type: feature", "layer: sim-core", "priority: now"],
-    "milestone": "M4.5 - Model Wiring"
+    "title": "[REQ] Restructure test directory to unit/equipment/integration/spacecraft",
+    "body": "## Objective\nReorganise the test suite to clearly separate unit, equipment contract, integration, and spacecraft model tests.\n\n## Target structure\n```\ntests/\n  unit/               - SVF platform classes in isolation\n  equipment/          - Generic Equipment contract (EQP-xxx)\n  integration/        - SVF infrastructure mechanics\n  spacecraft/         - Specific model behaviour (EPS-xxx etc.)\n```\n\n## Acceptance Criteria\n- All tests moved to correct directory\n- No test exists without a @pytest.mark.requirement() tag\n- No redundant tests\n- All tests pass after restructuring\n- CI green\n\n## Implements\nSVF-DEV-072",
+    "labels": ["type: refactor", "priority: now"],
+    "milestone": "M3.6 - Requirements Engineering"
   },
   {
-    "title": "[SIM] Wire Equipment ports via SimulationMaster after each tick",
-    "body": "## Objective\nExtend SimulationMaster to apply wiring after each tick — copying OUT port values to connected IN ports.\n\n## Design\nAfter all models tick and sync completes, master iterates wiring connections and copies source port values to destination ports via CommandStore.\n\n## Acceptance Criteria\n- SimulationMaster accepts optional WiringMap and CommandStore\n- After each tick: source OUT port read from ParameterStore, written to CommandStore as destination IN port\n- Wiring applied before next tick so receiving model sees value on next step\n- Integration test with two connected NativeEquipment models\n\n## Implements\nSVF-DEV-004",
-    "labels": ["type: feature", "layer: sim-core", "priority: now"],
-    "milestone": "M4.5 - Model Wiring"
+    "title": "[REQ] Ensure every test is traced to a requirement",
+    "body": "## Objective\nAudit every test in the suite. Every test must reference at least one requirement via @pytest.mark.requirement(). Tests that cannot be traced to a requirement must be deleted or a requirement must be created for them.\n\n## Acceptance Criteria\n- Every test has @pytest.mark.requirement(...) marker\n- No requirement exists without at least one test\n- No test exists without a corresponding requirement\n- Traceability matrix generated from pytest markers\n- CI verifies marker presence (warn on missing)\n\n## Implements\nSVF-DEV-072, SVF-DEV-073",
+    "labels": ["type: refactor", "priority: now"],
+    "milestone": "M3.6 - Requirements Engineering"
   },
   {
-    "title": "[MOD] Decompose EPS FMU into SolarArray, Battery, PCDU Equipment",
-    "body": "## Objective\nRefactor the integrated EPS FMU into three separate Equipment instances connected via wiring YAML.\n\n## Models\n- SolarArrayEquipment: illumination -> generated_power, array_voltage\n- BatteryEquipment: charge_current -> battery_voltage, soc, temperature\n- PcduEquipment: solar_power + battery_voltage + load -> bus_voltage + charge_current\n\n## Acceptance Criteria\n- Three separate pythonfmu FMUs built and committed\n- Wiring YAML in srdb/wiring/eps_wiring.yaml\n- Existing TC-PWR-001 through TC-PWR-005 pass unchanged\n- SRDB canonical names used throughout\n\n## Implements\nSVF-DEV-066",
-    "labels": ["type: feature", "layer: model-authoring", "priority: now"],
-    "milestone": "M4.5 - Model Wiring"
+    "title": "[REQ] Generate requirements traceability matrix from pytest markers",
+    "body": "## Objective\nImplement a pytest plugin hook that collects all @pytest.mark.requirement() markers and generates a traceability matrix after each test run.\n\n## Output format\n```\nRequirement | Test Cases              | Verdict\nEQP-001     | test_port_declaration   | PASS\nEPS-001     | test_solar_proportional | PASS\n```\n\n## Acceptance Criteria\n- Traceability matrix written to results/traceability.txt after each run\n- Matrix included in JUnit XML output as custom property\n- Requirements with no tests flagged as UNTESTED\n- Implements SVF-DEV-073\n\n## Implements\nSVF-DEV-072, SVF-DEV-073",
+    "labels": ["type: feature", "layer: reporting", "priority: now"],
+    "milestone": "M3.6 - Requirements Engineering"
   }
 ]
