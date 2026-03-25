@@ -1,0 +1,20 @@
+# SVF EPS System Wiring
+# Connects SolarArray, Battery, and PCDU equipment.
+# Represents the physical electrical interfaces of the EPS.
+# Static topology — defined once, data propagates every tick.
+
+connections:
+  # Solar array -> PCDU
+  - from: solar_array.eps.solar_array.generated_power
+    to:   pcdu.eps.solar_input
+    description: Solar array power output to PCDU input
+
+  # Battery -> PCDU (voltage feedback)
+  - from: battery.eps.battery.voltage
+    to:   pcdu.eps.battery_voltage_in
+    description: Battery terminal voltage feedback to PCDU
+
+  # PCDU -> Battery (charge current command)
+  - from: pcdu.eps.pcdu.charge_current
+    to:   battery.eps.battery.charge_current_in
+    description: PCDU charge current command to battery
