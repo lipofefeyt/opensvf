@@ -14,6 +14,7 @@ from typing import Optional
 from svf.abstractions import TickSource, SyncProtocol, ModelAdapter
 from svf.wiring import WiringMap
 from svf.command_store import CommandStore
+from svf.parameter_store import ParameterStore
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,7 @@ class SimulationMaster:
         sync_timeout: float = 5.0,
         wiring: Optional[WiringMap] = None,
         command_store: Optional[CommandStore] = None,
+        param_store: Optional[ParameterStore] = None,
     ) -> None:
         if not models:
             raise SimulationError("SimulationMaster requires at least one ModelAdapter.")
@@ -70,6 +72,7 @@ class SimulationMaster:
         self._sync_timeout = sync_timeout
         self._wiring = wiring
         self._command_store = command_store
+        self._param_store = param_store
         self._time: float = 0.0
         self._running = False
         self._model_ids = [m.model_id for m in models]
@@ -205,6 +208,15 @@ class SimulationMaster:
                         )
                     except ValueError as e:
                         logger.warning(f"Wiring error: {e}")
+
+        # Publish simulation time for svf_command_schedule
+        if self._param_store is not None:
+            self._param_store.write(
+                name="svf.sim_time",
+                value=round(self._time, 9),
+                t=round(self._time, 9),
+                model_id="svf.master",
+            )
 
 
     def _teardown(self) -> None:

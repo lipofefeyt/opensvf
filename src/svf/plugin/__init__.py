@@ -102,6 +102,11 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "svf_initial_commands(cmds): list of (name, value) tuples injected before simulation starts"
     )
+    config.addinivalue_line(
+        "markers",
+        "svf_command_schedule(cmds): list of (sim_time, name, value) "
+        "tuples fired at specific simulation times"
+    )
 
 
 @pytest.hookimpl(hookwrapper=True)
