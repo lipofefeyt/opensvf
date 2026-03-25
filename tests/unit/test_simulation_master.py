@@ -19,7 +19,7 @@ from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
 from svf.logging import CsvLogger
 
-FMU_PATH = Path(__file__).parent.parent / "examples" / "SimpleCounter.fmu"
+FMU_PATH = Path(__file__).parent.parent.parent / "examples" / "SimpleCounter.fmu"
 
 
 class _PassthroughSync(SyncProtocol):

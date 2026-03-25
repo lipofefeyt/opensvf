@@ -10,7 +10,7 @@ from svf.plugin.fixtures import FmuConfig
 from svf.plugin.verdict import Verdict
 from svf.plugin.observable import ConditionNotMet
 
-FMU_PATH = Path(__file__).parent.parent / "examples" / "SimpleCounter.fmu"
+FMU_PATH = Path(__file__).parent.parent.parent / "examples" / "SimpleCounter.fmu"
 
 
 def test_fixture_default_fmu(svf_session) -> None:  # type: ignore[no-untyped-def]

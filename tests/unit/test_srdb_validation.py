@@ -16,7 +16,7 @@ from svf.srdb.definitions import Classification, Domain, Dtype, ParameterDefinit
 @pytest.fixture
 def srdb():  # type: ignore[no-untyped-def]
     """Load EPS baseline SRDB for validation tests."""
-    baseline = Path(__file__).parent.parent / "srdb" / "baseline" / "eps.yaml"
+    baseline = Path(__file__).parent.parent.parent / "srdb" / "baseline" / "eps.yaml"
     loader = SrdbLoader()
     loader.load_baseline(baseline)
     return loader.build()
