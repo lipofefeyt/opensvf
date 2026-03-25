@@ -12,6 +12,7 @@ from svf.srdb.definitions import (
 
 # ── PusMapping tests ──────────────────────────────────────────────────────────
 
+@pytest.mark.requirement("SVF-DEV-090")
 def test_pus_mapping_valid() -> None:
     """PusMapping constructs correctly with valid values."""
     pus = PusMapping(apid=0x100, service=3, subservice=25, parameter_id=0x0042)
@@ -21,18 +22,21 @@ def test_pus_mapping_valid() -> None:
     assert pus.parameter_id == 0x0042
 
 
+@pytest.mark.requirement("SVF-DEV-090")
 def test_pus_mapping_invalid_apid() -> None:
     """APID must be within 11-bit range."""
     with pytest.raises(ValueError, match="APID"):
         PusMapping(apid=0x800, service=3, subservice=25, parameter_id=1)
 
 
+@pytest.mark.requirement("SVF-DEV-090")
 def test_pus_mapping_invalid_service() -> None:
     """PUS service must be 0-255."""
     with pytest.raises(ValueError, match="service"):
         PusMapping(apid=0x100, service=256, subservice=25, parameter_id=1)
 
 
+@pytest.mark.requirement("SVF-DEV-090")
 def test_pus_mapping_frozen() -> None:
     """PusMapping is immutable."""
     pus = PusMapping(apid=0x100, service=3, subservice=25, parameter_id=1)
@@ -42,6 +46,7 @@ def test_pus_mapping_frozen() -> None:
 
 # ── ParameterDefinition tests ─────────────────────────────────────────────────
 
+@pytest.mark.requirement("SVF-DEV-090")
 def test_parameter_definition_tm() -> None:
     """TM parameter constructs correctly."""
     param = ParameterDefinition(
@@ -61,6 +66,7 @@ def test_parameter_definition_tm() -> None:
     assert param.valid_range == (0.05, 1.0)
 
 
+@pytest.mark.requirement("SVF-DEV-090")
 def test_parameter_definition_tc() -> None:
     """TC parameter constructs correctly."""
     param = ParameterDefinition(
@@ -77,6 +83,7 @@ def test_parameter_definition_tc() -> None:
     assert param.pus is None
 
 
+@pytest.mark.requirement("SVF-DEV-090")
 def test_parameter_definition_no_range() -> None:
     """Parameter without valid_range is always in range."""
     param = ParameterDefinition(
@@ -92,6 +99,7 @@ def test_parameter_definition_no_range() -> None:
     assert param.is_in_range(999.0) is True
 
 
+@pytest.mark.requirement("SVF-DEV-090")
 def test_parameter_is_in_range() -> None:
     """is_in_range() returns correct results."""
     param = ParameterDefinition(
@@ -111,6 +119,7 @@ def test_parameter_is_in_range() -> None:
     assert param.is_in_range(1.01) is False
 
 
+@pytest.mark.requirement("SVF-DEV-090")
 def test_parameter_empty_name_raises() -> None:
     """Empty name raises ValueError."""
     with pytest.raises(ValueError, match="name cannot be empty"):
@@ -125,6 +134,7 @@ def test_parameter_empty_name_raises() -> None:
         )
 
 
+@pytest.mark.requirement("SVF-DEV-090")
 def test_parameter_invalid_range_raises() -> None:
     """valid_range with min >= max raises ValueError."""
     with pytest.raises(ValueError, match="valid_range"):
@@ -140,6 +150,7 @@ def test_parameter_invalid_range_raises() -> None:
         )
 
 
+@pytest.mark.requirement("SVF-DEV-090")
 def test_parameter_frozen() -> None:
     """ParameterDefinition is immutable."""
     param = ParameterDefinition(
@@ -155,6 +166,7 @@ def test_parameter_frozen() -> None:
         param.name = "changed"  # type: ignore[misc]
 
 
+@pytest.mark.requirement("SVF-DEV-090")
 def test_parameter_str() -> None:
     """__str__ produces readable output."""
     param = ParameterDefinition(

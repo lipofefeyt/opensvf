@@ -8,6 +8,7 @@ import threading
 from svf.command_store import CommandStore, CommandEntry
 
 
+@pytest.mark.requirement("SVF-DEV-035", "SVF-DEV-036")
 def test_inject_and_take() -> None:
     """Injected command is immediately takeable."""
     store = CommandStore()
@@ -20,12 +21,14 @@ def test_inject_and_take() -> None:
     assert entry.consumed is True
 
 
+@pytest.mark.requirement("SVF-DEV-036")
 def test_take_unknown_command() -> None:
     """Taking an unknown command returns None."""
     store = CommandStore()
     assert store.take("nonexistent") is None
 
 
+@pytest.mark.requirement("SVF-DEV-036")
 def test_take_is_atomic() -> None:
     """Command can only be taken once — second take returns None."""
     store = CommandStore()
@@ -36,6 +39,7 @@ def test_take_is_atomic() -> None:
     assert second is None
 
 
+@pytest.mark.requirement("SVF-DEV-036")
 def test_latest_command_wins() -> None:
     """Second inject overwrites first — latest command wins."""
     store = CommandStore()
@@ -47,6 +51,7 @@ def test_latest_command_wins() -> None:
     assert entry.source_id == "TC-002"
 
 
+@pytest.mark.requirement("SVF-DEV-036")
 def test_peek_does_not_consume() -> None:
     """peek() does not mark command as consumed."""
     store = CommandStore()
@@ -58,12 +63,14 @@ def test_peek_does_not_consume() -> None:
     assert taken.value == pytest.approx(1.0)
 
 
+@pytest.mark.requirement("SVF-DEV-036")
 def test_peek_unknown_command() -> None:
     """peek() on unknown command returns None."""
     store = CommandStore()
     assert store.peek("nonexistent") is None
 
 
+@pytest.mark.requirement("SVF-DEV-036")
 def test_pending_lists_unconsumed() -> None:
     """pending() returns names of unconsumed commands only."""
     store = CommandStore()
@@ -73,6 +80,7 @@ def test_pending_lists_unconsumed() -> None:
     assert store.pending() == ["cmd_b"]
 
 
+@pytest.mark.requirement("SVF-DEV-035")
 def test_clear() -> None:
     """clear() removes all commands."""
     store = CommandStore()
@@ -82,6 +90,7 @@ def test_clear() -> None:
     assert len(store) == 0
 
 
+@pytest.mark.requirement("SVF-DEV-035")
 def test_concurrent_inject_and_take() -> None:
     """Concurrent inject and take do not corrupt the store."""
     store = CommandStore()
@@ -113,6 +122,7 @@ def test_concurrent_inject_and_take() -> None:
     assert not errors
 
 
+@pytest.mark.requirement("SVF-DEV-036")
 def test_inject_default_source_id() -> None:
     """Default source_id is 'test_procedure'."""
     store = CommandStore()

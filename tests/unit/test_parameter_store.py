@@ -8,6 +8,7 @@ import threading
 from svf.parameter_store import ParameterStore, ParameterEntry
 
 
+@pytest.mark.requirement("SVF-DEV-031", "SVF-DEV-032")
 def test_write_and_read() -> None:
     """Written value is immediately readable."""
     store = ParameterStore()
@@ -19,12 +20,14 @@ def test_write_and_read() -> None:
     assert entry.model_id == "power"
 
 
+@pytest.mark.requirement("SVF-DEV-033")
 def test_read_unknown_parameter() -> None:
     """Reading an unknown parameter returns None."""
     store = ParameterStore()
     assert store.read("nonexistent") is None
 
 
+@pytest.mark.requirement("SVF-DEV-033")
 def test_overwrite_returns_latest() -> None:
     """Second write overwrites the first — reader always gets latest."""
     store = ParameterStore()
@@ -36,6 +39,7 @@ def test_overwrite_returns_latest() -> None:
     assert entry.t == pytest.approx(0.2)
 
 
+@pytest.mark.requirement("SVF-DEV-033")
 def test_snapshot_returns_full_state() -> None:
     """Snapshot returns all current parameter values."""
     store = ParameterStore()
@@ -48,6 +52,7 @@ def test_snapshot_returns_full_state() -> None:
     assert snap["temperature"].value == pytest.approx(25.0)
 
 
+@pytest.mark.requirement("SVF-DEV-033")
 def test_snapshot_is_a_copy() -> None:
     """Modifying snapshot does not affect the store."""
     store = ParameterStore()
@@ -57,6 +62,7 @@ def test_snapshot_is_a_copy() -> None:
     assert store.read("voltage") is not None
 
 
+@pytest.mark.requirement("SVF-DEV-031")
 def test_clear() -> None:
     """Clear removes all parameters."""
     store = ParameterStore()
@@ -66,6 +72,7 @@ def test_clear() -> None:
     assert len(store) == 0
 
 
+@pytest.mark.requirement("SVF-DEV-031")
 def test_parameter_names() -> None:
     """parameter_names returns all written parameter names."""
     store = ParameterStore()
@@ -74,6 +81,7 @@ def test_parameter_names() -> None:
     assert set(store.parameter_names) == {"voltage", "temperature"}
 
 
+@pytest.mark.requirement("SVF-DEV-033")
 def test_late_reader_sees_value() -> None:
     """A reader that connects after a write still sees the value."""
     store = ParameterStore()
@@ -84,6 +92,7 @@ def test_late_reader_sees_value() -> None:
     assert entry.value == pytest.approx(3.7)
 
 
+@pytest.mark.requirement("SVF-DEV-031")
 def test_concurrent_writes_are_safe() -> None:
     """Concurrent writes from multiple threads do not corrupt the store."""
     store = ParameterStore()
@@ -110,6 +119,7 @@ def test_concurrent_writes_are_safe() -> None:
     assert entry is not None
 
 
+@pytest.mark.requirement("SVF-DEV-031")
 def test_concurrent_reads_are_safe() -> None:
     """Concurrent reads while writing do not raise."""
     store = ParameterStore()

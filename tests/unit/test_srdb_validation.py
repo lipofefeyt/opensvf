@@ -24,6 +24,7 @@ def srdb():  # type: ignore[no-untyped-def]
 
 # ── ParameterStore validation ─────────────────────────────────────────────────
 
+@pytest.mark.requirement("SVF-DEV-094")
 def test_parameter_store_no_srdb_no_warnings(
     caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -34,6 +35,7 @@ def test_parameter_store_no_srdb_no_warnings(
     assert "SRDB" not in caplog.text
 
 
+@pytest.mark.requirement("SVF-DEV-094")
 def test_parameter_store_valid_value_no_warning(
     srdb: object, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -44,6 +46,7 @@ def test_parameter_store_valid_value_no_warning(
     assert "outside valid range" not in caplog.text
 
 
+@pytest.mark.requirement("SVF-DEV-094")
 def test_parameter_store_range_violation_warns(
     srdb: object, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -55,6 +58,7 @@ def test_parameter_store_range_violation_warns(
     assert "eps.battery.soc" in caplog.text
 
 
+@pytest.mark.requirement("SVF-DEV-095")
 def test_parameter_store_tc_write_warns(
     srdb: object, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -66,6 +70,7 @@ def test_parameter_store_tc_write_warns(
     assert "TC-classified" in caplog.text
 
 
+@pytest.mark.requirement("SVF-DEV-094")
 def test_parameter_store_unknown_parameter_no_warning(
     srdb: object, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -76,6 +81,7 @@ def test_parameter_store_unknown_parameter_no_warning(
     assert "SRDB" not in caplog.text
 
 
+@pytest.mark.requirement("SVF-DEV-094")
 def test_parameter_store_warning_does_not_raise(
     srdb: object
 ) -> None:
@@ -90,6 +96,7 @@ def test_parameter_store_warning_does_not_raise(
 
 # ── CommandStore validation ───────────────────────────────────────────────────
 
+@pytest.mark.requirement("SVF-DEV-095")
 def test_command_store_no_srdb_no_warnings(
     caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -100,6 +107,7 @@ def test_command_store_no_srdb_no_warnings(
     assert "SRDB" not in caplog.text
 
 
+@pytest.mark.requirement("SVF-DEV-095")
 def test_command_store_valid_tc_no_warning(
     srdb: object, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -111,6 +119,7 @@ def test_command_store_valid_tc_no_warning(
     assert "outside valid range" not in caplog.text
 
 
+@pytest.mark.requirement("SVF-DEV-095")
 def test_command_store_tm_inject_warns(
     srdb: object, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -122,6 +131,7 @@ def test_command_store_tm_inject_warns(
     assert "TM-classified" in caplog.text
 
 
+@pytest.mark.requirement("SVF-DEV-095")
 def test_command_store_range_violation_warns(
     srdb: object, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -133,6 +143,7 @@ def test_command_store_range_violation_warns(
     assert "outside valid range" in caplog.text
 
 
+@pytest.mark.requirement("SVF-DEV-095")
 def test_command_store_warning_does_not_raise(
     srdb: object
 ) -> None:

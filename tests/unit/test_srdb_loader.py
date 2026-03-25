@@ -78,6 +78,7 @@ def mission_file(tmp_path: Path) -> Path:
 
 # ── SrdbLoader basic loading ──────────────────────────────────────────────────
 
+@pytest.mark.requirement("SVF-DEV-092")
 def test_load_baseline(baseline_file: Path) -> None:
     """Baseline YAML loads and produces correct ParameterDefinition."""
     loader = SrdbLoader()
@@ -96,6 +97,7 @@ def test_load_baseline(baseline_file: Path) -> None:
     assert defn.pus.parameter_id == 0x0042
 
 
+@pytest.mark.requirement("SVF-DEV-092")
 def test_load_multiple_baselines(
     baseline_file: Path, second_file: Path
 ) -> None:
@@ -110,6 +112,7 @@ def test_load_multiple_baselines(
     assert "eps.solar_illumination" in srdb
 
 
+@pytest.mark.requirement("SVF-DEV-092")
 def test_srdb_by_domain(
     baseline_file: Path, second_file: Path
 ) -> None:
@@ -123,6 +126,7 @@ def test_srdb_by_domain(
     assert len(eps_params) == 2
 
 
+@pytest.mark.requirement("SVF-DEV-092")
 def test_srdb_by_classification(
     baseline_file: Path, second_file: Path
 ) -> None:
@@ -138,6 +142,7 @@ def test_srdb_by_classification(
     assert len(tc_params) == 1
 
 
+@pytest.mark.requirement("SVF-DEV-092")
 def test_srdb_by_model(baseline_file: Path) -> None:
     """by_model() filters correctly."""
     loader = SrdbLoader()
@@ -148,6 +153,7 @@ def test_srdb_by_model(baseline_file: Path) -> None:
     assert len(eps_params) == 1
 
 
+@pytest.mark.requirement("SVF-DEV-092")
 def test_srdb_get_unknown_returns_none(baseline_file: Path) -> None:
     """get() returns None for unknown parameter."""
     loader = SrdbLoader()
@@ -156,6 +162,7 @@ def test_srdb_get_unknown_returns_none(baseline_file: Path) -> None:
     assert srdb.get("nonexistent") is None
 
 
+@pytest.mark.requirement("SVF-DEV-092")
 def test_srdb_require_unknown_raises(baseline_file: Path) -> None:
     """require() raises KeyError for unknown parameter."""
     loader = SrdbLoader()
@@ -167,6 +174,7 @@ def test_srdb_require_unknown_raises(baseline_file: Path) -> None:
 
 # ── Mission override tests ────────────────────────────────────────────────────
 
+@pytest.mark.requirement("SVF-DEV-093")
 def test_mission_override_description(
     baseline_file: Path, mission_file: Path
 ) -> None:
@@ -180,6 +188,7 @@ def test_mission_override_description(
     assert defn.description == "Battery SoC (mission override)"
 
 
+@pytest.mark.requirement("SVF-DEV-093")
 def test_mission_override_valid_range(
     baseline_file: Path, mission_file: Path
 ) -> None:
@@ -193,6 +202,7 @@ def test_mission_override_valid_range(
     assert defn.valid_range == (0.1, 0.95)
 
 
+@pytest.mark.requirement("SVF-DEV-093")
 def test_mission_adds_new_parameter(
     baseline_file: Path, mission_file: Path
 ) -> None:
@@ -206,6 +216,7 @@ def test_mission_adds_new_parameter(
     assert len(srdb) == 2
 
 
+@pytest.mark.requirement("SVF-DEV-093")
 def test_mission_cannot_change_classification(
     baseline_file: Path, tmp_path: Path
 ) -> None:
@@ -224,6 +235,7 @@ parameters:
 
 # ── Error handling tests ──────────────────────────────────────────────────────
 
+@pytest.mark.requirement("SVF-DEV-092")
 def test_missing_file_raises(tmp_path: Path) -> None:
     """Loading a non-existent file raises SrdbLoadError."""
     loader = SrdbLoader()
@@ -231,6 +243,7 @@ def test_missing_file_raises(tmp_path: Path) -> None:
         loader.load_baseline(tmp_path / "nonexistent.yaml")
 
 
+@pytest.mark.requirement("SVF-DEV-092")
 def test_duplicate_baseline_parameter_raises(
     baseline_file: Path, tmp_path: Path
 ) -> None:
@@ -243,6 +256,7 @@ def test_duplicate_baseline_parameter_raises(
         loader.load_baseline(duplicate)
 
 
+@pytest.mark.requirement("SVF-DEV-092")
 def test_missing_required_field_raises(tmp_path: Path) -> None:
     """Missing required field raises SrdbLoadError."""
     f = tmp_path / "bad.yaml"
@@ -259,6 +273,7 @@ parameters:
         loader.load_baseline(f)
 
 
+@pytest.mark.requirement("SVF-DEV-092")
 def test_invalid_classification_raises(tmp_path: Path) -> None:
     """Invalid classification value raises SrdbLoadError."""
     f = tmp_path / "bad.yaml"
@@ -277,6 +292,7 @@ parameters:
         loader.load_baseline(f)
 
 
+@pytest.mark.requirement("SVF-DEV-092")
 def test_invalid_domain_raises(tmp_path: Path) -> None:
     """Invalid domain value raises SrdbLoadError."""
     f = tmp_path / "bad.yaml"
@@ -297,6 +313,7 @@ parameters:
 
 # ── Full baseline integration test ────────────────────────────────────────────
 
+@pytest.mark.requirement("SVF-DEV-091", "SVF-DEV-092")
 def test_load_all_baselines() -> None:
     """All five domain baselines load cleanly and produce correct counts."""
     baseline_dir = Path(__file__).parent.parent.parent / "srdb" / "baseline"
@@ -322,6 +339,7 @@ def test_load_all_baselines() -> None:
     assert "eps.load.power" in srdb
 
 
+@pytest.mark.requirement("SVF-DEV-091", "SVF-DEV-093")
 def test_load_baselines_with_mission_override() -> None:
     """Mission override applies correctly on top of all baselines."""
     baseline_dir = Path(__file__).parent.parent.parent / "srdb" / "baseline"

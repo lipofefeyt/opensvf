@@ -61,6 +61,7 @@ def _run_simulation(
     master.run()
 
 
+@pytest.mark.requirement("SVF-DEV-043")
 def test_observe_reaches(
     sync: DdsSyncProtocol, store: ParameterStore
 ) -> None:
@@ -78,6 +79,7 @@ def test_observe_reaches(
     assert result >= 1.0
 
 
+@pytest.mark.requirement("SVF-DEV-043")
 def test_observe_exceeds(
     sync: DdsSyncProtocol, store: ParameterStore
 ) -> None:
@@ -95,6 +97,7 @@ def test_observe_exceeds(
     assert result > 0.5
 
 
+@pytest.mark.requirement("SVF-DEV-043")
 def test_observe_drops_below(
     sync: DdsSyncProtocol, store: ParameterStore
 ) -> None:
@@ -135,6 +138,7 @@ def test_observe_drops_below(
     assert result < 0.5
 
 
+@pytest.mark.requirement("SVF-DEV-043")
 def test_observe_timeout(
     sync: DdsSyncProtocol, store: ParameterStore
 ) -> None:
@@ -152,6 +156,7 @@ def test_observe_timeout(
     thread.join()
 
 
+@pytest.mark.requirement("SVF-DEV-043")
 def test_observe_satisfies(
     sync: DdsSyncProtocol, store: ParameterStore
 ) -> None:

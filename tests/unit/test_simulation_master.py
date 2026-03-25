@@ -45,6 +45,7 @@ def sync() -> _PassthroughSync:
 
 # ── NativeEquipment tests ─────────────────────────────────────────────────────
 
+@pytest.mark.requirement("SVF-DEV-015", "EQP-010")
 def test_native_equipment_step(
     store: ParameterStore,
     cmd_store: CommandStore,
@@ -74,6 +75,7 @@ def test_native_equipment_step(
 
 # ── FmuEquipment tests ────────────────────────────────────────────────────────
 
+@pytest.mark.requirement("SVF-DEV-014")
 def test_fmu_equipment_initialises(
     store: ParameterStore,
     cmd_store: CommandStore,
@@ -92,6 +94,7 @@ def test_fmu_equipment_initialises(
     eq.teardown()
 
 
+@pytest.mark.requirement("SVF-DEV-014", "EQP-006")
 def test_fmu_equipment_on_tick_writes_store(
     store: ParameterStore,
     cmd_store: CommandStore,
@@ -113,6 +116,7 @@ def test_fmu_equipment_on_tick_writes_store(
     eq.teardown()
 
 
+@pytest.mark.requirement("SVF-DEV-007")
 def test_fmu_equipment_missing_fmu(
     store: ParameterStore,
     cmd_store: CommandStore,
@@ -130,6 +134,7 @@ def test_fmu_equipment_missing_fmu(
 
 # ── SimulationMaster tests ────────────────────────────────────────────────────
 
+@pytest.mark.requirement("SVF-DEV-009", "SVF-DEV-016")
 def test_simulation_master_runs(
     store: ParameterStore,
     cmd_store: CommandStore,
@@ -161,6 +166,7 @@ def test_simulation_master_runs(
     assert results[-1] == pytest.approx(1.0)
 
 
+@pytest.mark.requirement("SVF-DEV-002", "SVF-DEV-014")
 def test_simulation_master_with_fmu(
     store: ParameterStore,
     cmd_store: CommandStore,
@@ -181,6 +187,7 @@ def test_simulation_master_with_fmu(
     assert entry.value == pytest.approx(1.0)
 
 
+@pytest.mark.requirement("SVF-DEV-016")
 def test_simulation_master_no_models(sync: _PassthroughSync) -> None:
     """SimulationMaster raises SimulationError if no models provided."""
     with pytest.raises(SimulationError, match="at least one"):
@@ -193,6 +200,7 @@ def test_simulation_master_no_models(sync: _PassthroughSync) -> None:
         )
 
 
+@pytest.mark.requirement("SVF-DEV-006")
 def test_simulation_master_context_manager(
     store: ParameterStore,
     cmd_store: CommandStore,
@@ -222,6 +230,7 @@ def test_simulation_master_context_manager(
 
 # ── CsvLogger tests ───────────────────────────────────────────────────────────
 
+@pytest.mark.requirement("SVF-DEV-005")
 def test_csv_logger_creates_file(tmp_path: Path) -> None:
     """CsvLogger creates a CSV file with correct headers."""
     csv_logger = CsvLogger(output_dir=tmp_path, run_id="test")
@@ -235,6 +244,7 @@ def test_csv_logger_creates_file(tmp_path: Path) -> None:
     assert "0.1,0.1" in content
 
 
+@pytest.mark.requirement("SVF-DEV-005")
 def test_csv_logger_record_before_open() -> None:
     """CsvLogger raises RuntimeError if record called before open."""
     csv_logger = CsvLogger()

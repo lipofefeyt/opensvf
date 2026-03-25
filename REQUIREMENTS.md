@@ -54,7 +54,7 @@ The simulation master shall support variable-timestep execution where the FMU ex
 **SVF-DEV-004** `[SIM]` `IMPLEMENTED`
 The SimulationMaster shall accept an optional WiringMap defining connections between equipment OUT ports and IN ports. After each tick the master shall copy OUT port values to connected IN ports via CommandStore. Wiring shall be validated at run() time before the first tick.
 
-**SVF-DEV-004b** `[SIM]` `BASELINED`
+**SVF-DEV-004b** `[SIM]` `DEFERRED`
 The SimulationMaster shall support SSP (System Structure and Parameterization) files as an alternative to programmatic wiring maps. Assigned to M4.5.
 
 **SVF-DEV-005** `[SIM]` `IMPLEMENTED`
@@ -122,13 +122,13 @@ The SimReady topic shall carry: model_id (bounded string) and acknowledged time 
 **SVF-DEV-024** `[BUS]` `SUPERSEDED`
 Superseded by SVF-DEV-031. DDS telemetry publishing replaced by ParameterStore writes.
 
-**SVF-DEV-025** `[BUS]` `BASELINED`
+**SVF-DEV-025** `[BUS]` `DEFERRED`
 The CommandSample topic shall carry: time t (float), variable name (bounded string), and value (float).
 
 **SVF-DEV-026** `[BUS]` `IMPLEMENTED`
 All DDS writers and readers for synchronisation shall use KEEP_ALL QoS.
 
-**SVF-DEV-027** `[BUS]` `BASELINED`
+**SVF-DEV-027** `[BUS]` `DEFERRED`
 The bus shall support deadline monitoring.
 
 **SVF-DEV-028** `[BUS]` `IMPLEMENTED`
@@ -320,7 +320,7 @@ The plugin shall provide an observable assertion API polling the ParameterStore 
 **SVF-DEV-044** `[ORC]` `IMPLEMENTED`
 The plugin shall map test outcomes to ECSS-compatible verdicts: PASS, FAIL, INCONCLUSIVE, ERROR.
 
-**SVF-DEV-045** `[ORC]` `BASELINED`
+**SVF-DEV-045** `[ORC]` `DEFERRED`
 The plugin shall capture a full execution timeline for each test.
 
 **SVF-DEV-046** `[ORC]` `DRAFT`
@@ -389,10 +389,10 @@ The platform shall produce JUnit XML test result reports natively from pytest.
 **SVF-DEV-071** `[REP]` `DRAFT`
 The platform shall produce structured test records aligned with ECSS-E-ST-10-02C.
 
-**SVF-DEV-072** `[REP]` `BASELINED`
+**SVF-DEV-072** `[REP]` `IMPLEMENTED`
 Each test case shall declare the requirement IDs it verifies via @pytest.mark.requirement() markers.
 
-**SVF-DEV-073** `[REP]` `BASELINED`
+**SVF-DEV-073** `[REP]` `IMPLEMENTED`
 The reporting layer shall generate a requirements traceability matrix mapping requirement IDs to test cases and verdicts.
 
 **SVF-DEV-074** `[REP]` `DRAFT`
