@@ -1,32 +1,26 @@
 [
   {
-    "title": "[REQ] Add EQP functional area to REQUIREMENTS.md",
-    "body": "## Objective\nDefine requirements for the generic Equipment contract. Every equipment model must satisfy these regardless of type.\n\n## Requirements to add\n- EQP-001: Port declaration before initialise()\n- EQP-002: No write_port() on IN ports\n- EQP-003: No read from undeclared ports\n- EQP-004: on_tick() reads CommandStore into IN ports before do_step()\n- EQP-005: on_tick() writes OUT ports to ParameterStore after do_step()\n- EQP-006: on_tick() calls publish_ready() after ParameterStore writes\n- EQP-007: FmuEquipment maps FMU variable names via parameter_map\n- EQP-008: FmuEquipment applies IN ports to FMU inputs before doStep()\n- EQP-009: FmuEquipment reads FMU outputs into OUT ports after doStep()\n- EQP-010: NativeEquipment calls step_fn with (equipment, t, dt)\n\n## Acceptance Criteria\n- All EQP requirements added to REQUIREMENTS.md\n- Traceability index updated\n- Status: BASELINED",
-    "labels": ["type: docs", "priority: now"],
+    "title": "🗓 M3.6 - Requirements Engineering",
+    "body": "Tracking issue for milestone M3.6 — Requirements Engineering.\nDue: 2026-04-18\n\n## Objective\nEstablish proper requirement traceability across all functional areas.\nEvery test must reference a requirement. Every requirement must have a test.\n\n## Issues\n- [ ] [REQ] Add EQP functional area to REQUIREMENTS.md\n- [ ] [REQ] Add EPS functional area to REQUIREMENTS.md\n- [ ] [REQ] Restructure test directory\n- [ ] [REQ] Ensure every test is traced to a requirement\n- [ ] [REQ] Generate requirements traceability matrix\n\n## Definition of Done\n- EQP and EPS functional areas in REQUIREMENTS.md\n- Tests reorganised into unit/equipment/integration/spacecraft\n- Every test has @pytest.mark.requirement() marker\n- Traceability matrix generated after each CI run\n- CI green",
+    "labels": ["type: docs"],
     "milestone": "M3.6 - Requirements Engineering"
   },
   {
-    "title": "[REQ] Add EPS functional area to REQUIREMENTS.md",
-    "body": "## Objective\nDefine requirements for the EPS spacecraft models (SolarArray, Battery, PCDU, integrated and decomposed).\n\n## Requirements to add\n- EPS-001: SolarArray power proportional to illumination\n- EPS-002: SolarArray zero power in eclipse\n- EPS-003: Battery SoC decreases when charge_current negative\n- EPS-004: Battery SoC increases when charge_current positive\n- EPS-005: Battery voltage follows non-linear SoC curve (3.0V-4.2V)\n- EPS-006: PCDU positive charge_current when generation exceeds load\n- EPS-007: PCDU negative charge_current when load exceeds generation\n- EPS-008: Integrated EPS charges battery in full sunlight\n- EPS-009: Integrated EPS discharges battery in eclipse\n- EPS-010: Decomposed EPS matches integrated EPS behaviour\n\n## Acceptance Criteria\n- All EPS requirements added to REQUIREMENTS.md\n- Traceability index updated\n- Status: BASELINED",
-    "labels": ["type: docs", "priority: now"],
-    "milestone": "M3.6 - Requirements Engineering"
+    "title": "🗓 M4.5 - Model Wiring close-out",
+    "body": "Tracking issue for M4.5 close-out.\nDue: 2026-04-25\n\n## Objective\nComplete remaining M4.5 items and close the milestone cleanly.\n\n## Issues\n- [ ] [ORC] Implement svf_command_schedule mark\n- [ ] [MOD] Decompose EPS into SolarArray, Battery, PCDU FMUs\n- [ ] [SIM] Implement model-to-model wiring via ParameterStore\n- [ ] [SIM] Add SSP system description support\n\n## Definition of Done\n- svf_command_schedule implemented and tested\n- TC-PWR-003 and TC-PWR-005 rewritten as proper multi-phase tests\n- SSP support assessed\n- CI green",
+    "labels": ["type: docs"],
+    "milestone": "M4.5 - Model Wiring"
   },
   {
-    "title": "[REQ] Restructure test directory to unit/equipment/integration/spacecraft",
-    "body": "## Objective\nReorganise the test suite to clearly separate unit, equipment contract, integration, and spacecraft model tests.\n\n## Target structure\n```\ntests/\n  unit/               - SVF platform classes in isolation\n  equipment/          - Generic Equipment contract (EQP-xxx)\n  integration/        - SVF infrastructure mechanics\n  spacecraft/         - Specific model behaviour (EPS-xxx etc.)\n```\n\n## Acceptance Criteria\n- All tests moved to correct directory\n- No test exists without a @pytest.mark.requirement() tag\n- No redundant tests\n- All tests pass after restructuring\n- CI green\n\n## Implements\nSVF-DEV-072",
-    "labels": ["type: refactor", "priority: now"],
-    "milestone": "M3.6 - Requirements Engineering"
+    "title": "🗓 M5 - Campaign & Reporting",
+    "body": "Tracking issue for milestone M5 — Campaign & Reporting.\nDue: 2026-05-16\n\n## Objective\nYAML campaign manager and ECSS-aligned test reporting.\nTurns SVF from a test tool into a certification-ready platform.\n\n## Issues\n- [ ] [CAM] Implement YAML campaign schema and loader\n- [ ] [CAM] Implement campaign executor\n- [ ] [CAM] SHA-256 campaign file hashing\n- [ ] [CAM] Per-test-case timeout support\n- [ ] [REP] ECSS-E-ST-10-02C structured test records\n- [ ] [REP] Requirements traceability matrix in HTML report\n- [ ] [REP] Allure HTML report integration\n- [ ] [REP] JUnit XML with ECSS verdict and requirement metadata\n\n## Definition of Done\n- Campaign YAML runs EPS test procedures end to end\n- Output includes JUnit XML + Allure HTML + ECSS test records\n- Traceability matrix links requirements to verdicts\n- CI green",
+    "labels": ["type: docs"],
+    "milestone": "M5 - Campaign and Reporting"
   },
   {
-    "title": "[REQ] Ensure every test is traced to a requirement",
-    "body": "## Objective\nAudit every test in the suite. Every test must reference at least one requirement via @pytest.mark.requirement(). Tests that cannot be traced to a requirement must be deleted or a requirement must be created for them.\n\n## Acceptance Criteria\n- Every test has @pytest.mark.requirement(...) marker\n- No requirement exists without at least one test\n- No test exists without a corresponding requirement\n- Traceability matrix generated from pytest markers\n- CI verifies marker presence (warn on missing)\n\n## Implements\nSVF-DEV-072, SVF-DEV-073",
-    "labels": ["type: refactor", "priority: now"],
-    "milestone": "M3.6 - Requirements Engineering"
-  },
-  {
-    "title": "[REQ] Generate requirements traceability matrix from pytest markers",
-    "body": "## Objective\nImplement a pytest plugin hook that collects all @pytest.mark.requirement() markers and generates a traceability matrix after each test run.\n\n## Output format\n```\nRequirement | Test Cases              | Verdict\nEQP-001     | test_port_declaration   | PASS\nEPS-001     | test_solar_proportional | PASS\n```\n\n## Acceptance Criteria\n- Traceability matrix written to results/traceability.txt after each run\n- Matrix included in JUnit XML output as custom property\n- Requirements with no tests flagged as UNTESTED\n- Implements SVF-DEV-073\n\n## Implements\nSVF-DEV-072, SVF-DEV-073",
-    "labels": ["type: feature", "layer: reporting", "priority: now"],
-    "milestone": "M3.6 - Requirements Engineering"
+    "title": "🗓 v0.1 - First Release",
+    "body": "Tracking issue for v0.1 release.\nDue: 2026-05-30\n\n## Objective\nFirst demoable, credible release of OpenSVF.\n\n## Completion criteria\n- [ ] M3.6 Requirements Engineering complete\n- [ ] M4.5 Model Wiring close-out complete\n- [ ] M5 Campaign & Reporting complete\n- [ ] README updated with quick-start guide\n- [ ] CONTRIBUTING.md updated\n- [ ] GitHub release tag created\n- [ ] All tests green\n- [ ] mypy strict clean\n- [ ] No open BASELINED requirements unimplemented\n\n## Demo script\n1. Show wiring YAML connecting SolarArray + Battery + PCDU\n2. Run pytest campaign against decomposed EPS\n3. Show Allure HTML report with ECSS verdicts\n4. Show traceability matrix linking EPS-001 through EPS-010 to test cases",
+    "labels": ["type: docs"],
+    "milestone": "v0.1 - First Release"
   }
 ]
