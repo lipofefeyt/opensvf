@@ -39,6 +39,7 @@ def sync(participant: DomainParticipant) -> DdsSyncProtocol:
     return DdsSyncProtocol(participant)
 
 
+@pytest.mark.requirement("SVF-DEV-004")
 def test_wiring_propagates_values(
     store: ParameterStore,
     cmd_store: CommandStore,
@@ -110,6 +111,7 @@ connections:
     assert all(v == pytest.approx(42.0) for v in received[1:])
 
 
+@pytest.mark.requirement("SVF-DEV-004")
 def test_wiring_multiple_connections(
     store: ParameterStore,
     cmd_store: CommandStore,

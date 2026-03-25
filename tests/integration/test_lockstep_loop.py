@@ -42,6 +42,7 @@ def sync(participant: DomainParticipant) -> DdsSyncProtocol:
     return DdsSyncProtocol(participant)
 
 
+@pytest.mark.requirement("SVF-DEV-010", "SVF-DEV-012")
 def test_lockstep_single_fmu(
     store: ParameterStore,
     cmd_store: CommandStore,
@@ -63,6 +64,7 @@ def test_lockstep_single_fmu(
     assert entry.value == pytest.approx(1.0)
 
 
+@pytest.mark.requirement("SVF-DEV-010", "SVF-DEV-012")
 def test_lockstep_multiple_models(
     store: ParameterStore,
     cmd_store: CommandStore,
@@ -101,6 +103,7 @@ def test_lockstep_multiple_models(
     assert store.read("logged_time") is not None
 
 
+@pytest.mark.requirement("SVF-DEV-011")
 def test_lockstep_sync_timeout(
     store: ParameterStore,
     cmd_store: CommandStore,
@@ -137,6 +140,7 @@ def test_lockstep_sync_timeout(
         master.run()
 
 
+@pytest.mark.requirement("SVF-DEV-007")
 def test_lockstep_model_failure(
     store: ParameterStore,
     cmd_store: CommandStore,
@@ -168,6 +172,7 @@ def test_lockstep_model_failure(
         master.run()
 
 
+@pytest.mark.requirement("SVF-DEV-031", "SVF-DEV-033")
 def test_parameter_store_populated_after_run(
     store: ParameterStore,
     cmd_store: CommandStore,
