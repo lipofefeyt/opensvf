@@ -68,6 +68,7 @@ connections:
 
 # ── WiringLoader tests ────────────────────────────────────────────────────────
 
+@pytest.mark.requirement("SVF-DEV-004")
 def test_load_valid_wiring(
     equipment: dict[str, Equipment],
     valid_wiring_file: Path,
@@ -83,14 +84,14 @@ def test_load_valid_wiring(
     assert conn.to_port == "power_in"
     assert conn.description == "Power line from source to sink"
 
-
+@pytest.mark.requirement("SVF-DEV-004")
 def test_missing_file_raises(equipment: dict[str, Equipment], tmp_path: Path) -> None:
     """Missing file raises WiringLoadError."""
     loader = WiringLoader(equipment)
     with pytest.raises(WiringLoadError, match="not found"):
         loader.load(tmp_path / "nonexistent.yaml")
 
-
+@pytest.mark.requirement("SVF-DEV-004")
 def test_unknown_equipment_raises(
     equipment: dict[str, Equipment], tmp_path: Path
 ) -> None:
@@ -105,7 +106,7 @@ connections:
     with pytest.raises(WiringLoadError, match="unknown source equipment"):
         loader.load(f)
 
-
+@pytest.mark.requirement("SVF-DEV-004")
 def test_unknown_port_raises(
     equipment: dict[str, Equipment], tmp_path: Path
 ) -> None:
@@ -120,7 +121,7 @@ connections:
     with pytest.raises(WiringLoadError, match="unknown port"):
         loader.load(f)
 
-
+@pytest.mark.requirement("SVF-DEV-004")
 def test_in_port_as_source_raises(
     equipment: dict[str, Equipment], tmp_path: Path
 ) -> None:
@@ -135,7 +136,7 @@ connections:
     with pytest.raises(WiringLoadError, match="IN port"):
         loader.load(f)
 
-
+@pytest.mark.requirement("SVF-DEV-004")
 def test_out_port_as_destination_raises(
     equipment: dict[str, Equipment], tmp_path: Path
 ) -> None:
@@ -150,7 +151,7 @@ connections:
     with pytest.raises(WiringLoadError, match="OUT port"):
         loader.load(f)
 
-
+@pytest.mark.requirement("SVF-DEV-004")
 def test_duplicate_connection_raises(
     equipment: dict[str, Equipment], tmp_path: Path
 ) -> None:
@@ -167,7 +168,7 @@ connections:
     with pytest.raises(WiringLoadError, match="duplicate"):
         loader.load(f)
 
-
+@pytest.mark.requirement("SVF-DEV-004")
 def test_missing_from_field_raises(
     equipment: dict[str, Equipment], tmp_path: Path
 ) -> None:
@@ -184,6 +185,7 @@ connections:
 
 # ── WiringMap tests ───────────────────────────────────────────────────────────
 
+@pytest.mark.requirement("SVF-DEV-004")
 def test_wiring_map_connections_from(
     equipment: dict[str, Equipment],
     valid_wiring_file: Path,
@@ -194,7 +196,7 @@ def test_wiring_map_connections_from(
     assert len(wiring.connections_from("source")) == 1
     assert len(wiring.connections_from("sink")) == 0
 
-
+@pytest.mark.requirement("SVF-DEV-004")
 def test_wiring_map_connections_to(
     equipment: dict[str, Equipment],
     valid_wiring_file: Path,
@@ -205,7 +207,7 @@ def test_wiring_map_connections_to(
     assert len(wiring.connections_to("sink")) == 1
     assert len(wiring.connections_to("source")) == 0
 
-
+@pytest.mark.requirement("SVF-DEV-004")
 def test_connection_str() -> None:
     """Connection __str__ is readable."""
     conn = Connection("pcdu", "bus.lcl1", "rw1", "power_enable")

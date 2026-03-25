@@ -37,7 +37,7 @@ EPS_PARAMETER_MAP = {
     ("eps.solar_array.illumination", 1.0),
     ("eps.load.power", 30.0),
 ])
-@pytest.mark.requirement("SVF-DEV-063", "SVF-DEV-065")
+@pytest.mark.requirement("EPS-011", "SVF-DEV-063", "SVF-DEV-065")
 def test_tc_pwr_001_battery_charges_in_sunlight(svf_session) -> None:  # type: ignore[no-untyped-def]
     """
     TC-PWR-001: Battery charges in full sunlight.
@@ -70,7 +70,7 @@ def test_tc_pwr_001_battery_charges_in_sunlight(svf_session) -> None:  # type: i
     ("eps.solar_array.illumination", 0.0),
     ("eps.load.power", 30.0),
 ])
-@pytest.mark.requirement("SVF-DEV-063", "SVF-DEV-065")
+@pytest.mark.requirement("EPS-012", "EPS-013", "SVF-DEV-063", "SVF-DEV-065")
 def test_tc_pwr_002_battery_discharges_in_eclipse(svf_session) -> None:  # type: ignore[no-untyped-def]
     """
     TC-PWR-002: Battery discharges in eclipse.
@@ -104,7 +104,7 @@ def test_tc_pwr_002_battery_discharges_in_eclipse(svf_session) -> None:  # type:
     ("eps.solar_array.illumination", 1.0),
     ("eps.load.power", 30.0),
 ])
-@pytest.mark.requirement("SVF-DEV-063", "SVF-DEV-065")
+@pytest.mark.requirement("EPS-001", "EPS-003", "EPS-011", "SVF-DEV-063", "SVF-DEV-065")
 def test_tc_pwr_003_charging_in_sunlight(svf_session) -> None:  # type: ignore[no-untyped-def]
     """
     TC-PWR-003: Charging behaviour in full sunlight.
@@ -134,7 +134,7 @@ def test_tc_pwr_003_charging_in_sunlight(svf_session) -> None:  # type: ignore[n
     ("eps.solar_array.illumination", 0.4),
     ("eps.load.power", 30.0),
 ])
-@pytest.mark.requirement("SVF-DEV-063", "SVF-DEV-065")
+@pytest.mark.requirement("EPS-001", "SVF-DEV-063", "SVF-DEV-065")
 def test_tc_pwr_004_penumbra(svf_session) -> None:  # type: ignore[no-untyped-def]
     """
     TC-PWR-004: Partial illumination (penumbra).
@@ -160,7 +160,7 @@ def test_tc_pwr_004_penumbra(svf_session) -> None:  # type: ignore[no-untyped-de
     ("eps.solar_array.illumination", 0.0),
     ("eps.load.power", 50.0),
 ])
-@pytest.mark.requirement("SVF-DEV-063", "SVF-DEV-065")
+@pytest.mark.requirement("EPS-012", "EPS-013", "SVF-DEV-063", "SVF-DEV-065")
 def test_tc_pwr_005_deep_eclipse_discharge(svf_session) -> None:  # type: ignore[no-untyped-def]
     """
     TC-PWR-005: Deep eclipse discharge behaviour.

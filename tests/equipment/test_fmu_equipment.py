@@ -53,6 +53,7 @@ def cmd_store() -> CommandStore:
 
 # ── Construction tests ────────────────────────────────────────────────────────
 
+@pytest.mark.requirement("EQP-001","EQP-008")
 def test_fmu_equipment_ports_declared(
     sync: _NoSync, store: ParameterStore, cmd_store: CommandStore
 ) -> None:
@@ -69,7 +70,7 @@ def test_fmu_equipment_ports_declared(
     assert "eps.battery.soc" in port_names
     assert "eps.solar_array.illumination" in port_names
 
-
+@pytest.mark.requirement("EQP-008")
 def test_fmu_equipment_port_directions(
     sync: _NoSync, store: ParameterStore, cmd_store: CommandStore
 ) -> None:
@@ -85,7 +86,7 @@ def test_fmu_equipment_port_directions(
     assert eq.ports["eps.battery.soc"].direction == PortDirection.OUT
     assert eq.ports["eps.solar_array.illumination"].direction == PortDirection.IN
 
-
+@pytest.mark.requirement("SVF-DEV-007")
 def test_fmu_equipment_missing_fmu(
     sync: _NoSync, store: ParameterStore
 ) -> None:
@@ -98,7 +99,7 @@ def test_fmu_equipment_missing_fmu(
             store=store,
         )
 
-
+@pytest.mark.requirement("EQP-008")
 def test_fmu_equipment_no_map(
     sync: _NoSync, store: ParameterStore, cmd_store: CommandStore
 ) -> None:
@@ -116,6 +117,7 @@ def test_fmu_equipment_no_map(
 
 # ── Step tests ────────────────────────────────────────────────────────────────
 
+@pytest.mark.requirement("EQP-009")
 def test_fmu_equipment_step(
     sync: _NoSync, store: ParameterStore, cmd_store: CommandStore
 ) -> None:
@@ -140,7 +142,7 @@ def test_fmu_equipment_step(
     assert gen == pytest.approx(90.0, abs=1.0)
     eq.teardown()
 
-
+@pytest.mark.requirement("EQP-006","SVF-DEV-014")
 def test_fmu_equipment_on_tick_writes_store(
     sync: _NoSync, store: ParameterStore, cmd_store: CommandStore
 ) -> None:

@@ -14,6 +14,71 @@ from svf.plugin.fixtures import svf_participant, svf_session, FmuConfig
 from svf.plugin.verdict import Verdict, VerdictRecorder
 from svf.plugin.observable import ObservableFactory, ConditionNotMet
 
+def pytest_terminal_summary(
+    terminalreporter: pytest.TerminalReporter,
+    exitstatus: int,
+    config: pytest.Config,
+) -> None:
+    """
+    After the test run, generate a requirements traceability matrix.
+    Writes to results/traceability.txt.
+    Implements: SVF-DEV-073
+    """
+    import os
+    from pathlib import Path
+    from collections import defaultdict
+
+    # Collect all requirement markers from test reports
+    matrix: dict[str, list[tuple[str, str]]] = defaultdict(list)
+
+    for report in terminalreporter.stats.get("passed", []):
+        _collect_requirements(report, matrix, "PASS")
+    for report in terminalreporter.stats.get("failed", []):
+        _collect_requirements(report, matrix, "FAIL")
+    for report in terminalreporter.stats.get("error", []):
+        _collect_requirements(report, matrix, "ERROR")
+
+    if not matrix:
+        return
+
+    # Write traceability matrix
+    output_dir = Path("results")
+    output_dir.mkdir(exist_ok=True)
+    output_file = output_dir / "traceability.txt"
+
+    lines = [
+        "SVF Requirements Traceability Matrix",
+        "=" * 60,
+        f"{'Requirement':<20} {'Verdict':<12} {'Test Case'}",
+        "-" * 60,
+    ]
+
+    for req_id in sorted(matrix.keys()):
+        for test_id, verdict in sorted(matrix[req_id]):
+            short_test = test_id.split("::")[-1]
+            lines.append(f"{req_id:<20} {verdict:<12} {short_test}")
+
+    lines.append("-" * 60)
+    lines.append(f"Total requirements covered: {len(matrix)}")
+
+    output_file.write_text("\n".join(lines))
+    terminalreporter.write_sep(
+        "-", f"Traceability matrix written to {output_file}"
+    )
+
+
+def _collect_requirements(
+    report: pytest.TestReport,
+    matrix: dict[str, list[tuple[str, str]]],
+    verdict: str,
+) -> None:
+    """Extract requirement markers from a test report."""
+    markers = getattr(report, "own_markers", [])
+    for marker in markers:
+        if marker.name == "requirement":
+            for req_id in marker.args:
+                matrix[req_id].append((report.nodeid, verdict))
+                
 
 def pytest_configure(config: pytest.Config) -> None:
     """Register SVF custom marks."""
@@ -53,6 +118,9 @@ def pytest_runtest_makereport(
     
     if rep.when == "call":
         item._svf_rep = rep  # type: ignore[attr-defined]
+
+    # Store markers on report for traceability
+    rep.own_markers = list(item.own_markers)
 
 
 __all__ = [

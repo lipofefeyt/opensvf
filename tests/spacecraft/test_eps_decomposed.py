@@ -97,7 +97,7 @@ def eps_simulation():  # type: ignore[no-untyped-def]
 
     return master, store, cmd_store
 
-
+@pytest.mark.requirement("EPS-014", "EPS-016")
 def test_decomposed_eps_sunlight(eps_simulation) -> None:  # type: ignore[no-untyped-def]
     """Decomposed EPS charges battery in full sunlight."""
     master, store, cmd_store = eps_simulation
@@ -119,7 +119,7 @@ def test_decomposed_eps_sunlight(eps_simulation) -> None:  # type: ignore[no-unt
     assert gen.value == pytest.approx(90.0, abs=1.0)
     assert bus.value > 3.5
 
-
+@pytest.mark.requirement("EPS-015", "EPS-016")
 def test_decomposed_eps_eclipse(eps_simulation) -> None:  # type: ignore[no-untyped-def]
     """Decomposed EPS discharges battery in eclipse."""
     master, store, cmd_store = eps_simulation

@@ -1,0 +1,63 @@
+SVF Requirements Traceability Matrix
+============================================================
+Requirement          Verdict      Test Case
+------------------------------------------------------------
+EPS-001              PASS         test_tc_pwr_003_charging_in_sunlight
+EPS-001              PASS         test_tc_pwr_004_penumbra
+EPS-003              PASS         test_tc_pwr_003_charging_in_sunlight
+EPS-011              PASS         test_tc_pwr_001_battery_charges_in_sunlight
+EPS-011              PASS         test_tc_pwr_003_charging_in_sunlight
+EPS-012              PASS         test_tc_pwr_002_battery_discharges_in_eclipse
+EPS-012              PASS         test_tc_pwr_005_deep_eclipse_discharge
+EPS-013              PASS         test_tc_pwr_002_battery_discharges_in_eclipse
+EPS-013              PASS         test_tc_pwr_005_deep_eclipse_discharge
+EPS-014              PASS         test_decomposed_eps_sunlight
+EPS-015              PASS         test_decomposed_eps_eclipse
+EPS-016              PASS         test_decomposed_eps_eclipse
+EPS-016              PASS         test_decomposed_eps_sunlight
+EQP-001              PASS         test_equipment_construction
+EQP-001              PASS         test_equipment_duplicate_port_raises
+EQP-001              PASS         test_equipment_port_directions
+EQP-001              PASS         test_fmu_equipment_ports_declared
+EQP-002              PASS         test_write_port_out
+EQP-002              PASS         test_write_port_to_in_raises
+EQP-003              PASS         test_read_port_unknown_raises
+EQP-003              PASS         test_receive_unknown_port_raises
+EQP-004              PASS         test_receive_into_in_port
+EQP-004              PASS         test_receive_into_out_port_raises
+EQP-005              PASS         test_bidirectional_equipment_step
+EQP-005              PASS         test_source_to_sink_wiring
+EQP-006              PASS         test_bidirectional_equipment_step
+EQP-006              PASS         test_source_to_sink_wiring
+EQP-006              PASS         test_fmu_equipment_on_tick_writes_store
+EQP-008              PASS         test_fmu_equipment_no_map
+EQP-008              PASS         test_fmu_equipment_port_directions
+EQP-008              PASS         test_fmu_equipment_ports_declared
+EQP-009              PASS         test_fmu_equipment_step
+EQP-011              PASS         test_port_default_value_is_zero
+EQP-011              PASS         test_write_port_out
+SVF-DEV-004          PASS         test_connection_str
+SVF-DEV-004          PASS         test_duplicate_connection_raises
+SVF-DEV-004          PASS         test_in_port_as_source_raises
+SVF-DEV-004          PASS         test_load_valid_wiring
+SVF-DEV-004          PASS         test_missing_file_raises
+SVF-DEV-004          PASS         test_missing_from_field_raises
+SVF-DEV-004          PASS         test_out_port_as_destination_raises
+SVF-DEV-004          PASS         test_unknown_equipment_raises
+SVF-DEV-004          PASS         test_unknown_port_raises
+SVF-DEV-004          PASS         test_wiring_map_connections_from
+SVF-DEV-004          PASS         test_wiring_map_connections_to
+SVF-DEV-007          PASS         test_fmu_equipment_missing_fmu
+SVF-DEV-014          PASS         test_fmu_equipment_on_tick_writes_store
+SVF-DEV-063          PASS         test_tc_pwr_001_battery_charges_in_sunlight
+SVF-DEV-063          PASS         test_tc_pwr_002_battery_discharges_in_eclipse
+SVF-DEV-063          PASS         test_tc_pwr_003_charging_in_sunlight
+SVF-DEV-063          PASS         test_tc_pwr_004_penumbra
+SVF-DEV-063          PASS         test_tc_pwr_005_deep_eclipse_discharge
+SVF-DEV-065          PASS         test_tc_pwr_001_battery_charges_in_sunlight
+SVF-DEV-065          PASS         test_tc_pwr_002_battery_discharges_in_eclipse
+SVF-DEV-065          PASS         test_tc_pwr_003_charging_in_sunlight
+SVF-DEV-065          PASS         test_tc_pwr_004_penumbra
+SVF-DEV-065          PASS         test_tc_pwr_005_deep_eclipse_discharge
+------------------------------------------------------------
+Total requirements covered: 22
