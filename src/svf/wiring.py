@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import yaml
 
@@ -98,7 +98,7 @@ class WiringLoader:
         wiring = loader.load(Path("srdb/wiring/eps_wiring.yaml"))
     """
 
-    def __init__(self, equipment: dict[str, Equipment]) -> None:
+    def __init__(self, equipment: Mapping[str, Equipment]) -> None:
         self._equipment = equipment
 
     def load(self, path: Path) -> WiringMap:

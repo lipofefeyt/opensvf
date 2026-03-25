@@ -12,6 +12,8 @@ import logging
 from typing import Optional
 
 from svf.abstractions import TickSource, SyncProtocol, ModelAdapter
+from svf.wiring import WiringMap
+from svf.command_store import CommandStore
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,8 @@ class SimulationMaster:
         dt: float = 0.1,
         stop_time: float = 1.0,
         sync_timeout: float = 5.0,
+        wiring: Optional[WiringMap] = None,
+        command_store: Optional[CommandStore] = None,
     ) -> None:
         if not models:
             raise SimulationError("SimulationMaster requires at least one ModelAdapter.")
@@ -64,6 +68,8 @@ class SimulationMaster:
         self._dt = dt
         self._stop_time = stop_time
         self._sync_timeout = sync_timeout
+        self._wiring = wiring
+        self._command_store = command_store
         self._time: float = 0.0
         self._running = False
         self._model_ids = [m.model_id for m in models]
@@ -88,6 +94,45 @@ class SimulationMaster:
                 raise SimulationError(
                     f"Failed to initialise model '{model.model_id}': {e}"
                 ) from e
+
+        # Validate wiring against registered equipment
+        if self._wiring is not None:
+            from svf.equipment import Equipment
+            equipment_map = {
+                m.model_id: m for m in self._models
+                if isinstance(m, Equipment)
+            }
+
+            # Build equipment map
+            self._equipment_map = equipment_map
+
+            for conn in self._wiring.connections:
+                if conn.from_equipment not in equipment_map:
+                    raise SimulationError(
+                        f"Wiring references unknown source equipment "
+                        f"'{conn.from_equipment}' in connection: {conn}"
+                    )
+                if conn.to_equipment not in equipment_map:
+                    raise SimulationError(
+                        f"Wiring references unknown destination equipment "
+                        f"'{conn.to_equipment}' in connection: {conn}"
+                    )
+                src = equipment_map[conn.from_equipment]
+                if conn.from_port not in src.ports:
+                    raise SimulationError(
+                        f"Wiring references unknown port '{conn.from_port}' "
+                        f"on equipment '{conn.from_equipment}'"
+                    )
+                dst = equipment_map[conn.to_equipment]
+                if conn.to_port not in dst.ports:
+                    raise SimulationError(
+                        f"Wiring references unknown port '{conn.to_port}' "
+                        f"on equipment '{conn.to_equipment}'"
+                    )
+            logger.info(
+                f"Wiring validated: {len(self._wiring.connections)} "
+                f"connections across {len(equipment_map)} equipment"
+            )
 
         try:
             self._tick_source.start(
@@ -135,6 +180,32 @@ class SimulationMaster:
                 f"Sync timeout at t={t:.3f}: not all models acknowledged "
                 f"within {self._sync_timeout}s"
             )
+            
+        # Apply wiring — copy OUT port values to connected IN ports
+        if self._wiring is not None and self._command_store is not None:
+            from svf.equipment import Equipment
+            
+            # Grab the equipment map
+            equipment_map = getattr(self, "_equipment_map", {})
+
+            for conn in self._wiring.connections:
+                src = equipment_map.get(conn.from_equipment)
+                if src is not None:
+                    try:
+                        value = src.read_port(conn.from_port)
+                        self._command_store.inject(
+                            name=conn.to_port,
+                            value=value,
+                            t=self._time,
+                            source_id=f"wiring:{conn.from_equipment}.{conn.from_port}",
+                        )
+                        logger.debug(
+                            f"Wiring: {conn.from_equipment}.{conn.from_port} "
+                            f"-> {conn.to_equipment}.{conn.to_port} = {value}"
+                        )
+                    except ValueError as e:
+                        logger.warning(f"Wiring error: {e}")
+
 
     def _teardown(self) -> None:
         """Tear down all models cleanly."""
