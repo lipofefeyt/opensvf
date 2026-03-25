@@ -12,7 +12,6 @@ from pathlib import Path
 # Requirements that are BASELINED but not yet implemented.
 # Each entry must have a justification and target milestone.
 KNOWN_GAPS: dict[str, str] = {
-    "SVF-DEV-048": "svf_command_schedule not yet implemented — M4.5 close-out",
 }
 
 

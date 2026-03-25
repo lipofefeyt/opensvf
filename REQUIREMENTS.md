@@ -329,7 +329,7 @@ The orchestration layer shall support parallel test execution via pytest-xdist.
 **SVF-DEV-047** `[ORC]` `IMPLEMENTED`
 Each test procedure shall be expressible as a standalone Python file with no mandatory inheritance from SVF base classes.
 
-**SVF-DEV-048** `[ORC]` `BASELINED`
+**SVF-DEV-048** `[ORC]` `IMPLEMENTED`
 The plugin shall provide an svf_command_schedule mark allowing test procedures to schedule commands at specific simulation times. Assigned to M4.5 close-out.
 
 ---
