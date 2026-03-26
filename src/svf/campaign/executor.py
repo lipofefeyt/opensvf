@@ -171,6 +171,12 @@ class CampaignExecutor:
             f"{record.errors} ERROR — {record.overall_verdict.value}"
         )
 
+        # Generate HTML report
+        from svf.campaign.reporter import CampaignReporter
+        reporter = CampaignReporter()
+        report_path = reporter.generate(record, campaign, campaign_dir)
+        logger.info(f"Report: {report_path}")
+
         return record
 
     def _run_test_case(
