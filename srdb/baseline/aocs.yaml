@@ -164,3 +164,45 @@ parameters:
       service: 3
       subservice: 25
       parameter_id: 0x2040
+
+  aocs.rw1.torque_cmd:
+    description: Reaction wheel 1 torque command
+    unit: Nm
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: rw1
+    valid_range: [-0.2, 0.2]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2021
+
+  aocs.rw1.speed:
+    description: Reaction wheel 1 speed
+    unit: rpm
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: rw1
+    valid_range: [-6000.0, 6000.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2022
+
+  aocs.rw1.status:
+    description: Reaction wheel 1 status (1=nominal)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: AOCS
+    model_id: rw1
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2023

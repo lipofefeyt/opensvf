@@ -164,21 +164,25 @@ class Mil1553Bus(Bus):
         RT_to_BC: read parameter from ParameterStore (RT wrote it),
                   check for faults, write as OBC telemetry
         """
-        # Check for BUS_ERROR — switch to redundant bus
+        
+        # Check for BUS_ERROR — switch to redundant bus (once per fault)
         if self.has_fault(FaultType.BUS_ERROR, "all", t):
-            new_bus = "B" if self._active_bus == "A" else "A"
-            if new_bus != self._active_bus:
+            if not getattr(self, "_bus_switched", False):
+                new_bus = "B" if self._active_bus == "A" else "A"
                 logger.warning(
                     f"[{self._bus_id}] BUS_ERROR detected — "
                     f"switching from bus {self._active_bus} to {new_bus}"
                 )
                 self._active_bus = new_bus
+                self._bus_switched = True
                 self._store.write(
                     name=f"bus.{self._bus_id}.active_bus",
                     value=1.0 if new_bus == "A" else 2.0,
                     t=t,
                     model_id=self.equipment_id,
                 )
+        else:
+            self._bus_switched = False
 
         # Process BC_to_RT mappings
         for (rt_addr, sa), mapping in self._bc_to_rt.items():

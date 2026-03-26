@@ -1,0 +1,31 @@
+# SVF MIL-STD-1553 Validation Campaign
+# Validates OBC commanding RW over simulated 1553 bus.
+
+campaign_id: 1553-VAL-001
+description: MIL-STD-1553 bus and FDIR validation campaign
+svf_version: "0.1"
+model_baseline: obc_rw_1553_v1
+
+requirements:
+  - SVF-DEV-038
+
+test_cases:
+  - id: TC-1553-001
+    test: tests/spacecraft/test_mil1553_procedures.py::test_tc_1553_001_obc_commands_rw_via_bus
+    timeout: 60
+
+  - id: TC-1553-002
+    test: tests/spacecraft/test_mil1553_procedures.py::test_tc_1553_002_no_response_fault_blocks_commanding
+    timeout: 30
+
+  - id: TC-1553-003
+    test: tests/spacecraft/test_mil1553_procedures.py::test_tc_1553_003_fault_clears_operation_resumes
+    timeout: 60
+
+  - id: TC-1553-004
+    test: tests/spacecraft/test_mil1553_procedures.py::test_tc_1553_004_bus_error_triggers_switchover
+    timeout: 30
+
+  - id: TC-1553-005
+    test: tests/spacecraft/test_mil1553_procedures.py::test_tc_1553_005_obc_fdir_detects_rw_fault
+    timeout: 30
