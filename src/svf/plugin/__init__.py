@@ -7,6 +7,7 @@ Implements: SVF-DEV-040, SVF-DEV-041, SVF-DEV-044
 from __future__ import annotations
 
 import pytest
+import pluggy
 
 from typing import cast as typing_cast
 from typing import Generator
@@ -113,8 +114,8 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_runtest_makereport(
     item: pytest.Item,
     call: pytest.CallInfo,  # type: ignore[type-arg]
-) -> pytest.Generator:  # type: ignore[type-arg]
-    outcome = yield
+) -> Generator[None, pluggy.Result, None]:  # type: ignore[type-arg]
+    outcome: pluggy.Result = yield  # type: ignore[type-arg]
     rep = outcome.get_result()
     if rep.when == "call":
         item._svf_rep = rep  # type: ignore[attr-defined]
