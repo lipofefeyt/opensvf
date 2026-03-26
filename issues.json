@@ -1,32 +1,50 @@
 [
   {
-    "title": "[CAM] Implement YAML campaign schema and loader",
-    "body": "## Objective\nDefine and implement the YAML campaign schema and a Python loader that validates and parses campaign files.\n\n## Schema\n```yaml\ncampaign_id: EPS-VAL-001\ndescription: EPS subsystem validation campaign\nsvf_version: '0.1'\nmodel_baseline: eps_integrated_v1\nrequirements:\n  - EPS-011\n  - EPS-012\ntest_cases:\n  - id: TC-PWR-001\n    test: tests/spacecraft/test_eps.py::test_tc_pwr_001\n    timeout: 60\n```\n\n## Acceptance Criteria\n- CampaignDefinition dataclass covering all fields\n- CampaignLoader parses YAML with schema validation\n- Missing required fields raise descriptive errors\n- SHA-256 hash of campaign file recorded at load time\n- Unit tests cover valid load, missing fields, invalid schema\n\n## Implements\nSVF-DEV-050, SVF-DEV-051, SVF-DEV-052, SVF-DEV-053",
+    "title": "[BUS] Add InterfaceType to PortDefinition and update WiringLoader validation",
+    "body": "## Objective\nExtend PortDefinition with an interface_type field. Update WiringLoader to validate interface type compatibility between connected ports.\n\n## Design\n```python\nclass InterfaceType(enum.Enum):\n    FLOAT      = 'float'       # default, backward compatible\n    MIL1553_BC = 'mil1553_bc'  # 1553 Bus Controller\n    MIL1553_RT = 'mil1553_rt'  # 1553 Remote Terminal\n    SPACEWIRE  = 'spacewire'   # SpaceWire node\n    CAN        = 'can'         # CAN node\n    UART       = 'uart'        # UART\n    ANALOG     = 'analog'      # analog signal\n    DIGITAL    = 'digital'     # digital signal\n```\n\n## Acceptance Criteria\n- InterfaceType enum added to equipment.py\n- PortDefinition.interface_type field added (default: FLOAT)\n- WiringLoader raises WiringLoadError when interface types are incompatible\n- All existing tests pass (FLOAT ports are backward compatible)\n- mypy strict clean\n\n## Implements\nSVF-DEV-038",
+    "labels": ["type: feature", "layer: sim-core", "priority: now"],
+    "milestone": "M6 - Bus Protocols"
+  },
+  {
+    "title": "[BUS] Implement Bus abstract base class extending Equipment",
+    "body": "## Objective\nDefine the Bus abstract base class. A Bus is an Equipment with typed ports on both sides and built-in fault injection support.\n\n## Design\n```python\nclass Bus(Equipment):\n    def inject_fault(self, fault: BusFault) -> None: ...\n    def clear_faults(self) -> None: ...\n    def active_faults(self) -> list[BusFault]: ...\n```\n\n## BusFault schema\n```python\n@dataclass(frozen=True)\nclass BusFault:\n    fault_type: FaultType  # NO_RESPONSE, LATE_RESPONSE, BAD_PARITY, BUS_ERROR\n    target: str            # equipment_id or 'all'\n    duration_s: float      # 0.0 = permanent\n    injected_at: float     # simulation time\n```\n\n## Acceptance Criteria\n- Bus extends Equipment\n- inject_fault(), clear_faults(), active_faults() implemented\n- Time-limited faults expire automatically each tick\n- Fault state readable from ParameterStore as bus.{bus_id}.fault.{target}\n- Unit tests cover fault injection, expiry, clearing\n\n## Implements\nSVF-DEV-038",
+    "labels": ["type: feature", "layer: sim-core", "priority: now"],
+    "milestone": "M6 - Bus Protocols"
+  },
+  {
+    "title": "[BUS] Implement MIL-STD-1553 Bus adapter",
+    "body": "## Objective\nImplement a MIL-STD-1553 bus adapter as a Bus Equipment.\n\n## Design\n- Mil1553Bus extends Bus\n- IN port: bc_in (type: MIL1553_BC) — receives from OBC BC\n- OUT ports: rt1_out through rt30_out (type: MIL1553_RT)\n- Dual redundant bus (A/B) with automatic switchover on BUS_ERROR fault\n- Subaddress-to-parameter mapping defined in wiring YAML\n- Broadcast command support (RT address 31)\n\n## Wiring YAML extension\n```yaml\nconnections:\n  - from: obc.m1553_bc_out\n    to:   platform_bus.bc_in\n    interface: MIL1553_BC\n  - from: platform_bus.rt5_out\n    to:   rw1.m1553_rt_in\n    interface: MIL1553_RT\n    rt_address: 5\n    subaddress_map:\n      - sa: 1\n        parameter: aocs.rw1.torque_cmd\n      - sa: 2\n        parameter: aocs.rw1.speed\n```\n\n## Acceptance Criteria\n- Mil1553Bus routes BC commands to correct RT based on RT address\n- Subaddress mapping translates parameters correctly\n- Dual bus A/B supported with switchover on BUS_ERROR\n- Broadcast commands delivered to all RTs\n- Unit tests cover routing, subaddress mapping, broadcast\n\n## Implements\nSVF-DEV-038",
+    "labels": ["type: feature", "layer: comm-bus", "priority: now"],
+    "milestone": "M6 - Bus Protocols"
+  },
+  {
+    "title": "[BUS] Implement OBC NativeEquipment as 1553 Bus Controller",
+    "body": "## Objective\nImplement a simple OBC model as NativeEquipment acting as 1553 Bus Controller for the M6 demo scenario.\n\n## Design\n- ObcEquipment extends NativeEquipment\n- Offers m1553_bc_out port (type: MIL1553_BC)\n- Reads CommandStore for telecommands to forward onto bus\n- Writes received telemetry to ParameterStore\n- Simple FDIR: detects RT timeout, switches to redundant bus\n\n## Acceptance Criteria\n- OBC forwards TCs to correct RT address via 1553 bus\n- OBC detects NO_RESPONSE fault and flags obc.fdir.rt{n}_fault\n- OBC switches bus A->B on persistent fault\n- Unit tests cover nominal commanding and FDIR response\n\n## Implements\nSVF-DEV-038",
+    "labels": ["type: feature", "layer: model-authoring", "priority: now"],
+    "milestone": "M6 - Bus Protocols"
+  },
+  {
+    "title": "[BUS] Implement ReactionWheel as 1553 Remote Terminal",
+    "body": "## Objective\nExtend the ReactionWheel model to implement the 1553 RT interface, enabling it to receive commands and send telemetry over the simulated 1553 bus.\n\n## Design\n- RwEquipment extends NativeEquipment\n- Offers m1553_rt_in port (type: MIL1553_RT)\n- Receives torque commands via SA1, sends speed telemetry via SA2\n- Physics: speed increases with torque, decays without power\n\n## Acceptance Criteria\n- RW receives torque command from OBC via 1553 bus\n- RW sends speed telemetry back to OBC via 1553 bus\n- RW does not respond when NO_RESPONSE fault is active\n- Unit tests cover nominal operation and fault response\n\n## Implements\nSVF-DEV-038, SVF-DEV-066",
+    "labels": ["type: feature", "layer: model-authoring", "priority: now"],
+    "milestone": "M6 - Bus Protocols"
+  },
+  {
+    "title": "[BUS] Write 1553 validation and FDIR test procedures",
+    "body": "## Objective\nWrite end-to-end test procedures demonstrating OBC commanding a RW over simulated 1553 bus including FDIR scenarios.\n\n## Test Cases\n- TC-1553-001: OBC commands RW torque via 1553, speed increases\n- TC-1553-002: OBC reads RW speed telemetry via 1553\n- TC-1553-003: NO_RESPONSE fault injected, OBC detects within 2 frames\n- TC-1553-004: OBC switches to redundant bus after persistent fault\n- TC-1553-005: Broadcast command delivered to all RTs\n\n## Acceptance Criteria\n- All test procedures use svf_session fixture\n- Fault injection via svf_command_schedule\n- All tests pass\n- Campaign YAML committed: campaigns/1553_validation.yaml\n- HTML report generated cleanly\n\n## Implements\nSVF-DEV-038",
     "labels": ["type: feature", "layer: orchestration", "priority: now"],
-    "milestone": "M5 - Campaign and Reporting"
+    "milestone": "M6 - Bus Protocols"
   },
   {
-    "title": "[CAM] Implement campaign executor via pytest",
-    "body": "## Objective\nImplement a campaign executor that reads a campaign YAML and drives pytest to run the specified test cases in order.\n\n## Design\n- CLI: svf run campaigns/eps_validation.yaml\n- Internally calls pytest programmatically with the specified test node IDs\n- Per-test-case timeout enforced via pytest-timeout\n- Campaign execution record written to results/{campaign_id}/\n\n## Acceptance Criteria\n- CampaignExecutor.run(campaign) calls pytest with correct node IDs\n- Per-test timeout respected — test marked ERROR if exceeded\n- Execution record includes: campaign_id, file hash, SVF version, timestamp, verdicts\n- Integration test runs EPS campaign end to end\n\n## Implements\nSVF-DEV-050, SVF-DEV-051, SVF-DEV-054",
-    "labels": ["type: feature", "layer: orchestration", "priority: now"],
-    "milestone": "M5 - Campaign and Reporting"
+    "title": "[BUS] Implement SpaceWire Bus adapter with RMAP",
+    "body": "## Objective\nImplement a SpaceWire bus adapter with RMAP (Remote Memory Access Protocol) support.\n\n## Design\n- SpwBus extends Bus\n- Router + node topology\n- RMAP read/write transactions\n- Logical address routing\n- SpW node port type for equipment\n\n## Acceptance Criteria\n- SpwBus routes RMAP transactions to correct node by logical address\n- Read and write RMAP transactions supported\n- Error injection: link error, invalid address, RMAP error codes\n- Integration test with payload mass memory model\n\n## Implements\nSVF-DEV-038",
+    "labels": ["type: feature", "layer: comm-bus", "priority: next"],
+    "milestone": "M6 - Bus Protocols"
   },
   {
-    "title": "[REP] JUnit XML with ECSS verdict and requirement metadata",
-    "body": "## Objective\nEnrich the JUnit XML output with ECSS verdict and requirement metadata so CI pipelines get structured test data.\n\n## Acceptance Criteria\n- JUnit XML includes requirement IDs as custom properties\n- ECSS verdict (PASS/FAIL/ERROR/INCONCLUSIVE) included per test case\n- Campaign ID and model baseline included as suite-level properties\n- Output consumable by Jenkins, GitLab CI, GitHub Actions without plugins\n\n## Implements\nSVF-DEV-070, SVF-DEV-071, SVF-DEV-072, SVF-DEV-074",
-    "labels": ["type: feature", "layer: reporting", "priority: now"],
-    "milestone": "M5 - Campaign and Reporting"
-  },
-  {
-    "title": "[REP] Self-contained HTML campaign report",
-    "body": "## Objective\nGenerate a self-contained HTML report after each campaign run. No external dependencies — opens in any browser.\n\n## Design\n- Jinja2 template rendered to results/{campaign_id}/report.html\n- Single file — CSS and JS inlined\n- Shows: campaign metadata, test case verdicts with colour coding, requirement traceability table, execution timeline\n\n## Acceptance Criteria\n- report.html generated after campaign run\n- Colour coded verdicts: green PASS, red FAIL, orange ERROR, grey INCONCLUSIVE\n- Requirements traceability table: requirement ID, description, test case, verdict\n- Campaign metadata: campaign_id, SVF version, model baseline, timestamp, file hash\n- No external dependencies at render time\n\n## Implements\nSVF-DEV-071, SVF-DEV-073, SVF-DEV-074, SVF-DEV-075",
-    "labels": ["type: feature", "layer: reporting", "priority: now"],
-    "milestone": "M5 - Campaign and Reporting"
-  },
-  {
-    "title": "[CAM] Write EPS validation campaign YAML",
-    "body": "## Objective\nWrite the reference campaign YAML file that validates the integrated EPS FMU.\n\n## Acceptance Criteria\n- campaigns/eps_validation.yaml committed\n- Covers TC-PWR-001 through TC-PWR-005\n- References EPS-011 through EPS-013\n- Campaign runs cleanly via svf run\n- HTML report generated and committed to docs/examples/\n\n## Implements\nSVF-DEV-051",
-    "labels": ["type: feature", "layer: orchestration", "priority: now"],
-    "milestone": "M5 - Campaign and Reporting"
+    "title": "[BUS] Implement CAN Bus adapter (ECSS)",
+    "body": "## Objective\nImplement a CAN bus adapter following ECSS CAN conventions.\n\n## Design\n- CanBus extends Bus\n- CAN 2.0B frame structure\n- Standard and extended identifiers\n- ECSS CAN node addressing\n\n## Acceptance Criteria\n- CanBus routes messages by CAN identifier\n- Standard and extended frame formats supported\n- Error injection: bus-off, error passive, ACK error\n- Integration test with a simple CAN-connected equipment\n\n## Implements\nSVF-DEV-038",
+    "labels": ["type: feature", "layer: comm-bus", "priority: next"],
+    "milestone": "M6 - Bus Protocols"
   }
 ]
