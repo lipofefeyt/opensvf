@@ -1,26 +1,32 @@
 [
   {
-    "title": "🗓 M3.6 - Requirements Engineering",
-    "body": "Tracking issue for milestone M3.6 — Requirements Engineering.\nDue: 2026-04-18\n\n## Objective\nEstablish proper requirement traceability across all functional areas.\nEvery test must reference a requirement. Every requirement must have a test.\n\n## Issues\n- [ ] [REQ] Add EQP functional area to REQUIREMENTS.md\n- [ ] [REQ] Add EPS functional area to REQUIREMENTS.md\n- [ ] [REQ] Restructure test directory\n- [ ] [REQ] Ensure every test is traced to a requirement\n- [ ] [REQ] Generate requirements traceability matrix\n\n## Definition of Done\n- EQP and EPS functional areas in REQUIREMENTS.md\n- Tests reorganised into unit/equipment/integration/spacecraft\n- Every test has @pytest.mark.requirement() marker\n- Traceability matrix generated after each CI run\n- CI green",
-    "labels": ["type: docs"],
-    "milestone": "M3.6 - Requirements Engineering"
-  },
-  {
-    "title": "🗓 M4.5 - Model Wiring close-out",
-    "body": "Tracking issue for M4.5 close-out.\nDue: 2026-04-25\n\n## Objective\nComplete remaining M4.5 items and close the milestone cleanly.\n\n## Issues\n- [ ] [ORC] Implement svf_command_schedule mark\n- [ ] [MOD] Decompose EPS into SolarArray, Battery, PCDU FMUs\n- [ ] [SIM] Implement model-to-model wiring via ParameterStore\n- [ ] [SIM] Add SSP system description support\n\n## Definition of Done\n- svf_command_schedule implemented and tested\n- TC-PWR-003 and TC-PWR-005 rewritten as proper multi-phase tests\n- SSP support assessed\n- CI green",
-    "labels": ["type: docs"],
-    "milestone": "M4.5 - Model Wiring"
-  },
-  {
-    "title": "🗓 M5 - Campaign & Reporting",
-    "body": "Tracking issue for milestone M5 — Campaign & Reporting.\nDue: 2026-05-16\n\n## Objective\nYAML campaign manager and ECSS-aligned test reporting.\nTurns SVF from a test tool into a certification-ready platform.\n\n## Issues\n- [ ] [CAM] Implement YAML campaign schema and loader\n- [ ] [CAM] Implement campaign executor\n- [ ] [CAM] SHA-256 campaign file hashing\n- [ ] [CAM] Per-test-case timeout support\n- [ ] [REP] ECSS-E-ST-10-02C structured test records\n- [ ] [REP] Requirements traceability matrix in HTML report\n- [ ] [REP] Allure HTML report integration\n- [ ] [REP] JUnit XML with ECSS verdict and requirement metadata\n\n## Definition of Done\n- Campaign YAML runs EPS test procedures end to end\n- Output includes JUnit XML + Allure HTML + ECSS test records\n- Traceability matrix links requirements to verdicts\n- CI green",
-    "labels": ["type: docs"],
+    "title": "[CAM] Implement YAML campaign schema and loader",
+    "body": "## Objective\nDefine and implement the YAML campaign schema and a Python loader that validates and parses campaign files.\n\n## Schema\n```yaml\ncampaign_id: EPS-VAL-001\ndescription: EPS subsystem validation campaign\nsvf_version: '0.1'\nmodel_baseline: eps_integrated_v1\nrequirements:\n  - EPS-011\n  - EPS-012\ntest_cases:\n  - id: TC-PWR-001\n    test: tests/spacecraft/test_eps.py::test_tc_pwr_001\n    timeout: 60\n```\n\n## Acceptance Criteria\n- CampaignDefinition dataclass covering all fields\n- CampaignLoader parses YAML with schema validation\n- Missing required fields raise descriptive errors\n- SHA-256 hash of campaign file recorded at load time\n- Unit tests cover valid load, missing fields, invalid schema\n\n## Implements\nSVF-DEV-050, SVF-DEV-051, SVF-DEV-052, SVF-DEV-053",
+    "labels": ["type: feature", "layer: orchestration", "priority: now"],
     "milestone": "M5 - Campaign and Reporting"
   },
   {
-    "title": "🗓 v0.1 - First Release",
-    "body": "Tracking issue for v0.1 release.\nDue: 2026-05-30\n\n## Objective\nFirst demoable, credible release of OpenSVF.\n\n## Completion criteria\n- [ ] M3.6 Requirements Engineering complete\n- [ ] M4.5 Model Wiring close-out complete\n- [ ] M5 Campaign & Reporting complete\n- [ ] README updated with quick-start guide\n- [ ] CONTRIBUTING.md updated\n- [ ] GitHub release tag created\n- [ ] All tests green\n- [ ] mypy strict clean\n- [ ] No open BASELINED requirements unimplemented\n\n## Demo script\n1. Show wiring YAML connecting SolarArray + Battery + PCDU\n2. Run pytest campaign against decomposed EPS\n3. Show Allure HTML report with ECSS verdicts\n4. Show traceability matrix linking EPS-001 through EPS-010 to test cases",
-    "labels": ["type: docs"],
-    "milestone": "v0.1 - First Release"
+    "title": "[CAM] Implement campaign executor via pytest",
+    "body": "## Objective\nImplement a campaign executor that reads a campaign YAML and drives pytest to run the specified test cases in order.\n\n## Design\n- CLI: svf run campaigns/eps_validation.yaml\n- Internally calls pytest programmatically with the specified test node IDs\n- Per-test-case timeout enforced via pytest-timeout\n- Campaign execution record written to results/{campaign_id}/\n\n## Acceptance Criteria\n- CampaignExecutor.run(campaign) calls pytest with correct node IDs\n- Per-test timeout respected — test marked ERROR if exceeded\n- Execution record includes: campaign_id, file hash, SVF version, timestamp, verdicts\n- Integration test runs EPS campaign end to end\n\n## Implements\nSVF-DEV-050, SVF-DEV-051, SVF-DEV-054",
+    "labels": ["type: feature", "layer: orchestration", "priority: now"],
+    "milestone": "M5 - Campaign and Reporting"
+  },
+  {
+    "title": "[REP] JUnit XML with ECSS verdict and requirement metadata",
+    "body": "## Objective\nEnrich the JUnit XML output with ECSS verdict and requirement metadata so CI pipelines get structured test data.\n\n## Acceptance Criteria\n- JUnit XML includes requirement IDs as custom properties\n- ECSS verdict (PASS/FAIL/ERROR/INCONCLUSIVE) included per test case\n- Campaign ID and model baseline included as suite-level properties\n- Output consumable by Jenkins, GitLab CI, GitHub Actions without plugins\n\n## Implements\nSVF-DEV-070, SVF-DEV-071, SVF-DEV-072, SVF-DEV-074",
+    "labels": ["type: feature", "layer: reporting", "priority: now"],
+    "milestone": "M5 - Campaign and Reporting"
+  },
+  {
+    "title": "[REP] Self-contained HTML campaign report",
+    "body": "## Objective\nGenerate a self-contained HTML report after each campaign run. No external dependencies — opens in any browser.\n\n## Design\n- Jinja2 template rendered to results/{campaign_id}/report.html\n- Single file — CSS and JS inlined\n- Shows: campaign metadata, test case verdicts with colour coding, requirement traceability table, execution timeline\n\n## Acceptance Criteria\n- report.html generated after campaign run\n- Colour coded verdicts: green PASS, red FAIL, orange ERROR, grey INCONCLUSIVE\n- Requirements traceability table: requirement ID, description, test case, verdict\n- Campaign metadata: campaign_id, SVF version, model baseline, timestamp, file hash\n- No external dependencies at render time\n\n## Implements\nSVF-DEV-071, SVF-DEV-073, SVF-DEV-074, SVF-DEV-075",
+    "labels": ["type: feature", "layer: reporting", "priority: now"],
+    "milestone": "M5 - Campaign and Reporting"
+  },
+  {
+    "title": "[CAM] Write EPS validation campaign YAML",
+    "body": "## Objective\nWrite the reference campaign YAML file that validates the integrated EPS FMU.\n\n## Acceptance Criteria\n- campaigns/eps_validation.yaml committed\n- Covers TC-PWR-001 through TC-PWR-005\n- References EPS-011 through EPS-013\n- Campaign runs cleanly via svf run\n- HTML report generated and committed to docs/examples/\n\n## Implements\nSVF-DEV-051",
+    "labels": ["type: feature", "layer: orchestration", "priority: now"],
+    "milestone": "M5 - Campaign and Reporting"
   }
 ]
