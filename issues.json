@@ -1,50 +1,38 @@
 [
   {
-    "title": "[BUS] Add InterfaceType to PortDefinition and update WiringLoader validation",
-    "body": "## Objective\nExtend PortDefinition with an interface_type field. Update WiringLoader to validate interface type compatibility between connected ports.\n\n## Design\n```python\nclass InterfaceType(enum.Enum):\n    FLOAT      = 'float'       # default, backward compatible\n    MIL1553_BC = 'mil1553_bc'  # 1553 Bus Controller\n    MIL1553_RT = 'mil1553_rt'  # 1553 Remote Terminal\n    SPACEWIRE  = 'spacewire'   # SpaceWire node\n    CAN        = 'can'         # CAN node\n    UART       = 'uart'        # UART\n    ANALOG     = 'analog'      # analog signal\n    DIGITAL    = 'digital'     # digital signal\n```\n\n## Acceptance Criteria\n- InterfaceType enum added to equipment.py\n- PortDefinition.interface_type field added (default: FLOAT)\n- WiringLoader raises WiringLoadError when interface types are incompatible\n- All existing tests pass (FLOAT ports are backward compatible)\n- mypy strict clean\n\n## Implements\nSVF-DEV-038",
-    "labels": ["type: feature", "layer: sim-core", "priority: now"],
-    "milestone": "M6 - Bus Protocols"
-  },
-  {
-    "title": "[BUS] Implement Bus abstract base class extending Equipment",
-    "body": "## Objective\nDefine the Bus abstract base class. A Bus is an Equipment with typed ports on both sides and built-in fault injection support.\n\n## Design\n```python\nclass Bus(Equipment):\n    def inject_fault(self, fault: BusFault) -> None: ...\n    def clear_faults(self) -> None: ...\n    def active_faults(self) -> list[BusFault]: ...\n```\n\n## BusFault schema\n```python\n@dataclass(frozen=True)\nclass BusFault:\n    fault_type: FaultType  # NO_RESPONSE, LATE_RESPONSE, BAD_PARITY, BUS_ERROR\n    target: str            # equipment_id or 'all'\n    duration_s: float      # 0.0 = permanent\n    injected_at: float     # simulation time\n```\n\n## Acceptance Criteria\n- Bus extends Equipment\n- inject_fault(), clear_faults(), active_faults() implemented\n- Time-limited faults expire automatically each tick\n- Fault state readable from ParameterStore as bus.{bus_id}.fault.{target}\n- Unit tests cover fault injection, expiry, clearing\n\n## Implements\nSVF-DEV-038",
-    "labels": ["type: feature", "layer: sim-core", "priority: now"],
-    "milestone": "M6 - Bus Protocols"
-  },
-  {
-    "title": "[BUS] Implement MIL-STD-1553 Bus adapter",
-    "body": "## Objective\nImplement a MIL-STD-1553 bus adapter as a Bus Equipment.\n\n## Design\n- Mil1553Bus extends Bus\n- IN port: bc_in (type: MIL1553_BC) — receives from OBC BC\n- OUT ports: rt1_out through rt30_out (type: MIL1553_RT)\n- Dual redundant bus (A/B) with automatic switchover on BUS_ERROR fault\n- Subaddress-to-parameter mapping defined in wiring YAML\n- Broadcast command support (RT address 31)\n\n## Wiring YAML extension\n```yaml\nconnections:\n  - from: obc.m1553_bc_out\n    to:   platform_bus.bc_in\n    interface: MIL1553_BC\n  - from: platform_bus.rt5_out\n    to:   rw1.m1553_rt_in\n    interface: MIL1553_RT\n    rt_address: 5\n    subaddress_map:\n      - sa: 1\n        parameter: aocs.rw1.torque_cmd\n      - sa: 2\n        parameter: aocs.rw1.speed\n```\n\n## Acceptance Criteria\n- Mil1553Bus routes BC commands to correct RT based on RT address\n- Subaddress mapping translates parameters correctly\n- Dual bus A/B supported with switchover on BUS_ERROR\n- Broadcast commands delivered to all RTs\n- Unit tests cover routing, subaddress mapping, broadcast\n\n## Implements\nSVF-DEV-038",
+    "title": "[PUS] Define PUS TC packet structure and parser",
+    "body": "## Objective\nImplement CCSDS/PUS-C telecommand packet parser.\n\n## PUS TC packet structure (ECSS-E-ST-70-41C)\n- Primary header: version, type, data field header flag, APID, sequence flags, packet length\n- Data field header: CCSDS secondary header flag, PUS version, ack flags, service type, subservice type, source ID\n- Application data: command parameters\n- Packet error control: CRC-16\n\n## Acceptance Criteria\n- PusTcPacket dataclass covering all header fields\n- PusTcParser.parse(bytes) -> PusTcPacket\n- PusTcBuilder.build(apid, service, subservice, data) -> bytes\n- CRC-16 validation\n- Unit tests cover parse, build, invalid CRC\n\n## Implements\nSVF-DEV-037",
     "labels": ["type: feature", "layer: comm-bus", "priority: now"],
-    "milestone": "M6 - Bus Protocols"
+    "milestone": "M7 - PUS TM/TC"
   },
   {
-    "title": "[BUS] Implement OBC NativeEquipment as 1553 Bus Controller",
-    "body": "## Objective\nImplement a simple OBC model as NativeEquipment acting as 1553 Bus Controller for the M6 demo scenario.\n\n## Design\n- ObcEquipment extends NativeEquipment\n- Offers m1553_bc_out port (type: MIL1553_BC)\n- Reads CommandStore for telecommands to forward onto bus\n- Writes received telemetry to ParameterStore\n- Simple FDIR: detects RT timeout, switches to redundant bus\n\n## Acceptance Criteria\n- OBC forwards TCs to correct RT address via 1553 bus\n- OBC detects NO_RESPONSE fault and flags obc.fdir.rt{n}_fault\n- OBC switches bus A->B on persistent fault\n- Unit tests cover nominal commanding and FDIR response\n\n## Implements\nSVF-DEV-038",
+    "title": "[PUS] Define PUS TM packet structure and builder",
+    "body": "## Objective\nImplement CCSDS/PUS-C telemetry packet builder.\n\n## PUS TM packet structure\n- Primary header: version, type, APID, sequence flags, packet length\n- Data field header: PUS version, service type, subservice type, message counter, destination ID, time\n- Application data: telemetry parameters\n- Packet error control: CRC-16\n\n## Acceptance Criteria\n- PusTmPacket dataclass\n- PusTmBuilder.build(apid, service, subservice, data) -> bytes\n- CRC-16 generation\n- Unit tests cover build and parse roundtrip\n\n## Implements\nSVF-DEV-037",
+    "labels": ["type: feature", "layer: comm-bus", "priority: now"],
+    "milestone": "M7 - PUS TM/TC"
+  },
+  {
+    "title": "[PUS] Implement PUS service catalogue (S3, S5, S17, S20)",
+    "body": "## Objective\nImplement the most common PUS services used in spacecraft operations.\n\n## Services\n- Service 3 (Housekeeping): parameter report generation, HK report definition\n- Service 5 (Event Reporting): normal/low/medium/high severity events\n- Service 17 (Test): are-you-alive test, on-board connection test\n- Service 20 (On-Board Parameter Management): parameter value set/get\n\n## Acceptance Criteria\n- PusService3, PusService5, PusService17, PusService20 classes\n- Each service handles incoming TC and generates TM responses\n- Unit tests cover each service nominal path\n\n## Implements\nSVF-DEV-037",
+    "labels": ["type: feature", "layer: comm-bus", "priority: now"],
+    "milestone": "M7 - PUS TM/TC"
+  },
+  {
+    "title": "[PUS] Implement OBC Equipment as PUS TC router",
+    "body": "## Objective\nImplement a realistic OBC model that receives PUS TC packets, unmarshalls them, and routes commands to equipment via the appropriate bus interface.\n\n## Design\n- ObcEquipment extends Equipment\n- Receives raw PUS TC bytes via TC input port\n- Parses TC using PusTcParser\n- Routes to correct bus based on APID and service mapping\n- Generates PUS TM acknowledgement packets (S1)\n- Aggregates HK telemetry via PUS S3\n\n## Acceptance Criteria\n- OBC receives PUS S20 TC and routes parameter set to 1553 RT\n- OBC generates S1 acceptance/execution TM\n- OBC responds to S17 are-you-alive TC\n- Integration test: ground sends TC -> OBC -> 1553 -> RW\n\n## Implements\nSVF-DEV-037",
     "labels": ["type: feature", "layer: model-authoring", "priority: now"],
-    "milestone": "M6 - Bus Protocols"
+    "milestone": "M7 - PUS TM/TC"
   },
   {
-    "title": "[BUS] Implement ReactionWheel as 1553 Remote Terminal",
-    "body": "## Objective\nExtend the ReactionWheel model to implement the 1553 RT interface, enabling it to receive commands and send telemetry over the simulated 1553 bus.\n\n## Design\n- RwEquipment extends NativeEquipment\n- Offers m1553_rt_in port (type: MIL1553_RT)\n- Receives torque commands via SA1, sends speed telemetry via SA2\n- Physics: speed increases with torque, decays without power\n\n## Acceptance Criteria\n- RW receives torque command from OBC via 1553 bus\n- RW sends speed telemetry back to OBC via 1553 bus\n- RW does not respond when NO_RESPONSE fault is active\n- Unit tests cover nominal operation and fault response\n\n## Implements\nSVF-DEV-038, SVF-DEV-066",
+    "title": "[PUS] Implement TTC Equipment as ground-spacecraft interface",
+    "body": "## Objective\nImplement a TTC (Telemetry Tracking and Command) equipment model that bridges the ground segment to the OBC via simulated RF link.\n\n## Design\n- TtcEquipment extends Equipment\n- Accepts raw TC bytes from test procedure\n- Forwards to OBC TC input port\n- Receives TM packets from OBC and makes available to observables\n\n## Acceptance Criteria\n- TTC forwards TC to OBC correctly\n- TTC exposes TM for observable assertions\n- Integration test: inject PUS TC via TTC, observe TM response\n\n## Implements\nSVF-DEV-037",
     "labels": ["type: feature", "layer: model-authoring", "priority: now"],
-    "milestone": "M6 - Bus Protocols"
+    "milestone": "M7 - PUS TM/TC"
   },
   {
-    "title": "[BUS] Write 1553 validation and FDIR test procedures",
-    "body": "## Objective\nWrite end-to-end test procedures demonstrating OBC commanding a RW over simulated 1553 bus including FDIR scenarios.\n\n## Test Cases\n- TC-1553-001: OBC commands RW torque via 1553, speed increases\n- TC-1553-002: OBC reads RW speed telemetry via 1553\n- TC-1553-003: NO_RESPONSE fault injected, OBC detects within 2 frames\n- TC-1553-004: OBC switches to redundant bus after persistent fault\n- TC-1553-005: Broadcast command delivered to all RTs\n\n## Acceptance Criteria\n- All test procedures use svf_session fixture\n- Fault injection via svf_command_schedule\n- All tests pass\n- Campaign YAML committed: campaigns/1553_validation.yaml\n- HTML report generated cleanly\n\n## Implements\nSVF-DEV-038",
+    "title": "[PUS] Write end-to-end PUS TC/TM test procedures",
+    "body": "## Objective\nWrite test procedures demonstrating full ground-to-equipment command chain via PUS TC/TM.\n\n## Test Cases\n- TC-PUS-001: S17 are-you-alive TC, verify S17 TM response\n- TC-PUS-002: S20 parameter set TC to RW torque, verify speed increases\n- TC-PUS-003: S3 HK report request, verify TM contains correct parameters\n- TC-PUS-004: Invalid TC (bad CRC), verify S1 rejection TM\n- TC-PUS-005: Full chain: ground -> TTC -> OBC -> 1553 -> RW\n\n## Acceptance Criteria\n- All test procedures use svf_session fixture\n- Campaign YAML committed: campaigns/pus_validation.yaml\n- All tests pass\n\n## Implements\nSVF-DEV-037",
     "labels": ["type: feature", "layer: orchestration", "priority: now"],
-    "milestone": "M6 - Bus Protocols"
-  },
-  {
-    "title": "[BUS] Implement SpaceWire Bus adapter with RMAP",
-    "body": "## Objective\nImplement a SpaceWire bus adapter with RMAP (Remote Memory Access Protocol) support.\n\n## Design\n- SpwBus extends Bus\n- Router + node topology\n- RMAP read/write transactions\n- Logical address routing\n- SpW node port type for equipment\n\n## Acceptance Criteria\n- SpwBus routes RMAP transactions to correct node by logical address\n- Read and write RMAP transactions supported\n- Error injection: link error, invalid address, RMAP error codes\n- Integration test with payload mass memory model\n\n## Implements\nSVF-DEV-038",
-    "labels": ["type: feature", "layer: comm-bus", "priority: next"],
-    "milestone": "M6 - Bus Protocols"
-  },
-  {
-    "title": "[BUS] Implement CAN Bus adapter (ECSS)",
-    "body": "## Objective\nImplement a CAN bus adapter following ECSS CAN conventions.\n\n## Design\n- CanBus extends Bus\n- CAN 2.0B frame structure\n- Standard and extended identifiers\n- ECSS CAN node addressing\n\n## Acceptance Criteria\n- CanBus routes messages by CAN identifier\n- Standard and extended frame formats supported\n- Error injection: bus-off, error passive, ACK error\n- Integration test with a simple CAN-connected equipment\n\n## Implements\nSVF-DEV-038",
-    "labels": ["type: feature", "layer: comm-bus", "priority: next"],
-    "milestone": "M6 - Bus Protocols"
+    "milestone": "M7 - PUS TM/TC"
   }
 ]
