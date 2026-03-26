@@ -15,6 +15,7 @@ dependencies = [
     "pythonfmu>=0.6",
     "cyclonedds>=0.11",
     "pyyaml>=6.0",
+    "pytest-timeout>=2.3",
 ]
 
 [project.optional-dependencies]
@@ -24,6 +25,9 @@ dev = [
     "mypy>=1.8",
     "types-PyYAML>=6.0",
 ]
+
+[project.scripts]
+svf = "svf.campaign.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
