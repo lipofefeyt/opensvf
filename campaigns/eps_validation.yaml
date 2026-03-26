@@ -1,0 +1,33 @@
+# SVF EPS Validation Campaign
+# Validates the integrated EPS FMU against requirements EPS-011 through EPS-013.
+
+campaign_id: EPS-VAL-001
+description: Integrated EPS FMU validation campaign
+svf_version: "0.1"
+model_baseline: eps_integrated_v1
+
+requirements:
+  - EPS-011
+  - EPS-012
+  - EPS-013
+
+test_cases:
+  - id: TC-PWR-001
+    test: tests/spacecraft/test_eps.py::test_tc_pwr_001_battery_charges_in_sunlight
+    timeout: 60
+
+  - id: TC-PWR-002
+    test: tests/spacecraft/test_eps.py::test_tc_pwr_002_battery_discharges_in_eclipse
+    timeout: 60
+
+  - id: TC-PWR-003
+    test: tests/spacecraft/test_eps.py::test_tc_pwr_003_sunlight_to_eclipse_transition
+    timeout: 120
+
+  - id: TC-PWR-004
+    test: tests/spacecraft/test_eps.py::test_tc_pwr_004_penumbra
+    timeout: 60
+
+  - id: TC-PWR-005
+    test: tests/spacecraft/test_eps.py::test_tc_pwr_005_low_battery_recovery
+    timeout: 180

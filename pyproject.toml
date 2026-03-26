@@ -37,3 +37,6 @@ exclude = [
 
 [project.entry-points."pytest11"]
 svf = "svf.plugin"
+
+[tool.pytest.ini_options]
+python_classes = ["*Suite", "*Tests"]
