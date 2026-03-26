@@ -113,20 +113,28 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_runtest_makereport(
     item: pytest.Item,
     call: pytest.CallInfo,  # type: ignore[type-arg]
-) -> Generator[None, None, None]:
-    """
-    Capture test outcome and attach it to the item so the
-    svf_session fixture can record the correct verdict.
-    """
+) -> pytest.Generator:  # type: ignore[type-arg]
     outcome = yield
-    rep = typing_cast(object, outcome).get_result()  # type: ignore[attr-defined]
-    
+    rep = outcome.get_result()
     if rep.when == "call":
         item._svf_rep = rep  # type: ignore[attr-defined]
+        rep.own_markers = list(item.own_markers)
 
-    # Store markers on report for traceability
-    rep.own_markers = list(item.own_markers)
+        # Add ECSS verdict and requirement IDs as JUnit XML properties
+        from svf.plugin.verdict import Verdict
+        if rep.passed:
+            verdict = Verdict.PASS.value
+        elif rep.failed:
+            verdict = Verdict.FAIL.value
+        else:
+            verdict = Verdict.INCONCLUSIVE.value
 
+        item.user_properties.append(("ecss_verdict", verdict))
+
+        for marker in item.own_markers:
+            if marker.name == "requirement":
+                for req_id in marker.args:
+                    item.user_properties.append(("requirement", req_id))
 
 __all__ = [
     "svf_participant",
