@@ -271,7 +271,7 @@ checkcov
 
 ## License
 
-TBD — open-core model. Core platform open source, enterprise features commercial.
+Apache 2.0 — see LICENSE. Core platform open source, enterprise features commercial.
 
 ---
 
