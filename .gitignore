@@ -207,3 +207,10 @@ marimo/_lsp/
 __marimo__/
 src/*.egg-info/
 results/
+# Generated artifacts
+results/
+*.fmu
+__pycache__/
+*.pyc
+.pytest_cache/
+src/*.egg-info/
