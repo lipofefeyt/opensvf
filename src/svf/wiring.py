@@ -213,6 +213,17 @@ class WiringLoader:
                 f"connections must end at IN ports"
             )
 
+        # Validate interface type compatibility
+        src_interface = self._equipment[from_eq].ports[from_port].interface_type
+        dst_interface = self._equipment[to_eq].ports[to_port].interface_type
+        if src_interface != dst_interface:
+            raise WiringLoadError(
+                f"{source}: connection {index}: "
+                f"interface type mismatch — "
+                f"'{from_eq}.{from_port}' is {src_interface.value} "
+                f"but '{to_eq}.{to_port}' is {dst_interface.value}"
+            )
+
         return Connection(
             from_equipment=from_eq,
             from_port=from_port,

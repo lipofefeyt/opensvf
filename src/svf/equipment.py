@@ -4,7 +4,7 @@ Defines the standard interface for all spacecraft equipment models.
 Extends ModelAdapter so Equipment instances are directly driveable
 by SimulationMaster without any adapter wrapping.
 
-Implements: SVF-DEV-004, SVF-DEV-013
+Implements: SVF-DEV-004, SVF-DEV-013, SVF-DEV-038
 """
 
 from __future__ import annotations
@@ -19,9 +19,6 @@ from svf.abstractions import ModelAdapter, SyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
 
-if TYPE_CHECKING:
-    pass
-
 logger = logging.getLogger(__name__)
 
 
@@ -31,23 +28,44 @@ class PortDirection(enum.Enum):
     OUT = "OUT"  # Output — produces values read by other equipment or observables
 
 
+class InterfaceType(enum.Enum):
+    """
+    Physical or logical interface type of an equipment port.
+
+    FLOAT is the default — a plain engineering value with no bus semantics.
+    Bus interface types enforce compatibility checking in WiringLoader:
+    only ports with matching interface types can be connected.
+
+    This mirrors how spacecraft ICDs work — an interface type defines
+    what can connect to what before any wiring is defined.
+    """
+    FLOAT       = "float"        # Default — plain engineering value
+    MIL1553_BC  = "mil1553_bc"   # MIL-STD-1553 Bus Controller
+    MIL1553_RT  = "mil1553_rt"   # MIL-STD-1553 Remote Terminal
+    SPACEWIRE   = "spacewire"    # SpaceWire node
+    CAN         = "can"          # CAN node
+    UART        = "uart"         # UART
+    ANALOG      = "analog"       # Analog signal
+    DIGITAL     = "digital"      # Digital signal (0/1)
+
+
 @dataclass(frozen=True)
 class PortDefinition:
     """
     Definition of a single equipment port.
 
     Attributes:
-        name:        Port name, unique within the equipment.
-                     Convention: subsystem.signal e.g. "bus.lcl1"
-        direction:   IN (input) or OUT (output)
-        unit:        Engineering unit, empty string for dimensionless
-        dtype:       Data type of the port value
-        description: Human-readable description
+        name:           Port name, unique within the equipment.
+                        Convention: subsystem.signal e.g. "bus.lcl1"
+        direction:      IN (input) or OUT (output)
+        interface_type: Physical/logical interface type (default: FLOAT)
+        unit:           Engineering unit, empty string for dimensionless
+        description:    Human-readable description
     """
     name: str
     direction: PortDirection
+    interface_type: InterfaceType = InterfaceType.FLOAT
     unit: str = ""
-    dtype: str = "float"
     description: str = ""
 
 
@@ -64,28 +82,6 @@ class Equipment(ModelAdapter):
       2. Call do_step() — subclass implements physics here
       3. Write each OUT port value to ParameterStore
       4. Call sync_protocol.publish_ready()
-
-    Subclasses must implement:
-      - _declare_ports(): return list of PortDefinition
-      - initialise(start_time): prepare for simulation
-      - do_step(t, dt): advance physics, read IN ports, write OUT ports
-
-    Usage:
-        class ReactionWheel(Equipment):
-            def _declare_ports(self):
-                return [
-                    PortDefinition("power_enable", PortDirection.IN),
-                    PortDefinition("torque_cmd", PortDirection.IN, unit="Nm"),
-                    PortDefinition("speed", PortDirection.OUT, unit="rpm"),
-                ]
-
-            def initialise(self, start_time=0.0):
-                self._speed = 0.0
-
-            def do_step(self, t, dt):
-                if self.read_port("power_enable") > 0.5:
-                    self._speed += self.read_port("torque_cmd") * dt * 100
-                self.write_port("speed", self._speed)
     """
 
     def __init__(
@@ -120,7 +116,6 @@ class Equipment(ModelAdapter):
 
     @property
     def model_id(self) -> str:
-        """Unique identifier — satisfies ModelAdapter contract."""
         return self._equipment_id
 
     def on_tick(self, t: float, dt: float) -> None:
@@ -129,7 +124,6 @@ class Equipment(ModelAdapter):
         Reads CommandStore into IN ports, calls do_step(),
         writes OUT ports to ParameterStore, acknowledges sync.
         """
-        # Step 1: read CommandStore into IN ports
         if self._command_store is not None:
             for name, port in self._ports.items():
                 if port.direction == PortDirection.IN:
@@ -141,10 +135,8 @@ class Equipment(ModelAdapter):
                             f"= {entry.value} from {entry.source_id}"
                         )
 
-        # Step 2: advance physics
         self.do_step(t, dt)
 
-        # Step 3: write OUT ports to ParameterStore
         stepped_t = round(t + dt, 9)
         for name, port in self._ports.items():
             if port.direction == PortDirection.OUT:
@@ -155,7 +147,6 @@ class Equipment(ModelAdapter):
                     model_id=self._equipment_id,
                 )
 
-        # Step 4: acknowledge sync
         self._sync_protocol.publish_ready(
             model_id=self._equipment_id, t=t
         )
@@ -164,23 +155,28 @@ class Equipment(ModelAdapter):
 
     @property
     def equipment_id(self) -> str:
-        """Alias for model_id — equipment-specific terminology."""
         return self._equipment_id
 
     @property
     def ports(self) -> dict[str, PortDefinition]:
-        """All declared ports keyed by port name."""
         return dict(self._ports)
 
     def in_ports(self) -> list[PortDefinition]:
-        """All input ports."""
         return [p for p in self._ports.values()
                 if p.direction == PortDirection.IN]
 
     def out_ports(self) -> list[PortDefinition]:
-        """All output ports."""
         return [p for p in self._ports.values()
                 if p.direction == PortDirection.OUT]
+
+    def ports_by_interface(
+        self, interface_type: InterfaceType
+    ) -> list[PortDefinition]:
+        """All ports with the given interface type."""
+        return [
+            p for p in self._ports.values()
+            if p.interface_type == interface_type
+        ]
 
     @abstractmethod
     def _declare_ports(self) -> list[PortDefinition]:
@@ -189,10 +185,7 @@ class Equipment(ModelAdapter):
 
     @abstractmethod
     def do_step(self, t: float, dt: float) -> None:
-        """
-        Advance the equipment by one timestep.
-        Read inputs via read_port(), write outputs via write_port().
-        """
+        """Advance the equipment by one timestep."""
         ...
 
     def teardown(self) -> None:

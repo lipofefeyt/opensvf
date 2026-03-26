@@ -5,7 +5,7 @@ Implements: SVF-DEV-004
 
 import pytest
 from pathlib import Path
-from svf.equipment import Equipment, PortDefinition, PortDirection
+from svf.equipment import Equipment, PortDefinition, PortDirection, InterfaceType
 from svf.wiring import WiringLoader, WiringMap, WiringLoadError, Connection
 from svf.abstractions import SyncProtocol
 from svf.parameter_store import ParameterStore
@@ -212,3 +212,92 @@ def test_connection_str() -> None:
     """Connection __str__ is readable."""
     conn = Connection("pcdu", "bus.lcl1", "rw1", "power_enable")
     assert str(conn) == "pcdu.bus.lcl1 -> rw1.power_enable"
+
+
+# ── Interface type validation ─────────────────────────────────────────────────
+
+class _Mil1553Source(Equipment):
+    def __init__(self, equipment_id: str, sync_protocol: SyncProtocol,
+                 store: ParameterStore) -> None:
+        super().__init__(equipment_id, sync_protocol=sync_protocol, store=store)
+
+    def _declare_ports(self) -> list[PortDefinition]:
+        return [PortDefinition(
+            "bc_out", PortDirection.OUT,
+            interface_type=InterfaceType.MIL1553_BC
+        )]
+
+    def initialise(self, start_time: float = 0.0) -> None: pass
+    def do_step(self, t: float, dt: float) -> None: pass
+
+
+class _Mil1553Sink(Equipment):
+    def __init__(self, equipment_id: str, sync_protocol: SyncProtocol,
+                 store: ParameterStore) -> None:
+        super().__init__(equipment_id, sync_protocol=sync_protocol, store=store)
+
+    def _declare_ports(self) -> list[PortDefinition]:
+        return [PortDefinition(
+            "rt_in", PortDirection.IN,
+            interface_type=InterfaceType.MIL1553_RT
+        )]
+
+    def initialise(self, start_time: float = 0.0) -> None: pass
+    def do_step(self, t: float, dt: float) -> None: pass
+
+
+@pytest.mark.requirement("SVF-DEV-038")
+def test_interface_type_mismatch_raises(
+    sync: _NoSync, store: ParameterStore, tmp_path: Path
+) -> None:
+    """Connecting incompatible interface types raises WiringLoadError."""
+    bc = _Mil1553Source("obc", sync_protocol=sync, store=store)
+    rt = _Mil1553Sink("rw1", sync_protocol=sync, store=store)
+
+    f = tmp_path / "bad_wiring.yaml"
+    f.write_text("""
+connections:
+  - from: obc.bc_out
+    to: rw1.rt_in
+    description: Incompatible interface types
+""")
+    loader = WiringLoader({"obc": bc, "rw1": rt})
+    with pytest.raises(WiringLoadError, match="interface type mismatch"):
+        loader.load(f)
+
+
+@pytest.mark.requirement("SVF-DEV-038")
+def test_matching_interface_types_accepted(
+    sync: _NoSync, store: ParameterStore, tmp_path: Path
+) -> None:
+    """Connecting matching interface types succeeds."""
+    from svf.equipment import InterfaceType
+
+    class _Mil1553MatchSink(Equipment):
+        def __init__(self, equipment_id: str, sync_protocol: SyncProtocol,
+                     store: ParameterStore) -> None:
+            super().__init__(equipment_id, sync_protocol=sync_protocol,
+                             store=store)
+
+        def _declare_ports(self) -> list[PortDefinition]:
+            return [PortDefinition(
+                "bc_in", PortDirection.IN,
+                interface_type=InterfaceType.MIL1553_BC
+            )]
+
+        def initialise(self, start_time: float = 0.0) -> None: pass
+        def do_step(self, t: float, dt: float) -> None: pass
+
+    bc = _Mil1553Source("obc", sync_protocol=sync, store=store)
+    bus = _Mil1553MatchSink("bus", sync_protocol=sync, store=store)
+
+    f = tmp_path / "good_wiring.yaml"
+    f.write_text("""
+connections:
+  - from: obc.bc_out
+    to: bus.bc_in
+    description: Compatible interface types
+""")
+    loader = WiringLoader({"obc": bc, "bus": bus})
+    wiring = loader.load(f)
+    assert len(wiring) == 1
