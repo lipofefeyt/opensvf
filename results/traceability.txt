@@ -128,6 +128,28 @@ SVF-DEV-044          PASS         test_verdict_pass
 SVF-DEV-044          PASS         test_verdict_recorder_records
 SVF-DEV-044          PASS         test_verdict_recorder_summary
 SVF-DEV-044          PASS         test_verdict_recorder_unknown_test
+SVF-DEV-050          PASS         test_executor_runs_all_test_cases
+SVF-DEV-050          PASS         test_load_real_eps_campaign
+SVF-DEV-050          PASS         test_load_valid_campaign
+SVF-DEV-051          PASS         test_executor_runs_all_test_cases
+SVF-DEV-051          PASS         test_results_in_order
+SVF-DEV-051          PASS         test_default_timeout
+SVF-DEV-051          PASS         test_load_real_eps_campaign
+SVF-DEV-051          PASS         test_load_valid_campaign
+SVF-DEV-051          PASS         test_test_cases_ordered
+SVF-DEV-051          PASS         test_test_node_ids
+SVF-DEV-052          PASS         test_duplicate_test_case_id_raises
+SVF-DEV-052          PASS         test_empty_test_cases_raises
+SVF-DEV-052          PASS         test_invalid_timeout_raises
+SVF-DEV-052          PASS         test_missing_file_raises
+SVF-DEV-052          PASS         test_missing_required_field_raises
+SVF-DEV-053          PASS         test_record_metadata
+SVF-DEV-053          PASS         test_file_hash_recorded
+SVF-DEV-053          PASS         test_source_file_recorded
+SVF-DEV-054          PASS         test_individual_failure_does_not_abort_campaign
+SVF-DEV-054          PASS         test_overall_verdict_error_when_one_errors
+SVF-DEV-054          PASS         test_overall_verdict_fail_when_one_fails
+SVF-DEV-054          PASS         test_overall_verdict_pass_when_all_pass
 SVF-DEV-063          PASS         test_tc_pwr_001_battery_charges_in_sunlight
 SVF-DEV-063          PASS         test_tc_pwr_002_battery_discharges_in_eclipse
 SVF-DEV-063          PASS         test_tc_pwr_003_charging_in_sunlight
@@ -138,6 +160,11 @@ SVF-DEV-065          PASS         test_tc_pwr_002_battery_discharges_in_eclipse
 SVF-DEV-065          PASS         test_tc_pwr_003_charging_in_sunlight
 SVF-DEV-065          PASS         test_tc_pwr_004_penumbra
 SVF-DEV-065          PASS         test_tc_pwr_005_deep_eclipse_discharge
+SVF-DEV-071          PASS         test_report_contains_verdicts
+SVF-DEV-073          PASS         test_report_contains_requirements
+SVF-DEV-074          PASS         test_report_contains_metadata
+SVF-DEV-075          PASS         test_report_generated
+SVF-DEV-075          PASS         test_report_is_self_contained
 SVF-DEV-090          PASS         test_parameter_definition_no_range
 SVF-DEV-090          PASS         test_parameter_definition_tc
 SVF-DEV-090          PASS         test_parameter_definition_tm
@@ -182,4 +209,4 @@ SVF-DEV-095          PASS         test_command_store_valid_tc_no_warning
 SVF-DEV-095          PASS         test_command_store_warning_does_not_raise
 SVF-DEV-095          PASS         test_parameter_store_tc_write_warns
 ------------------------------------------------------------
-Total requirements covered: 57
+Total requirements covered: 66
