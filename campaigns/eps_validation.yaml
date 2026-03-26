@@ -21,7 +21,7 @@ test_cases:
     timeout: 60
 
   - id: TC-PWR-003
-    test: tests/spacecraft/test_eps.py::test_tc_pwr_003_sunlight_to_eclipse_transition
+    test: tests/spacecraft/test_eps.py::test_tc_pwr_003_charging_in_sunlight
     timeout: 120
 
   - id: TC-PWR-004
@@ -29,5 +29,5 @@ test_cases:
     timeout: 60
 
   - id: TC-PWR-005
-    test: tests/spacecraft/test_eps.py::test_tc_pwr_005_low_battery_recovery
+    test: tests/spacecraft/test_eps.py::test_tc_pwr_005_deep_eclipse_discharge
     timeout: 180
