@@ -1,50 +1,8 @@
 [
   {
-    "title": "[EIL] Define SRDB entries for all M8 subsystems",
-    "body": "## Objective\nDefine SRDB canonical parameter names, units, valid ranges and PUS mappings for all M8 subsystems.\n\n## Subsystems\n- OBC: mode, OBT, watchdog, memory\n- PCDU: bus voltage, LCL currents, MPPT state\n- BAT: reuse existing eps.battery.*\n- SA: reuse existing eps.solar_array.*\n- RW: reuse existing aocs.rw1.* — extend for temperature\n- ST: quaternion (×4), validity, mode, temperature, sun_angle\n- SBT: uplink_lock, downlink_active, mode, signal_level\n\n## Acceptance Criteria\n- srdb/baseline/dhs.yaml: OBC parameters\n- srdb/baseline/aocs.yaml: extended with ST, GYRO, CSS entries\n- srdb/baseline/ttc.yaml: extended with SBT parameters\n- All files load cleanly via SrdbLoader\n- PUS mappings consistent with ECSS PUS-C service catalogue\n\n## Implements\nSVF-DEV-091",
-    "labels": ["type: feature", "layer: sim-core", "priority: now"],
-    "milestone": "M8 - Equipment Interface Library"
-  },
-  {
-    "title": "[EIL] Implement OBC reference model",
-    "body": "## Objective\nImplement a realistic OBC NativeEquipment model with mode management, watchdog, and on-board time.\n\n## Physics\n- Mode state machine: SAFE -> NOMINAL -> PAYLOAD\n- On-board time (OBT): monotonic counter in seconds\n- Watchdog timer: resets if not kicked within period, generates event\n- Mass memory: fills over time, dump command empties it\n- Already implements PUS TC routing (M7 ObcEquipment) — extend it\n\n## Ports\n- IN: mode_cmd, watchdog_kick, memory_dump_cmd\n- OUT: mode, obt, watchdog_status, memory_used_pct, health\n\n## Acceptance Criteria\n- Mode transitions triggered by TC\n- OBT increments each tick\n- Watchdog timeout generates S5 event\n- Unit tests cover all mode transitions and watchdog\n\n## Implements\nSVF-DEV-038",
-    "labels": ["type: feature", "layer: model-authoring", "priority: now"],
-    "milestone": "M8 - Equipment Interface Library"
-  },
-  {
-    "title": "[EIL] Implement PCDU reference model",
-    "body": "## Objective\nExtend the existing PCDU model with per-LCL switching, MPPT, and UVLO protection.\n\n## Physics\n- Per-LCL current monitoring and switching (8 LCLs minimum)\n- MPPT: simplified — track peak power point based on illumination\n- UVLO: disconnect loads below minimum battery voltage\n- Power accounting: generated - consumed = net to/from battery\n\n## Ports\n- IN: solar_power, battery_voltage, load_power, lcl_enable[1-8]\n- OUT: bus_voltage, charge_current, lcl_status[1-8], total_load\n\n## Acceptance Criteria\n- LCL switching responds to TC within one tick\n- UVLO disconnects loads below threshold\n- MPPT increases efficiency vs fixed-point model\n- Unit tests cover LCL switching, UVLO, MPPT\n\n## Implements\nSVF-DEV-038",
-    "labels": ["type: feature", "layer: model-authoring", "priority: now"],
-    "milestone": "M8 - Equipment Interface Library"
-  },
-  {
-    "title": "[EIL] Implement Star Tracker reference model",
-    "body": "## Objective\nImplement a realistic star tracker NativeEquipment model with quaternion output, noise, blinding, and acquisition time.\n\n## Physics\n- Internal attitude propagator: constant-rate rotation from initial quaternion\n- Measurement noise: white noise + bias on quaternion components\n- Sun blinding: output invalid when sun angle < threshold (default 30 deg)\n- Acquisition: N seconds from cold start before first valid output\n- Temperature: rises under operation, affects noise level\n\n## Ports\n- IN: sun_angle (deg), power_enable, mode_cmd\n- OUT: quaternion_w, quaternion_x, quaternion_y, quaternion_z,\n       validity, mode, temperature, acquisition_progress\n\n## Interface type: SpaceWire (primary), MIL1553_RT (secondary)\n\n## Acceptance Criteria\n- Quaternion output has realistic noise characteristics\n- Validity flag goes False when sun_angle < threshold\n- Acquisition time modelled correctly\n- Unit tests cover blinding, acquisition, noise\n\n## Implements\nSVF-DEV-038",
-    "labels": ["type: feature", "layer: model-authoring", "priority: now"],
-    "milestone": "M8 - Equipment Interface Library"
-  },
-  {
-    "title": "[EIL] Implement S-Band Transponder reference model",
-    "body": "## Objective\nImplement a realistic S-Band transponder NativeEquipment model.\n\n## Physics\n- Uplink: carrier lock/unlock based on signal level input\n- Downlink: active/inactive based on mode\n- Mode state machine: IDLE -> RANGING -> TC_RX -> TM_TX\n- TC forwarding: received TC bytes forwarded to OBC\n- TM transmission: TM packets from OBC transmitted when in TM_TX mode\n\n## Ports\n- IN: uplink_signal_level (dBm), mode_cmd, power_enable\n- OUT: uplink_lock, downlink_active, mode, rx_bitrate, tx_bitrate\n\n## Acceptance Criteria\n- Lock/unlock transitions based on signal threshold\n- Mode transitions triggered by TC\n- Unit tests cover lock, unlock, mode transitions\n\n## Implements\nSVF-DEV-038",
-    "labels": ["type: feature", "layer: model-authoring", "priority: now"],
-    "milestone": "M8 - Equipment Interface Library"
-  },
-  {
-    "title": "[EIL] Extend RW model with temperature and bearing friction",
-    "body": "## Objective\nExtend the existing ReactionWheel model with temperature modelling and bearing friction.\n\n## Physics\n- Bearing friction: speed-dependent drag (Coulomb + viscous)\n- Temperature: rises with speed squared, cools when idle\n- Speed saturation: hard limit at MAX_SPEED_RPM\n- Over-temperature protection: reduce torque above threshold\n\n## New ports\n- OUT: temperature (degC)\n\n## Acceptance Criteria\n- Temperature rises under sustained operation\n- Bearing friction correctly decelerates wheel when torque=0\n- Over-temperature protection reduces speed\n- Unit tests cover friction, temperature, protection\n\n## Implements\nSVF-DEV-038",
-    "labels": ["type: feature", "layer: model-authoring", "priority: now"],
-    "milestone": "M8 - Equipment Interface Library"
-  },
-  {
-    "title": "[EIL] Define equipment requirements [OBC], [PCDU], [ST], [SBT], [RW]",
-    "body": "## Objective\nDefine functional requirements for each M8 equipment model, following the same pattern as [EPS] and [1553] in REQUIREMENTS.md.\n\n## New functional areas\n- [OBC]: 8-10 requirements covering mode management, OBT, watchdog\n- [PCDU]: 6-8 requirements covering LCL switching, MPPT, UVLO\n- [ST]: 6-8 requirements covering quaternion, blinding, acquisition\n- [SBT]: 4-6 requirements covering uplink lock, mode transitions\n- [RW]: extend existing with temperature and friction requirements\n\n## Acceptance Criteria\n- All requirements added to REQUIREMENTS.md\n- Every requirement has a corresponding test\n- checkcov shows zero unexpected gaps\n- Traceability index updated\n\n## Implements\nSVF-DEV-072, SVF-DEV-073",
-    "labels": ["type: docs", "priority: now"],
-    "milestone": "M8 - Equipment Interface Library"
-  },
-  {
-    "title": "[EIL] Write integration test campaign for full platform simulation",
-    "body": "## Objective\nWrite an end-to-end integration test campaign that exercises all M8 models together in a realistic platform simulation scenario.\n\n## Scenario: spacecraft safe mode recovery\n1. Spacecraft starts in SAFE mode (low power, CSS active)\n2. CSS detects sun, SA generates power, PCDU charges battery\n3. OBC transitions to NOMINAL mode\n4. ST acquires attitude\n5. RW commanded to detumble\n6. SBT establishes uplink contact\n7. Ground sends mode command via PUS TC\n\n## Acceptance Criteria\n- Campaign YAML: campaigns/platform_validation.yaml\n- All test procedures pass\n- HTML report generated cleanly\n- Full traceability to OBC/PCDU/ST/SBT/RW requirements\n\n## Implements\nSVF-DEV-050, SVF-DEV-051",
-    "labels": ["type: feature", "layer: orchestration", "priority: now"],
-    "milestone": "M8 - Equipment Interface Library"
+    "title": "[SDB] Implement SRDB CSV import/export for engineering workflows",
+    "body": "## Context\nAs the SRDB grows to hundreds of parameters across many subsystems, YAML files become difficult to maintain. Engineers typically work in Excel or tab-separated ASCII tools.\n\n## Objective\nProvide CSV import/export tools so engineers can maintain parameters in familiar tools while the YAML remains the authoritative source.\n\n## Design\n- tools/srdb_to_csv.py: export all SRDB baselines to a single CSV file\n- tools/csv_to_srdb.py: import CSV back to domain YAML files\n- CSV schema: canonical_name, description, unit, dtype, classification, domain, model_id, valid_range_min, valid_range_max, pus_apid, pus_service, pus_subservice, pus_parameter_id\n- Excel opens CSV natively — no special tooling required\n\n## Future\n- XTCE export (SVF-DEV-097) for YAMCS interoperability — M10\n- MIB import (SVF-DEV-098) for legacy ground segment migration — M10\n- Dedicated SRDB editor tool (long term)\n\n## Implements\nSVF-DEV-096, SVF-DEV-097, SVF-DEV-098 (partial)",
+    "labels": ["type: feature", "layer: sim-core", "priority: later"],
+    "milestone": "M10 - Ground Segment"
   }
 ]
