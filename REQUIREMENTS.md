@@ -1,6 +1,6 @@
 # SVF Development Requirements
 
-> **Status:** v1.0
+> **Status:** v1.1
 > **Last updated:** 2026-03
 > **Author:** lipofefeyt
 
@@ -24,6 +24,11 @@ Requirements are identified by a prefix followed by a zero-padded sequence numbe
 | [EPS] | EPS Spacecraft Models |
 | [1553] | MIL-STD-1553 Bus |
 | [PUS] | PUS TM/TC |
+| [OBC] | OBC DHS behaviour |
+| [PCDU] | Power Conditioning and Distribution Unit |
+| [ST] | Star Tracker |
+| [SBT] | S-Band Transponder |
+| [RW] | Reaction Wheel |
 | [ORC] | Test Orchestration |
 | [CAM] | Campaign Manager |
 | [MOD] | Model Authoring |
