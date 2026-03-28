@@ -1,6 +1,6 @@
 # SVF Development Requirements
 
-> **Status:** Draft — v0.9
+> **Status:** v1.0
 > **Last updated:** 2026-03
 > **Author:** lipofefeyt
 
@@ -160,7 +160,7 @@ The platform shall implement a CommandStore separate from the ParameterStore.
 **SVF-DEV-036** `[BUS]` `IMPLEMENTED`
 Each CommandEntry shall carry: name, value, t, source_id, consumed flag. take() shall be atomic.
 
-**SVF-DEV-037** `[BUS]` `BASELINED`
+**SVF-DEV-037** `[BUS]` `IMPLEMENTED`
 The platform shall provide a PUS TM/TC adapter implementing ECSS-E-ST-70-41C. Assigned to M7.
 
 **SVF-DEV-038** `[BUS]` `IMPLEMENTED`
@@ -320,7 +320,7 @@ Bus faults shall support time-limited duration (auto-expire) and permanent injec
 **1553-009** `[1553]` `IMPLEMENTED`
 Bus faults shall be injectable via CommandStore using the naming convention: bus.{bus_id}.fault.{target}.{fault_type}.
 
-**1553-010** `[1553]` `BASELINED`
+**1553-010** `[1553]` `IMPLEMENTED`
 The OBC Equipment model shall act as 1553 Bus Controller, receiving PUS TC packets and routing commands to RTs. Assigned to M7.
 
 ---
@@ -339,25 +339,25 @@ The platform shall implement a PUS-C TC packet builder (PusTcBuilder) with CRC-1
 **PUS-004** `[PUS]` `IMPLEMENTED`
 The platform shall implement a PUS-C TM packet builder (PusTmBuilder) and parser (PusTmParser) with CRC-16.
 
-**PUS-005** `[PUS]` `BASELINED`
+**PUS-005** `[PUS]` `IMPLEMENTED`
 The platform shall implement PUS Service 3 (Housekeeping): HK report structure definition (TC(3,1)), periodic generation enable/disable (TC(3,5/6)), and HK parameter report generation (TM(3,25)). Essential HK reports shall be activated automatically at OBC initialise(). Assigned to M7.
 
-**PUS-006** `[PUS]` `BASELINED`
+**PUS-006** `[PUS]` `IMPLEMENTED`
 The platform shall implement PUS Service 5 (Event Reporting): normal, low, medium, and high severity event reports. Assigned to M7.
 
-**PUS-007** `[PUS]` `BASELINED`
+**PUS-007** `[PUS]` `IMPLEMENTED`
 The platform shall implement PUS Service 17 (Test): are-you-alive TC(17,1) and TM(17,2) response. Assigned to M7.
 
-**PUS-008** `[PUS]` `BASELINED`
+**PUS-008** `[PUS]` `IMPLEMENTED`
 The platform shall implement PUS Service 20 (On-Board Parameter Management): parameter value set TC(20,1) and get TC(20,3)/TM(20,4). Assigned to M7.
 
-**PUS-009** `[PUS]` `BASELINED`
+**PUS-009** `[PUS]` `IMPLEMENTED`
 The platform shall implement PUS Service 1 (Request Verification): acceptance TM(1,1), execution started TM(1,3), completion TM(1,7), failure reports TM(1,2/4/8). Assigned to M7.
 
-**PUS-010** `[PUS]` `BASELINED`
+**PUS-010** `[PUS]` `IMPLEMENTED`
 The OBC Equipment model shall receive raw PUS TC bytes, parse them using PusTcParser, route commands to equipment via the appropriate bus interface, and generate PUS TM acknowledgement packets. Assigned to M7.
 
-**PUS-011** `[PUS]` `BASELINED`
+**PUS-011** `[PUS]` `IMPLEMENTED`
 The TTC Equipment model shall bridge the ground segment to the OBC via simulated RF link, forwarding TC bytes and exposing TM for observable assertions. Assigned to M7.
 
 ---
@@ -542,7 +542,7 @@ The platform shall support soft real-time execution on RT_PREEMPT patched Linux.
 | SVF-DEV-034 | BUS | DEFERRED | M10 | — |
 | SVF-DEV-035 | BUS | IMPLEMENTED | M3 | test_inject_and_take |
 | SVF-DEV-036 | BUS | IMPLEMENTED | M3 | test_take_is_atomic |
-| SVF-DEV-037 | BUS | BASELINED | M7 | test_build_and_parse_roundtrip |
+| SVF-DEV-037 | BUS | IMPLEMENTED | M7 | test_tc_pus_005_full_chain_ground_to_rw |
 | SVF-DEV-038 | BUS | IMPLEMENTED | M6 | test_tc_1553_001_rw_speed_increases_when_commanded |
 | SVF-DEV-090 | SDB | IMPLEMENTED | M3.5 | test_srdb_definitions |
 | SVF-DEV-091 | SDB | IMPLEMENTED | M3.5 | test_load_all_baselines |
@@ -590,18 +590,18 @@ The platform shall support soft real-time execution on RT_PREEMPT patched Linux.
 | 1553-007 | 1553 | IMPLEMENTED | M6 | test_fault_is_active_immediately |
 | 1553-008 | 1553 | IMPLEMENTED | M6 | test_fault_expires_after_duration |
 | 1553-009 | 1553 | IMPLEMENTED | M6 | test_fault_injected_via_command_store |
-| 1553-010 | 1553 | BASELINED | M7 | — |
+| 1553-010 | 1553 | IMPLEMENTED | M7 | test_tc_pus_005_full_chain_ground_to_rw |
 | PUS-001 | PUS | IMPLEMENTED | M7 | test_build_and_parse_roundtrip |
 | PUS-002 | PUS | IMPLEMENTED | M7 | test_invalid_crc_raises |
 | PUS-003 | PUS | IMPLEMENTED | M7 | test_crc_is_appended |
 | PUS-004 | PUS | IMPLEMENTED | M7 | test_build_and_parse_roundtrip (TM) |
-| PUS-005 | PUS | BASELINED | M7 | — |
-| PUS-006 | PUS | BASELINED | M7 | — |
-| PUS-007 | PUS | BASELINED | M7 | — |
-| PUS-008 | PUS | BASELINED | M7 | — |
-| PUS-009 | PUS | BASELINED | M7 | — |
-| PUS-010 | PUS | BASELINED | M7 | — |
-| PUS-011 | PUS | BASELINED | M7 | — |
+| PUS-005 | PUS | IMPLEMENTED | M7 | test_s3_define_and_generate_report |
+| PUS-006 | PUS | IMPLEMENTED | M7 | test_s5_informative_event |
+| PUS-007 | PUS | IMPLEMENTED | M7 | test_tc_pus_001_are_you_alive |
+| PUS-008 | PUS | IMPLEMENTED | M7 | test_tc_pus_002_s20_set_rw_torque |
+| PUS-009 | PUS | IMPLEMENTED | M7 | test_tc_pus_004_invalid_crc_rejected |
+| PUS-010 | PUS | IMPLEMENTED | M7 | test_tc_pus_005_full_chain_ground_to_rw |
+| PUS-011 | PUS | IMPLEMENTED | M7 | test_ttc_are_you_alive_roundtrip |
 | SVF-DEV-040 | ORC | IMPLEMENTED | M3 | test_fixture_default_fmu |
 | SVF-DEV-041 | ORC | IMPLEMENTED | M3 | test_fixture_default_fmu |
 | SVF-DEV-042 | ORC | IMPLEMENTED | M3 | test_fixture_inject_command |
