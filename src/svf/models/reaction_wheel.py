@@ -1,9 +1,11 @@
 """
 SVF Reaction Wheel Equipment
-Simple reaction wheel model acting as MIL-STD-1553 Remote Terminal.
-Receives torque commands via 1553 bus, produces speed telemetry.
-No OBC model required — test procedures inject commands directly
-via the 1553 bus subaddress mapping.
+MIL-STD-1553 Remote Terminal model with realistic physics.
+
+M6: Basic torque integration, speed limits
+M8: Bearing friction (Coulomb + viscous), temperature modelling,
+    over-temperature protection
+
 Implements: SVF-DEV-038
 """
 
@@ -20,25 +22,67 @@ from svf.command_store import CommandStore
 
 logger = logging.getLogger(__name__)
 
-MAX_SPEED_RPM = 6000.0
-FRICTION_COEFF = 0.05
+# Speed limits
+MAX_SPEED_RPM   = 6000.0
+MIN_SPEED_RPM   = -6000.0
+
+# Friction coefficients
+COULOMB_FRICTION = 0.5    # rpm/s constant drag (direction-opposing)
+VISCOUS_FRICTION = 0.002  # rpm/s per rpm (speed-dependent drag)
+
+# Temperature model
+AMBIENT_TEMP_C       = 20.0   # degC ambient
+TEMP_RISE_COEFF      = 0.001  # degC per rpm^2 per second
+COOLING_RATE         = 0.05   # degC per second towards ambient
+MAX_TEMP_C           = 80.0   # degC over-temperature threshold
+TEMP_DERATING_FACTOR = 0.5    # torque reduction above max temp
 
 
 def _rw_step(eq: NativeEquipment, t: float, dt: float) -> None:
     """
-    Reaction wheel physics.
-    Integrates torque command to produce speed.
+    Reaction wheel physics with bearing friction and temperature.
     """
     torque = eq.read_port("aocs.rw1.torque_cmd")
-    speed = eq.read_port("aocs.rw1.speed")
+    speed  = eq.read_port("aocs.rw1.speed")
+    temp   = eq.read_port("aocs.rw1.temperature")
 
-    acceleration = torque * 100.0
-    friction = -FRICTION_COEFF * speed
+    # Over-temperature protection — derate torque
+    effective_torque = torque
+    if temp > MAX_TEMP_C:
+        effective_torque *= TEMP_DERATING_FACTOR
+        logger.warning(
+            f"[rw1] Over-temperature {temp:.1f}°C — "
+            f"torque derated to {effective_torque:.3f} Nm"
+        )
+
+    # Torque -> angular acceleration (rpm/s per Nm)
+    acceleration = effective_torque * 100.0
+
+    # Bearing friction (Coulomb + viscous)
+    if abs(speed) > 0.1:
+        coulomb = -COULOMB_FRICTION * (1.0 if speed > 0 else -1.0)
+    else:
+        coulomb = 0.0
+    viscous = -VISCOUS_FRICTION * speed
+    friction = coulomb + viscous
+
+    # Integrate speed
     new_speed = speed + (acceleration + friction) * dt
-    new_speed = max(-MAX_SPEED_RPM, min(MAX_SPEED_RPM, new_speed))
+    new_speed = max(MIN_SPEED_RPM, min(MAX_SPEED_RPM, new_speed))
 
-    eq.write_port("aocs.rw1.speed", new_speed)
-    eq.write_port("aocs.rw1.status", 1.0)
+    # Temperature model
+    # Rises proportional to speed^2 (bearing losses), cools towards ambient
+    temp_rise   = TEMP_RISE_COEFF * (speed ** 2) * dt
+    temp_cool   = COOLING_RATE * (temp - AMBIENT_TEMP_C) * dt
+    new_temp    = temp + temp_rise - temp_cool
+    new_temp    = max(AMBIENT_TEMP_C, new_temp)
+
+    # Status: 1=nominal, 0=over-temperature (based on input temp before cooling)
+    status = 0.0 if temp > MAX_TEMP_C else 1.0
+
+    eq.write_port("aocs.rw1.speed",       new_speed)
+    eq.write_port("aocs.rw1.temperature", new_temp)
+    eq.write_port("aocs.rw1.status",      status)
 
 
 def make_reaction_wheel(
@@ -47,11 +91,10 @@ def make_reaction_wheel(
     command_store: Optional[CommandStore] = None,
 ) -> NativeEquipment:
     """
-    Create a ReactionWheel NativeEquipment as 1553 Remote Terminal.
-    Torque commands arrive via 1553 bus subaddress mapping.
-    Speed telemetry is read back by the bus RT_to_BC mapping.
+    Create a ReactionWheel NativeEquipment.
+    Initial temperature = ambient.
     """
-    return NativeEquipment(
+    eq = NativeEquipment(
         equipment_id="rw1",
         ports=[
             PortDefinition("aocs.rw1.torque_cmd", PortDirection.IN,
@@ -59,12 +102,18 @@ def make_reaction_wheel(
                            description="Torque command from 1553 bus SA1"),
             PortDefinition("aocs.rw1.speed", PortDirection.OUT,
                            unit="rpm",
-                           description="Wheel speed telemetry to 1553 bus SA2"),
+                           description="Wheel speed"),
+            PortDefinition("aocs.rw1.temperature", PortDirection.OUT,
+                           unit="degC",
+                           description="Bearing temperature"),
             PortDefinition("aocs.rw1.status", PortDirection.OUT,
-                           description="Equipment status (1=nominal)"),
+                           description="Status (1=nominal, 0=over-temp)"),
         ],
         step_fn=_rw_step,
         sync_protocol=sync_protocol,
         store=store,
         command_store=command_store,
     )
+    # Set initial temperature to ambient
+    eq._port_values["aocs.rw1.temperature"] = AMBIENT_TEMP_C
+    return eq
