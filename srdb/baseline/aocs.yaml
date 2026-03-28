@@ -106,7 +106,7 @@ parameters:
       subservice: 25
       parameter_id: 0x2012
 
-  # ── Reaction wheels ────────────────────────────────────────────────────────
+  # ── Reaction wheel 1 ───────────────────────────────────────────────────────
 
   aocs.rw1.speed:
     description: Reaction wheel 1 speed
@@ -114,7 +114,7 @@ parameters:
     dtype: float
     classification: TM
     domain: AOCS
-    model_id: aocs
+    model_id: rw1
     valid_range: [-6000.0, 6000.0]
     pus:
       apid: 0x101
@@ -128,49 +128,6 @@ parameters:
     dtype: float
     classification: TC
     domain: AOCS
-    model_id: aocs
-    valid_range: [-0.2, 0.2]
-    pus:
-      apid: 0x101
-      service: 20
-      subservice: 1
-      parameter_id: 0x2021
-
-  # ── Magnetorquer ───────────────────────────────────────────────────────────
-
-  aocs.mtq.dipole_x:
-    description: Magnetorquer dipole moment X axis command
-    unit: Am2
-    dtype: float
-    classification: TC
-    domain: AOCS
-    model_id: aocs
-    valid_range: [-10.0, 10.0]
-    pus:
-      apid: 0x101
-      service: 20
-      subservice: 1
-      parameter_id: 0x2030
-
-  aocs.mode:
-    description: AOCS operating mode (0=safe, 1=detumbling, 2=nadir, 3=target)
-    unit: ""
-    dtype: int
-    classification: TM
-    domain: AOCS
-    model_id: aocs
-    pus:
-      apid: 0x101
-      service: 3
-      subservice: 25
-      parameter_id: 0x2040
-
-  aocs.rw1.torque_cmd:
-    description: Reaction wheel 1 torque command
-    unit: Nm
-    dtype: float
-    classification: TC
-    domain: AOCS
     model_id: rw1
     valid_range: [-0.2, 0.2]
     pus:
@@ -178,20 +135,6 @@ parameters:
       service: 20
       subservice: 1
       parameter_id: 0x2021
-
-  aocs.rw1.speed:
-    description: Reaction wheel 1 speed
-    unit: rpm
-    dtype: float
-    classification: TM
-    domain: AOCS
-    model_id: rw1
-    valid_range: [-6000.0, 6000.0]
-    pus:
-      apid: 0x101
-      service: 3
-      subservice: 25
-      parameter_id: 0x2022
 
   aocs.rw1.status:
     description: Reaction wheel 1 status (1=nominal)
@@ -205,4 +148,233 @@ parameters:
       apid: 0x101
       service: 3
       subservice: 25
+      parameter_id: 0x2022
+
+  aocs.rw1.temperature:
+    description: Reaction wheel 1 bearing temperature
+    unit: degC
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: rw1
+    valid_range: [-40.0, 85.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
       parameter_id: 0x2023
+
+  # ── Magnetorquer ───────────────────────────────────────────────────────────
+
+  aocs.mtq.dipole_x:
+    description: Magnetorquer dipole moment X axis command
+    unit: Am2
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: mtq
+    valid_range: [-10.0, 10.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2030
+
+  aocs.mtq.dipole_y:
+    description: Magnetorquer dipole moment Y axis command
+    unit: Am2
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: mtq
+    valid_range: [-10.0, 10.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2031
+
+  aocs.mtq.dipole_z:
+    description: Magnetorquer dipole moment Z axis command
+    unit: Am2
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: mtq
+    valid_range: [-10.0, 10.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2032
+
+  # ── Star tracker 1 ────────────────────────────────────────────────────────
+
+  aocs.str1.quaternion_w:
+    description: Star tracker 1 attitude quaternion scalar component
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: str1
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2040
+
+  aocs.str1.quaternion_x:
+    description: Star tracker 1 attitude quaternion X component
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: str1
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2041
+
+  aocs.str1.quaternion_y:
+    description: Star tracker 1 attitude quaternion Y component
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: str1
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2042
+
+  aocs.str1.quaternion_z:
+    description: Star tracker 1 attitude quaternion Z component
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: str1
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2043
+
+  aocs.str1.validity:
+    description: Star tracker 1 measurement validity (0=invalid, 1=valid)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: AOCS
+    model_id: str1
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2044
+
+  aocs.str1.mode:
+    description: Star tracker 1 mode (0=off, 1=acquiring, 2=tracking)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: AOCS
+    model_id: str1
+    valid_range: [0.0, 2.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2045
+
+  aocs.str1.temperature:
+    description: Star tracker 1 detector temperature
+    unit: degC
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: str1
+    valid_range: [-40.0, 60.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2046
+
+  aocs.str1.sun_angle:
+    description: Star tracker 1 sun angle input (for blinding detection)
+    unit: deg
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: str1
+    valid_range: [0.0, 180.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2047
+
+  aocs.str1.power_enable:
+    description: Star tracker 1 power enable command (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: AOCS
+    model_id: str1
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2048
+
+  aocs.str1.acquisition_progress:
+    description: Star tracker 1 acquisition progress (0.0 to 1.0)
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: str1
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2049
+
+  # ── AOCS mode ─────────────────────────────────────────────────────────────
+
+  aocs.mode:
+    description: AOCS operating mode (0=safe, 1=detumbling, 2=nadir, 3=target)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: AOCS
+    model_id: aocs
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2050
+
+  aocs.mode_cmd:
+    description: AOCS mode command (0=safe, 1=detumbling, 2=nadir, 3=target)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: AOCS
+    model_id: aocs
+    valid_range: [0.0, 3.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2051

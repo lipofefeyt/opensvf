@@ -92,3 +92,117 @@ parameters:
       service: 3
       subservice: 25
       parameter_id: 0x3020
+
+  # ── S-Band transponder (SBT) ───────────────────────────────────────────────
+
+  ttc.sbt.mode:
+    description: SBT operating mode (0=idle, 1=ranging, 2=tc_rx, 3=tm_tx)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: TTC
+    model_id: sbt
+    valid_range: [0.0, 3.0]
+    pus:
+      apid: 0x102
+      service: 3
+      subservice: 25
+      parameter_id: 0x3030
+
+  ttc.sbt.mode_cmd:
+    description: SBT mode command (0=idle, 1=ranging, 2=tc_rx, 3=tm_tx)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: TTC
+    model_id: sbt
+    valid_range: [0.0, 3.0]
+    pus:
+      apid: 0x102
+      service: 20
+      subservice: 1
+      parameter_id: 0x3031
+
+  ttc.sbt.uplink_lock:
+    description: S-Band uplink carrier lock (0=unlocked, 1=locked)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: TTC
+    model_id: sbt
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x102
+      service: 3
+      subservice: 25
+      parameter_id: 0x3032
+
+  ttc.sbt.downlink_active:
+    description: S-Band downlink active (0=inactive, 1=active)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: TTC
+    model_id: sbt
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x102
+      service: 3
+      subservice: 25
+      parameter_id: 0x3033
+
+  ttc.sbt.uplink_signal_level:
+    description: S-Band uplink received signal level
+    unit: dBm
+    dtype: float
+    classification: TC
+    domain: TTC
+    model_id: sbt
+    valid_range: [-130.0, -50.0]
+    pus:
+      apid: 0x102
+      service: 20
+      subservice: 1
+      parameter_id: 0x3034
+
+  ttc.sbt.power_enable:
+    description: SBT power enable command (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: TTC
+    model_id: sbt
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x102
+      service: 20
+      subservice: 1
+      parameter_id: 0x3035
+
+  ttc.sbt.rx_bitrate:
+    description: Uplink bit rate
+    unit: bps
+    dtype: float
+    classification: TM
+    domain: TTC
+    model_id: sbt
+    valid_range: [0.0, 64000.0]
+    pus:
+      apid: 0x102
+      service: 3
+      subservice: 25
+      parameter_id: 0x3036
+
+  ttc.sbt.tx_bitrate:
+    description: Downlink bit rate
+    unit: bps
+    dtype: float
+    classification: TM
+    domain: TTC
+    model_id: sbt
+    valid_range: [0.0, 1000000.0]
+    pus:
+      apid: 0x102
+      service: 3
+      subservice: 25
+      parameter_id: 0x3037

@@ -1,0 +1,145 @@
+# SVF SRDB — DHS Domain Baseline
+# Data Handling System parameters (OBC, I/RCU, PDHU)
+# PUS service assignments per ECSS-E-ST-70-41C (PUS-C)
+
+parameters:
+
+  # ── OBC health ────────────────────────────────────────────────────────────
+
+  dhs.obc.mode:
+    description: OBC operating mode (0=safe, 1=nominal, 2=payload)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: OBDH
+    model_id: obc
+    valid_range: [0.0, 2.0]
+    pus:
+      apid: 0x103
+      service: 3
+      subservice: 25
+      parameter_id: 0x4001
+
+  dhs.obc.mode_cmd:
+    description: OBC mode transition command
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: OBDH
+    model_id: obc
+    valid_range: [0.0, 2.0]
+    pus:
+      apid: 0x103
+      service: 20
+      subservice: 1
+      parameter_id: 0x4002
+
+  dhs.obc.obt:
+    description: On-board time in seconds since epoch
+    unit: s
+    dtype: float
+    classification: TM
+    domain: OBDH
+    model_id: obc
+    pus:
+      apid: 0x103
+      service: 3
+      subservice: 25
+      parameter_id: 0x4003
+
+  dhs.obc.watchdog_status:
+    description: Watchdog status (0=nominal, 1=timeout_warning, 2=reset)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: OBDH
+    model_id: obc
+    valid_range: [0.0, 2.0]
+    pus:
+      apid: 0x103
+      service: 3
+      subservice: 25
+      parameter_id: 0x4004
+
+  dhs.obc.watchdog_kick:
+    description: Watchdog kick command (write 1 to reset timer)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: OBDH
+    model_id: obc
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x103
+      service: 20
+      subservice: 1
+      parameter_id: 0x4005
+
+  dhs.obc.memory_used_pct:
+    description: Mass memory used percentage
+    unit: "%"
+    dtype: float
+    classification: TM
+    domain: OBDH
+    model_id: obc
+    valid_range: [0.0, 100.0]
+    pus:
+      apid: 0x103
+      service: 3
+      subservice: 25
+      parameter_id: 0x4006
+
+  dhs.obc.memory_dump_cmd:
+    description: Mass memory dump command (1=initiate dump)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: OBDH
+    model_id: obc
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x103
+      service: 20
+      subservice: 1
+      parameter_id: 0x4007
+
+  dhs.obc.health:
+    description: OBC health status (0=nominal, 1=degraded, 2=failed)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: OBDH
+    model_id: obc
+    valid_range: [0.0, 2.0]
+    pus:
+      apid: 0x103
+      service: 3
+      subservice: 25
+      parameter_id: 0x4008
+
+  dhs.obc.reset_count:
+    description: OBC reset counter since launch
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: OBDH
+    model_id: obc
+    pus:
+      apid: 0x103
+      service: 3
+      subservice: 25
+      parameter_id: 0x4009
+
+  dhs.obc.cpu_load:
+    description: OBC CPU load percentage
+    unit: "%"
+    dtype: float
+    classification: TM
+    domain: OBDH
+    model_id: obc
+    valid_range: [0.0, 100.0]
+    pus:
+      apid: 0x103
+      service: 3
+      subservice: 25
+      parameter_id: 0x400A

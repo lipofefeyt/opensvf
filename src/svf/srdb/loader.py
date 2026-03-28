@@ -215,7 +215,21 @@ class SrdbLoader:
             raise SrdbLoadError(f"SRDB file not found: {path}")
         try:
             with open(path, encoding="utf-8") as f:
-                data = yaml.safe_load(f)
+                content = f.read()
+            
+            # Detect duplicate keys before PyYAML silently overwrites them
+            import re
+            keys_seen: set[str] = set()
+            for match in re.finditer(r"^  ([\w.]+):", content, re.MULTILINE):
+                key = match.group(1)
+                if key in keys_seen and key != "pus":
+                    raise SrdbLoadError(
+                        f"{path}: duplicate parameter key '{key}' — "
+                        f"YAML would silently overwrite it"
+                    )
+                keys_seen.add(key)
+            
+            data = yaml.safe_load(content)
             if not isinstance(data, dict):
                 raise SrdbLoadError(
                     f"{path}: YAML root must be a mapping, got "
