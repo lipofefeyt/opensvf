@@ -1,0 +1,33 @@
+# SVF PUS TM/TC Validation Campaign
+# Validates full PUS commanding chain: ground -> TTC -> OBC -> 1553 -> equipment
+
+campaign_id: PUS-VAL-001
+description: PUS TM/TC end-to-end validation campaign
+svf_version: "0.1"
+model_baseline: obc_ttc_1553_rw_v1
+
+requirements:
+  - SVF-DEV-037
+  - PUS-010
+  - PUS-011
+
+test_cases:
+  - id: TC-PUS-001
+    test: tests/spacecraft/test_pus_procedures.py::test_tc_pus_001_are_you_alive
+    timeout: 30
+
+  - id: TC-PUS-002
+    test: tests/spacecraft/test_pus_procedures.py::test_tc_pus_002_s20_set_rw_torque
+    timeout: 30
+
+  - id: TC-PUS-003
+    test: tests/spacecraft/test_pus_procedures.py::test_tc_pus_003_s3_hk_report
+    timeout: 30
+
+  - id: TC-PUS-004
+    test: tests/spacecraft/test_pus_procedures.py::test_tc_pus_004_invalid_crc_rejected
+    timeout: 30
+
+  - id: TC-PUS-005
+    test: tests/spacecraft/test_pus_procedures.py::test_tc_pus_005_full_chain_ground_to_rw
+    timeout: 60
