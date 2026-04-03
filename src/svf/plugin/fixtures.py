@@ -132,6 +132,15 @@ def _run_scheduler(
                 remaining.pop(i)
         time.sleep(0.001)
 
+@pytest.fixture(scope="session", autouse=True)
+def _dds_teardown() -> Generator[None, None, None]:
+    """
+    Ensure DDS participants are cleanly shut down before pytest exits.
+    Prevents corrupted double-linked list crash during garbage collection.
+    """
+    yield
+    import gc
+    gc.collect()
 
 @pytest.fixture
 def svf_participant() -> DomainParticipant:

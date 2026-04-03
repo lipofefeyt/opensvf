@@ -1,0 +1,26 @@
+campaign_id: FDIR-VAL-001
+description: FDIR chain closed-loop scenario
+svf_version: "0.1"
+model_baseline: platform_stub_v1
+
+requirements:
+  - SVF-DEV-050
+  - SVF-DEV-051
+  - OBC-001
+  - 1553-007
+  - 1553-008
+  - PUS-006
+
+test_cases:
+  - id: TC-FDIR-001
+    test: tests/spacecraft/test_fdir_chain.py::test_fdir_rw_fault_triggers_safe_mode
+    timeout: 30
+  - id: TC-FDIR-002
+    test: tests/spacecraft/test_fdir_chain.py::test_fdir_rw_fault_clears_stub_recovers
+    timeout: 60
+  - id: TC-FDIR-003
+    test: tests/spacecraft/test_fdir_chain.py::test_fdir_generates_s5_event_on_fault
+    timeout: 30
+  - id: TC-FDIR-004
+    test: tests/spacecraft/test_fdir_chain.py::test_fdir_bus_error_triggers_switchover_and_recovery
+    timeout: 30

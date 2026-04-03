@@ -1,231 +1,320 @@
 # SVF Abstraction Layer
 
-> **Status:** Draft — v0.2
+> **Status:** v0.3
 > **Last updated:** 2026-03
 > **Author:** lipofefeyt
 
 ---
 
-## Purpose
+## Overview
 
-The abstraction layer is the mechanism that makes SVF real-time switchable
-without architectural surgery. The SimulationMaster depends exclusively on
-three abstract interfaces — never on concrete implementations. Swapping from
-software to real-time execution is a one-line change at the composition root.
-
-A key design rule: **models speak for themselves.** The SimulationMaster
-never publishes telemetry or sync acknowledgements on behalf of models.
-Each ModelAdapter is responsible for its own outputs and readiness signals.
+The SVF abstraction layer defines three interfaces that decouple the simulation core from its execution environment. Switching from software simulation to real-time execution is a one-line change at the composition root — the equipment models, test procedures, and campaign manager are unaffected.
 
 ---
 
-## The Three Interfaces
+## 1. TickSource
 
-### TickSource (src/svf/abstractions.py)
-
-Answers the question: **when is the next tick?**
+Controls the simulation clock.
 
 ```python
 class TickSource(ABC):
-    def start(self, on_tick: TickCallback, dt: float, stop_time: float) -> None: ...
+    @abstractmethod
+    def start(self) -> None: ...
+
+    @abstractmethod
     def stop(self) -> None: ...
 ```
 
-The master calls `start()` and provides a callback. Whenever a tick occurs,
-the callback is invoked with the current simulation time `t`. The master never
-advances time on its own — it always waits for the TickSource.
+### SoftwareTickSource
 
-| Implementation | Behaviour |
-|---|---|
-| SoftwareTickSource | Python while loop, runs as fast as hardware allows |
-| RealtimeTickSource (deferred) | RT_PREEMPT timer or external hardware sync pulse |
+Default implementation. Ticks as fast as the CPU allows. Used in all current test procedures and campaigns.
+
+```python
+from svf.software_tick import SoftwareTickSource
+tick = SoftwareTickSource()
+```
+
+### RealtimeTickSource (M11)
+
+Drives the simulation at wall-clock rate using `RT_PREEMPT` timer. Required for hardware-in-the-loop with real equipment.
 
 ---
 
-### SyncProtocol (src/svf/abstractions.py)
+## 2. SyncProtocol
 
-Answers the question: **are all models done with this tick?**
+Coordinates tick synchronisation between `SimulationMaster` and equipment models. Each model acknowledges readiness after completing its tick.
 
 ```python
 class SyncProtocol(ABC):
-    def wait_for_ready(self, expected: list[str], timeout: float) -> bool: ...
-    def publish_ready(self, model_id: str, t: float) -> None: ...
+    @abstractmethod
     def reset(self) -> None: ...
+
+    @abstractmethod
+    def publish_ready(self, model_id: str, t: float) -> None: ...
+
+    @abstractmethod
+    def wait_for_ready(
+        self, expected: list[str], timeout: float
+    ) -> bool: ...
 ```
 
-After each tick, the master calls `wait_for_ready()` and blocks until every
-model has called `publish_ready()` on the SyncProtocol it was given at
-construction. The master never calls `publish_ready()` itself.
+### DdsSyncProtocol
 
-`reset()` is called before each tick to drain stale acknowledgements.
+Default implementation using Eclipse Cyclone DDS.
 
-| Implementation | Behaviour |
-|---|---|
-| DdsSyncProtocol | Acknowledgements over DDS SVF/Sim/Ready topic, KEEP_ALL QoS |
-| SharedMemorySyncProtocol (deferred) | Lock-free ring buffer, sub-millisecond latency |
+- `SVF/Sim/Tick` topic — master broadcasts tick with `(t, dt)`
+- `SVF/Sim/Ready/{model_id}` topic — each model acknowledges
+
+```python
+from cyclonedds.domain import DomainParticipant
+from svf.dds_sync import DdsSyncProtocol
+
+participant = DomainParticipant()
+sync = DdsSyncProtocol(participant)
+```
+
+All DDS writers/readers use `KEEP_ALL` QoS to ensure late-joining models receive the last tick.
+
+### SharedMemorySyncProtocol (M11)
+
+Lock-free ring buffer for zero-copy inter-process synchronisation. Required for real-time HIL.
 
 ---
 
-### ModelAdapter (src/svf/abstractions.py)
+## 3. ModelAdapter
 
-Answers the question: **how do I drive a model?**
+The minimal interface that any model must implement to be driven by `SimulationMaster`.
 
 ```python
 class ModelAdapter(ABC):
     @property
+    @abstractmethod
     def model_id(self) -> str: ...
+
+    @abstractmethod
     def initialise(self, start_time: float = 0.0) -> None: ...
+
+    @abstractmethod
     def on_tick(self, t: float, dt: float) -> None: ...
+
+    @abstractmethod
     def teardown(self) -> None: ...
 ```
 
-Every model looks identical to the master through this interface.
-on_tick() returns None — data flows over DDS, exceptions flow up the
-call stack. Each adapter is responsible for:
-- Executing its model
-- Publishing outputs to SVF/Telemetry/{variable}
-- Calling sync_protocol.publish_ready() when done
+### Equipment extends ModelAdapter
 
-| Implementation | Behaviour |
-|---|---|
-| FmuModelAdapter | Wraps an FMI 3.0 FMU via fmpy |
-| NativeModelAdapter | Wraps a plain Python class for lightweight testing |
-| Hardware adapter (deferred) | Bridges DDS topics to physical interfaces |
+`Equipment` is the primary `ModelAdapter` implementation. Every spacecraft model extends `Equipment` and is directly driveable by `SimulationMaster` without any adapter wrapping.
 
----
-
-## Concrete Implementations
-
-### SoftwareTickSource (src/svf/software_tick.py)
-
-The default TickSource for software-only simulation runs. Advances time in a
-simple Python while loop, calling `on_tick(t)` at each step before incrementing
-`t` by `dt`. No real-time guarantees — runs as fast as the hardware allows.
-
-`round(..., 9)` is applied to prevent floating point drift over long runs.
-
----
-
-### DdsSyncProtocol (src/svf/dds_sync.py)
-
-Exchanges tick acknowledgements over the DDS topic SVF/Sim/Ready.
-Uses KEEP_ALL QoS to ensure no acknowledgement is lost when multiple
-models publish concurrently.
-
-`reset()` drains the reader before each tick to prevent stale acknowledgements
-from a previous tick being counted toward the current one.
-
----
-
-### FmuModelAdapter (src/svf/fmu_adapter.py)
-
-Wraps an FMI 3.0 FMU as a ModelAdapter.
-
-On each tick:
-1. Calls fmu.doStep(t, dt)
-2. Reads all output variables
-3. Publishes each to SVF/Telemetry/{variable} as a TelemetrySample
-4. Optionally records to CsvLogger
-5. Calls sync_protocol.publish_ready()
-
-Output variable names are discovered at initialise() time from the FMU
-model description. One DDS DataWriter is created per output variable.
-
----
-
-### NativeModelAdapter (src/svf/native_adapter.py)
-
-Wraps any plain Python class implementing the NativeModel protocol:
-
-```python
-class MyModel:
-    def step(self, t: float, dt: float) -> dict[str, float]:
-        return {"value": t * 2.0}
+```
+ModelAdapter (ABC)
+    └── Equipment (ABC)
+            ├── FmuEquipment     — wraps FMI 3.0 FMU
+            ├── NativeEquipment  — wraps Python step function
+            └── Bus (ABC)        — fault injection + typed ports
+                    └── Mil1553Bus
 ```
 
-Output variable names must be declared explicitly at construction time:
+### FmuEquipment
+
+Wraps an FMI 3.0 FMU. Translates FMU variables to SRDB canonical port names via `parameter_map`.
 
 ```python
-adapter = NativeModelAdapter(
-    model=MyModel(),
-    model_id="my_model",
-    output_names=["value"],    # declared upfront — never inferred
-    participant=participant,
+from svf.fmu_equipment import FmuEquipment
+
+eps = FmuEquipment(
+    fmu_path="models/EpsFmu.fmu",
+    equipment_id="eps",
     sync_protocol=sync,
+    store=store,
+    command_store=cmd_store,
+    parameter_map={
+        "battery_soc":        "eps.battery.soc",
+        "solar_illumination": "eps.solar_array.illumination",
+    },
 )
 ```
 
-This avoids calling step() during initialise(), which would cause
-side effects in recording models and corrupt step counts.
+`on_tick()` behaviour:
+1. Read `CommandStore` entries into FMU inputs
+2. `fmu.doStep(t, dt)`
+3. Write FMU outputs to `ParameterStore`
+4. `sync.publish_ready()`
 
----
+### NativeEquipment
 
-## Execution Flow
-
-```
-SimulationMaster.run()
-    |
-    +-- initialise all ModelAdapters
-    |
-    +-- SoftwareTickSource.start(on_tick, dt, stop_time)
-            |
-            +-- on_tick(t):
-                    +-- SyncProtocol.reset()
-                    +-- for each ModelAdapter:
-                    |       +-- adapter.on_tick(t, dt)
-                    |               +-- model.step() / fmu.doStep()
-                    |               +-- publish SVF/Telemetry/{name}
-                    |               +-- SyncProtocol.publish_ready(model_id, t)
-                    +-- SyncProtocol.wait_for_ready(all_model_ids, timeout)
-```
-
-Note: on_tick() returns None. All data flows over DDS topics.
-Faults flow up as exceptions and are caught by the master.
-
----
-
-## Real-Time Upgrade Path
-
-Each step is a one-line change at the composition root:
+Wraps a Python step function. Ports declared explicitly at construction.
 
 ```python
-# Software (default)
+from svf.native_equipment import NativeEquipment
+from svf.equipment import PortDefinition, PortDirection
+
+def rw_step(eq: NativeEquipment, t: float, dt: float) -> None:
+    torque = eq.read_port("aocs.rw1.torque_cmd")
+    speed  = eq.read_port("aocs.rw1.speed")
+    eq.write_port("aocs.rw1.speed", speed + torque * 100.0 * dt)
+
+rw = NativeEquipment(
+    equipment_id="rw1",
+    ports=[
+        PortDefinition("aocs.rw1.torque_cmd", PortDirection.IN,  unit="Nm"),
+        PortDefinition("aocs.rw1.speed",       PortDirection.OUT, unit="rpm"),
+    ],
+    step_fn=rw_step,
+    sync_protocol=sync,
+    store=store,
+    command_store=cmd_store,
+)
+```
+
+---
+
+## 4. SimulationMaster
+
+Drives the tick loop. Accepts any list of `ModelAdapter` instances.
+
+```python
+from svf.simulation import SimulationMaster
+
 master = SimulationMaster(
     tick_source=SoftwareTickSource(),
-    sync_protocol=DdsSyncProtocol(participant),
-    models=[FmuModelAdapter("power.fmu", "power", participant, sync)],
+    sync_protocol=sync,
+    models=[obc, ttc, bus, rw, st, sbt],
     dt=0.1,
+    stop_time=30.0,
+    sync_timeout=5.0,
+    command_store=cmd_store,
+    param_store=store,
 )
-
-# Real-time (future — change only these two lines)
-master = SimulationMaster(
-    tick_source=RealtimeTickSource(clock_source="/dev/pps0"),
-    sync_protocol=SharedMemorySyncProtocol(),
-    models=[FmuModelAdapter("power.fmu", "power", participant, sync)],
-    dt=0.1,
-)
+master.run()
 ```
 
-The SimulationMaster, ModelAdapters, test procedures, and campaign
-definitions are identical in both cases.
+### Tick loop
+
+```
+for each tick at t:
+  1. ParameterStore.write("svf.sim_time", t)
+  2. For each model: model.on_tick(t, dt)
+  3. Wait for all ready signals (timeout=sync_timeout)
+  4. Apply WiringMap (copy OUT port values to connected IN ports)
+  5. svf_command_schedule: fire any commands at t >= target_t
+  t += dt
+```
+
+### WiringMap
+
+Optional. Defines point-to-point connections between OUT and IN ports. Applied after each tick via `CommandStore.inject()`.
+
+```python
+from svf.wiring import WiringLoader
+
+loader = WiringLoader({"solar_array": sa, "pcdu": pcdu})
+wiring = loader.load(Path("srdb/wiring/eps_wiring.yaml"))
+
+master = SimulationMaster(..., wiring=wiring)
+```
 
 ---
 
-## Adding a New Implementation
+## 5. Stores
 
-To add a new TickSource (e.g. driven by a GPS pulse-per-second signal):
+### ParameterStore (TM)
 
-1. Create src/svf/gps_tick.py
-2. Subclass TickSource and implement start() and stop()
-3. Inject it at the composition root — nothing else changes
+Thread-safe key-value store for telemetry. Written by Equipment OUT ports. Read by observables, loggers, and OBC HK aggregation.
 
-The same pattern applies to new SyncProtocol and ModelAdapter implementations.
+```python
+from svf.parameter_store import ParameterStore
+
+store = ParameterStore()
+store.write("eps.battery.soc", 0.85, t=1.0, model_id="eps")
+entry = store.read("eps.battery.soc")
+# entry.value, entry.t, entry.model_id
+snapshot = store.snapshot()  # dict[str, ParameterEntry]
+```
+
+Properties:
+- Thread-safe (`threading.Lock`)
+- Late-joiner safe — `read()` returns last value regardless of when called
+- SRDB validation when `Srdb` instance attached — warns on range violation
+
+### CommandStore (TC)
+
+Thread-safe key-value store for telecommands. Written by `inject()`, wiring, OBC S20 routing, bus BC_to_RT routing. Read by Equipment IN ports via `take()` (atomic read+consume).
+
+```python
+from svf.command_store import CommandStore
+
+cmd_store = CommandStore()
+cmd_store.inject("aocs.rw1.torque_cmd", 0.1, source_id="test")
+entry = cmd_store.take("aocs.rw1.torque_cmd")  # atomic, returns None if empty
+entry = cmd_store.peek("aocs.rw1.torque_cmd")  # non-consuming read
+```
+
+Properties:
+- Thread-safe
+- `take()` is atomic — read and consume in one operation
+- `peek()` for test assertions without consuming
+- SRDB validation — warns when TC-classified parameter injected to TM key
 
 ---
 
-## Related
+## 6. SRDB Integration
 
-- docs/architecture.md — system-level architecture and design principles
-- docs/plugin.md — pytest plugin built on top of these abstractions
-- REQUIREMENTS.md — SVF-DEV-009 through SVF-DEV-018
-- src/svf/abstractions.py — interface definitions
+The SRDB provides runtime validation for both stores.
+
+```python
+from svf.srdb.loader import SrdbLoader
+
+loader = SrdbLoader()
+for baseline in Path("srdb/baseline").glob("*.yaml"):
+    loader.load_baseline(baseline)
+srdb = loader.build()
+
+store     = ParameterStore(srdb=srdb)
+cmd_store = CommandStore(srdb=srdb)
+```
+
+Validation warnings (never raise — simulation continues):
+- Value outside `valid_range`
+- Model writes to TC-classified parameter
+- Test injects to TM-classified parameter
+
+---
+
+## 7. Dependency Injection Summary
+
+The composition root for a full platform simulation:
+
+```python
+# 1. Infrastructure
+participant = DomainParticipant()
+sync        = DdsSyncProtocol(participant)
+store       = ParameterStore()
+cmd_store   = CommandStore()
+
+# 2. Equipment
+obc = ObcEquipment(config, sync, store, cmd_store)
+ttc = TtcEquipment(obc,    sync, store, cmd_store)
+rw  = make_reaction_wheel( sync, store, cmd_store)
+st  = make_star_tracker(   sync, store, cmd_store)
+sbt = make_sbt(            sync, store, cmd_store)
+bus = Mil1553Bus("platform_1553", rt_count=5,
+                 mappings=mappings,
+                 sync_protocol=sync,
+                 store=store,
+                 command_store=cmd_store)
+
+# 3. Simulation
+master = SimulationMaster(
+    tick_source=SoftwareTickSource(),   # ← swap for RealtimeTickSource (M11)
+    sync_protocol=sync,                 # ← swap for SharedMemorySync (M11)
+    models=[ttc, obc, bus, rw, st, sbt],
+    dt=0.1,
+    stop_time=30.0,
+    sync_timeout=5.0,
+    command_store=cmd_store,
+    param_store=store,
+)
+master.run()
+```
+
+Switching to real-time execution (M11): change `SoftwareTickSource` to `RealtimeTickSource` and `DdsSyncProtocol` to `SharedMemorySyncProtocol`. Everything else is unchanged.

@@ -1,0 +1,44 @@
+# SVF Platform Validation Campaign
+# Exercises all M8 equipment models together.
+
+campaign_id: PLAT-VAL-001
+description: Full platform integration validation campaign
+svf_version: "0.1"
+model_baseline: platform_m8_v1
+
+requirements:
+  - OBC-001
+  - OBC-002
+  - OBC-004
+  - OBC-005
+  - PUS-010
+  - RW-001
+  - ST-001
+  - ST-002
+  - SBT-001
+  - SBT-002
+
+test_cases:
+  - id: TC-PLAT-001
+    test: tests/spacecraft/test_platform_validation.py::test_tc_plat_001_obc_boots_safe_obt_increments
+    timeout: 30
+
+  - id: TC-PLAT-002
+    test: tests/spacecraft/test_platform_validation.py::test_tc_plat_002_watchdog_warning_without_kick
+    timeout: 60
+
+  - id: TC-PLAT-003
+    test: tests/spacecraft/test_platform_validation.py::test_tc_plat_003_rw_commanded_via_pus_tc
+    timeout: 60
+
+  - id: TC-PLAT-004
+    test: tests/spacecraft/test_platform_validation.py::test_tc_plat_004_st_acquires_attitude
+    timeout: 30
+
+  - id: TC-PLAT-005
+    test: tests/spacecraft/test_platform_validation.py::test_tc_plat_005_sbt_acquires_carrier_lock
+    timeout: 30
+
+  - id: TC-PLAT-006
+    test: tests/spacecraft/test_platform_validation.py::test_tc_plat_006_obc_mode_transition_via_pus
+    timeout: 30

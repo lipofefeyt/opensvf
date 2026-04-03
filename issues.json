@@ -1,8 +1,38 @@
 [
   {
-    "title": "[SDB] Implement SRDB CSV import/export for engineering workflows",
-    "body": "## Context\nAs the SRDB grows to hundreds of parameters across many subsystems, YAML files become difficult to maintain. Engineers typically work in Excel or tab-separated ASCII tools.\n\n## Objective\nProvide CSV import/export tools so engineers can maintain parameters in familiar tools while the YAML remains the authoritative source.\n\n## Design\n- tools/srdb_to_csv.py: export all SRDB baselines to a single CSV file\n- tools/csv_to_srdb.py: import CSV back to domain YAML files\n- CSV schema: canonical_name, description, unit, dtype, classification, domain, model_id, valid_range_min, valid_range_max, pus_apid, pus_service, pus_subservice, pus_parameter_id\n- Excel opens CSV natively — no special tooling required\n\n## Future\n- XTCE export (SVF-DEV-097) for YAMCS interoperability — M10\n- MIB import (SVF-DEV-098) for legacy ground segment migration — M10\n- Dedicated SRDB editor tool (long term)\n\n## Implements\nSVF-DEV-096, SVF-DEV-097, SVF-DEV-098 (partial)",
-    "labels": ["type: feature", "layer: sim-core", "priority: later"],
-    "milestone": "M10 - Ground Segment"
+    "title": "[SYS] Implement OBC stub — configurable OBSW behaviour simulator",
+    "body": "## Objective\nImplement an OBC stub that simulates OBSW behaviour via configurable rules. Replaces ObcEquipment for closed-loop system validation without a real OBSW binary.\n\n## Design\n```python\nstub = ObcStub(rules=[\n    Rule(\n        name='low_battery_safe_mode',\n        condition=lambda store: store.read('eps.battery.soc').value < 0.3,\n        action=lambda cmd_store, t: cmd_store.inject('dhs.obc.mode_cmd', MODE_SAFE, t=t)\n    ),\n    Rule(\n        name='st_valid_enable_rw',\n        condition=lambda store: store.read('aocs.str1.validity').value > 0.5,\n        action=lambda cmd_store, t: cmd_store.inject('aocs.rw1.torque_cmd', 0.05, t=t)\n    ),\n])\n```\n\n## Acceptance Criteria\n- ObcStub extends ObcEquipment\n- Rule dataclass: name, condition(store)->bool, action(cmd_store, t)->None\n- Rules evaluated each tick in declared order\n- Rules can be enabled/disabled at runtime\n- Stub generates PUS TM (HK, events) same as ObcEquipment\n- Unit tests cover rule evaluation, enable/disable, PUS TM generation\n\n## Implements\nSVF-DEV-038",
+    "labels": ["type: feature", "layer: model-authoring", "priority: now"],
+    "milestone": "M10 - Integration and System Validation"
+  },
+  {
+    "title": "[SYS] Full platform scenario — safe mode recovery",
+    "body": "## Objective\nImplement a closed-loop safe mode recovery scenario using the OBC stub.\n\n## Scenario\n1. Spacecraft starts tumbling in eclipse (low SoC, no attitude)\n2. CSS detects sun direction\n3. PCDU begins charging from solar arrays\n4. OBC stub: SoC > 0.4 → transition to NOMINAL\n5. ST powers on, acquires attitude\n6. OBC stub: ST valid → enable RW detumbling torques\n7. RW reduces tumbling rate\n\n## Acceptance Criteria\n- Full scenario runs end-to-end\n- OBC stub drives all transitions via rules\n- All FDIR events observable via ParameterStore\n- Campaign YAML: campaigns/safe_mode_recovery.yaml\n\n## Implements\nSVF-DEV-050, SVF-DEV-051",
+    "labels": ["type: feature", "layer: orchestration", "priority: now"],
+    "milestone": "M10 - Integration and System Validation"
+  },
+  {
+    "title": "[SYS] Full platform scenario — nominal operations loop",
+    "body": "## Objective\nImplement a closed-loop nominal operations scenario.\n\n## Scenario\n1. Spacecraft in NOMINAL mode, ST tracking\n2. OBC stub maintains RW speed within bounds\n3. OBC generates HK every second\n4. Ground sends S17 are-you-alive TC\n5. OBC responds with TM(17,2)\n6. Ground sends S20 parameter set\n7. OBC routes to equipment\n\n## Acceptance Criteria\n- Full scenario runs end-to-end\n- HK TM generated and verifiable\n- PUS TC/TM roundtrip validated\n- Campaign YAML: campaigns/nominal_ops.yaml\n\n## Implements\nSVF-DEV-050, SVF-DEV-051",
+    "labels": ["type: feature", "layer: orchestration", "priority: now"],
+    "milestone": "M10 - Integration and System Validation"
+  },
+  {
+    "title": "[SYS] Full platform scenario — ground contact pass",
+    "body": "## Objective\nImplement a ground contact pass scenario.\n\n## Scenario\n1. SBT powered off initially\n2. Ground station rises above horizon — signal level increases\n3. SBT acquires carrier lock\n4. Ground sends TC(17,1) are-you-alive\n5. OBC responds TM(17,2)\n6. Ground sends TC(20,1) mode command\n7. OBC executes, generates TM(1,7) completion\n8. SBT downlinks TM\n9. Ground station sets below horizon — lock lost\n\n## Acceptance Criteria\n- Full contact pass scenario end-to-end\n- Lock acquisition and loss observable\n- TC/TM exchange verified\n- Campaign YAML: campaigns/contact_pass.yaml\n\n## Implements\nSVF-DEV-050, SVF-DEV-051",
+    "labels": ["type: feature", "layer: orchestration", "priority: now"],
+    "milestone": "M10 - Integration and System Validation"
+  },
+  {
+    "title": "[SYS] Full platform scenario — FDIR chain",
+    "body": "## Objective\nImplement a closed-loop FDIR scenario where equipment fault triggers OBC stub response.\n\n## Scenario\n1. Spacecraft in NOMINAL mode, RW spinning\n2. 1553 NO_RESPONSE fault injected on RW RT\n3. OBC stub detects RW speed frozen in HK\n4. OBC stub generates S5 anomaly event\n5. OBC stub commands mode to SAFE\n6. Ground receives event via TM\n7. Fault cleared — OBC stub transitions back to NOMINAL\n\n## Acceptance Criteria\n- Full FDIR chain observable end-to-end\n- S5 event generated on fault detection\n- Mode transition driven by stub rule\n- Campaign YAML: campaigns/fdir_chain.yaml\n\n## Implements\nSVF-DEV-050, SVF-DEV-051",
+    "labels": ["type: feature", "layer: orchestration", "priority: now"],
+    "milestone": "M10 - Integration and System Validation"
+  },
+  {
+    "title": "[SYS] Implement HIL adapter plug-in point",
+    "body": "## Objective\nDefine the HIL adapter interface that the OBC emulator will implement when it arrives. The adapter replaces ObcStub transparently.\n\n## Design\n```python\nclass HilAdapter(Equipment, ABC):\n    @abstractmethod\n    def connect(self) -> None: ...  # establish connection to emulator\n    @abstractmethod\n    def disconnect(self) -> None: ... # clean shutdown\n    @abstractmethod\n    def is_connected(self) -> bool: ...\n```\n\n## Acceptance Criteria\n- HilAdapter ABC defined\n- ObcStub implements HilAdapter interface\n- SimulationMaster accepts HilAdapter in place of ObcEquipment\n- Swap from stub to real emulator is one line at composition root\n- Documentation updated\n\n## Implements\nSVF-DEV-038",
+    "labels": ["type: feature", "layer: sim-core", "priority: now"],
+    "milestone": "M10 - Integration and System Validation"
   }
 ]

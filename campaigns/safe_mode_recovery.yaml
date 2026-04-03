@@ -1,0 +1,28 @@
+# SVF Safe Mode Recovery Campaign
+# Closed-loop system test using OBC stub.
+
+campaign_id: SMR-VAL-001
+description: Safe mode recovery closed-loop scenario with OBC stub
+svf_version: "0.1"
+model_baseline: platform_stub_v1
+
+requirements:
+  - SVF-DEV-050
+  - SVF-DEV-051
+  - OBC-001
+  - OBC-002
+  - ST-001
+  - ST-002
+
+test_cases:
+  - id: TC-SMR-001
+    test: tests/spacecraft/test_safe_mode_recovery.py::test_safe_mode_recovery_stub_transitions_to_nominal
+    timeout: 60
+
+  - id: TC-SMR-002
+    test: tests/spacecraft/test_safe_mode_recovery.py::test_safe_mode_recovery_st_enables_rw
+    timeout: 60
+
+  - id: TC-SMR-003
+    test: tests/spacecraft/test_safe_mode_recovery.py::test_safe_mode_recovery_low_battery_returns_to_safe
+    timeout: 120

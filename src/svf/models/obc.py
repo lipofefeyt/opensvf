@@ -126,6 +126,9 @@ class ObcEquipment(Equipment):
             command_store=command_store,
         )
 
+        # Specific for mode
+        self._port_values["dhs.obc.mode_cmd"] = -1.0
+
     def _declare_ports(self) -> list[PortDefinition]:
         return [
             # TC input from TTC
@@ -175,11 +178,11 @@ class ObcEquipment(Equipment):
 
         # ── Mode transitions ───────────────────────────────────────────
         mode_cmd = self.read_port("dhs.obc.mode_cmd")
-        if mode_cmd > 0:
+        if mode_cmd >= 0.0:
             new_mode = int(round(mode_cmd))
             if new_mode != self._mode:
                 self._transition_mode(new_mode, t)
-            self.receive("dhs.obc.mode_cmd", 0.0)  # consume it
+            self.receive("dhs.obc.mode_cmd", -1.0)  # consume
 
         # ── Watchdog ───────────────────────────────────────────────────
         wdg_kick = self.read_port("dhs.obc.watchdog_kick")

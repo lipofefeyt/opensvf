@@ -1,0 +1,28 @@
+campaign_id: CONT-VAL-001
+description: Ground contact pass closed-loop scenario
+svf_version: "0.1"
+model_baseline: platform_stub_v1
+
+requirements:
+  - SVF-DEV-050
+  - SVF-DEV-051
+  - SBT-001
+  - SBT-002
+  - SBT-003
+  - PUS-007
+  - PUS-009
+  - PUS-010
+
+test_cases:
+  - id: TC-CONT-001
+    test: tests/spacecraft/test_contact_pass.py::test_contact_pass_lock_acquired
+    timeout: 30
+  - id: TC-CONT-002
+    test: tests/spacecraft/test_contact_pass.py::test_contact_pass_tc_tm_exchange
+    timeout: 30
+  - id: TC-CONT-003
+    test: tests/spacecraft/test_contact_pass.py::test_contact_pass_s20_mode_cmd_with_s1_completion
+    timeout: 30
+  - id: TC-CONT-004
+    test: tests/spacecraft/test_contact_pass.py::test_contact_pass_lock_lost_at_end
+    timeout: 30

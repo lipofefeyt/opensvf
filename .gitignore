@@ -68,6 +68,9 @@ instance/
 # Scrapy stuff:
 .scrapy
 
+# Docker stuff:
+.devcontainer/*
+
 # Sphinx documentation
 docs/_build/
 
@@ -214,3 +217,8 @@ __pycache__/
 *.pyc
 .pytest_cache/
 src/*.egg-info/
+core
+core.*
+
+# The OBSW image
+obsw_sim

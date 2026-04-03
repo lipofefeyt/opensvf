@@ -109,3 +109,287 @@ parameters:
       service: 20
       subservice: 1
       parameter_id: 0x1021
+
+  # ── PCDU ───────────────────────────────────────────────────────────────────
+
+  eps.pcdu.total_load:
+    description: Total spacecraft load power
+    unit: W
+    dtype: float
+    classification: TM
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 200.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1030
+
+  eps.pcdu.charge_current:
+    description: Battery charge current commanded by PCDU
+    unit: A
+    dtype: float
+    classification: TM
+    domain: EPS
+    model_id: pcdu
+    valid_range: [-20.0, 20.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1031
+
+  eps.pcdu.mppt_efficiency:
+    description: MPPT efficiency (0.0-1.0)
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1032
+
+  eps.pcdu.uvlo_active:
+    description: Under-voltage lockout active (0=nominal, 1=UVLO)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1033
+
+  # ── LCLs (8 channels) ─────────────────────────────────────────────────────
+
+  eps.pcdu.lcl1.status:
+    description: LCL1 status (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1040
+
+  eps.pcdu.lcl1.enable:
+    description: LCL1 enable command (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 20
+      subservice: 1
+      parameter_id: 0x1041
+
+  eps.pcdu.lcl2.status:
+    description: LCL2 status (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1042
+
+  eps.pcdu.lcl2.enable:
+    description: LCL2 enable command (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 20
+      subservice: 1
+      parameter_id: 0x1043
+
+  eps.pcdu.lcl3.status:
+    description: LCL3 status (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1044
+
+  eps.pcdu.lcl3.enable:
+    description: LCL3 enable command (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 20
+      subservice: 1
+      parameter_id: 0x1045
+
+  eps.pcdu.lcl4.status:
+    description: LCL4 status (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1046
+
+  eps.pcdu.lcl4.enable:
+    description: LCL4 enable command (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 20
+      subservice: 1
+      parameter_id: 0x1047
+
+  eps.pcdu.lcl5.status:
+    description: LCL5 status (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1048
+
+  eps.pcdu.lcl5.enable:
+    description: LCL5 enable command (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 20
+      subservice: 1
+      parameter_id: 0x1049
+
+  eps.pcdu.lcl6.status:
+    description: LCL6 status (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x104A
+
+  eps.pcdu.lcl6.enable:
+    description: LCL6 enable command (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 20
+      subservice: 1
+      parameter_id: 0x104B
+
+  eps.pcdu.lcl7.status:
+    description: LCL7 status (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x104C
+
+  eps.pcdu.lcl7.enable:
+    description: LCL7 enable command (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 20
+      subservice: 1
+      parameter_id: 0x104D
+
+  eps.pcdu.lcl8.status:
+    description: LCL8 status (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x104E
+
+  eps.pcdu.lcl8.enable:
+    description: LCL8 enable command (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: EPS
+    model_id: pcdu
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x100
+      service: 20
+      subservice: 1
+      parameter_id: 0x104F

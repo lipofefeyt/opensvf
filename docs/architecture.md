@@ -1,6 +1,6 @@
 # SVF Architecture
 
-> **Status:** v0.9
+> **Status:** v1.0
 > **Last updated:** 2026-03
 > **Author:** lipofefeyt
 
@@ -10,7 +10,9 @@
 
 The Software Validation Facility (SVF) is an open-core platform for the validation of spacecraft software and systems. It provides a simulation infrastructure, a communication bus, a spacecraft reference database, a component modelling framework, bus protocol adapters, PUS TM/TC support, and a test orchestration layer — designed to be standards-based, modular, and incrementally scalable.
 
-SVF is built around one core idea: **every spacecraft subsystem is an Equipment, every interface is typed, and every test is traced to a requirement.** From a single FMU to a full PUS commanding chain, the same abstractions apply.
+From ECSS-E-TM-10-21A:
+
+> *System modelling and simulation is a support activity to OBSW validation. The ability to inject failures in the models enables the user to trigger the OBSW monitoring processes as well as to exercise the FDIR mechanisms. Sometimes simpler so-called "model responders" may be sufficient to test the open-loop behaviour of the OBSW. The SVF is used repeatedly during the programme for each version of the onboard software and each version of the spacecraft database associated with it.*
 
 ---
 
@@ -26,19 +28,19 @@ Equipment ports carry an `InterfaceType` (FLOAT, MIL1553_BC, MIL1553_RT, SpaceWi
 Every bus adapter (1553, SpW, CAN) extends `Bus` which extends `Equipment`. Buses have typed ports on both sides and built-in fault injection for FDIR testing. `SimulationMaster` drives buses the same way it drives any other Equipment.
 
 **TM and TC are architecturally separate.**
-`ParameterStore` holds telemetry outputs (TM). `CommandStore` holds telecommands (TC). These are never conflated, mirroring the fundamental TM/TC separation in real spacecraft architecture.
+`ParameterStore` holds telemetry outputs (TM). `CommandStore` holds telecommands (TC). These are never conflated.
 
 **One data one source.**
-Every parameter has exactly one authoritative definition in the SRDB, shared across all engineering disciplines — simulation models, test procedures, reporters, and ground segment tools.
+Every parameter has exactly one authoritative definition in the SRDB, shared across all engineering disciplines.
 
 **PUS as the commanding language.**
 All ground-to-spacecraft commanding flows through PUS-C packet structures (ECSS-E-ST-70-41C). The OBC model is a PUS TC router — it doesn't know about specific equipment parameters, only PUS service/subservice routing and parameter_id → canonical name mapping.
 
+**Port commands are consumed.**
+One-shot commands (mode_cmd, watchdog_kick, dump_cmd) are consumed after processing so they don't persist across ticks. This prevents sticky state bugs.
+
 **Requirements traceability from day one.**
 Every test references a requirement via `@pytest.mark.requirement()`. Every BASELINED requirement has a test. The traceability matrix is generated automatically after every CI run.
-
-**CI/CD compatibility.**
-All outputs — JUnit XML, HTML report, traceability matrix — are consumable by standard CI/CD pipelines.
 
 ---
 
@@ -46,14 +48,14 @@ All outputs — JUnit XML, HTML report, traceability matrix — are consumable b
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    GROUND SEGMENT (M10)                         │
+│                    GROUND SEGMENT (M12)                         │
 │         YAMCS | SCOS-2000 | XTCE export | MIB import            │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ PUS TC/TM bytes
 ┌──────────────────────────▼──────────────────────────────────────┐
 │                    TTC EQUIPMENT                                 │
 │  send_tc(PusTcPacket) → forwards to OBC                         │
-│  get_tm_responses() ← exposes TM for observable assertions      │
+│  get_tm_responses() ← exposes TM for test assertions            │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ raw PUS bytes
 ┌──────────────────────────▼──────────────────────────────────────┐
@@ -65,19 +67,21 @@ All outputs — JUnit XML, HTML report, traceability matrix — are consumable b
 │  S3: TM(3,25) HK reports (essential HK auto-enabled at boot)    │
 │  S1: TM(1,1) acceptance + TM(1,7) completion for all TCs        │
 │  S1: TM(1,2) rejection on CRC error                             │
+│  Mode FSM: SAFE → NOMINAL → PAYLOAD                             │
+│  Watchdog: reset after 2× period → forces SAFE + S5 event       │
+│  Mass memory: fill rate × mode, dump on command                 │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ typed bus ports
 ┌──────────────────────────▼──────────────────────────────────────┐
 │                    BUS ADAPTERS                                  │
 │                                                                  │
-│  Mil1553Bus                    SpaceWireBus (M10)   CanBus (M10) │
-│  ├── bc_in  (MIL1553_BC)       Router + RMAP        ECSS CAN    │
+│  Mil1553Bus                    SpaceWireBus (M12)  CanBus (M12) │
+│  ├── bc_in  (MIL1553_BC)       Router + RMAP       ECSS CAN     │
 │  ├── rt1_out (MIL1553_RT)                                        │
 │  └── rtN_out (MIL1553_RT)                                        │
 │                                                                  │
-│  Fault injection (all bus types):                                │
-│  NO_RESPONSE | LATE_RESPONSE | BAD_PARITY |                      │
-│  WRONG_WORD_COUNT | BUS_ERROR                                    │
+│  BusFault: NO_RESPONSE | LATE_RESPONSE | BAD_PARITY |            │
+│            WRONG_WORD_COUNT | BUS_ERROR                         │
 │  bus.{id}.fault.{target}.{type} via CommandStore                 │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
@@ -102,7 +106,7 @@ All outputs — JUnit XML, HTML report, traceability matrix — are consumable b
 │  STORE      │  │                                                │
 │  TM only    │  │  TC only — take() atomic read+consume          │
 │  SRDB keys  │  │  written by: inject(), schedule, wiring,       │
-│  svf.sim_   │  │             OBC S20 routing, bus BC_to_RT      │
+│  svf.sim_   │  │             OBC S20, bus BC_to_RT              │
 │  time       │  │  consumed by: Equipment.on_tick() per IN port  │
 └──────┬──────┘  └────────────────────────────────────────────────┘
        │
@@ -114,7 +118,7 @@ All outputs — JUnit XML, HTML report, traceability matrix — are consumable b
 │    classification (TM/TC), domain, model_id                     │
 │    pus: {apid, service, subservice, parameter_id}               │
 │                                                                  │
-│  Domain baselines: EPS | AOCS | TTC | OBDH | Thermal            │
+│  Domain baselines: EPS | AOCS | TTC | OBDH | Thermal | DHS      │
 │  Mission overrides: srdb/missions/{mission}.yaml                │
 │  Equipment wiring:  srdb/wiring/{system}_wiring.yaml            │
 │  Runtime validation: range warnings, TM/TC separation warnings  │
@@ -124,16 +128,13 @@ All outputs — JUnit XML, HTML report, traceability matrix — are consumable b
 │              PUS TM/TC LAYER                                    │
 │                                                                  │
 │  PusTcPacket / PusTcParser / PusTcBuilder  (ECSS-E-ST-70-41C)  │
-│  PusTmPacket / PusTmParser / PusTmBuilder                       │
-│  CRC-16/CCITT                                                   │
+│  PusTmPacket / PusTmParser / PusTmBuilder  CRC-16/CCITT         │
 │                                                                  │
-│  Services implemented:                                           │
-│  S1  Request Verification (TM(1,1) acceptance, TM(1,7) done)   │
-│  S3  Housekeeping (TC(3,1) define, TC(3,5/6) en/disable,        │
-│      TM(3,25) HK report, essential HK at boot)                  │
-│  S5  Event Reporting (TM(5,1-4) by severity)                    │
-│  S17 Test (TC(17,1) are-you-alive → TM(17,2))                  │
-│  S20 Parameter Management (TC(20,1) set, TC(20,3) get)          │
+│  S1  Request Verification (acceptance, completion, failure)     │
+│  S3  Housekeeping (define, enable/disable, TM(3,25), ess. HK)  │
+│  S5  Event Reporting (severity 1-4)                             │
+│  S17 Test (are-you-alive TC(17,1) → TM(17,2))                  │
+│  S20 Parameter Management (set TC(20,1), get TC(20,3))          │
 └──────┬──────────────────────────────────────────────────────────┘
        │
 ┌──────▼──────────────────────────────────────────────────────────┐
@@ -192,22 +193,21 @@ connections:
 ```
 Equipment (ABC)
     └── Bus (ABC)
-            ├── Mil1553Bus      — MIL-STD-1553B with BC/RT model (M6)
-            ├── SpaceWireBus    — SpW router + RMAP (M10)
-            └── CanBus          — ECSS CAN (M10)
+            ├── Mil1553Bus      — MIL-STD-1553B (M6, complete)
+            ├── SpaceWireBus    — SpW + RMAP (M12)
+            └── CanBus          — ECSS CAN (M12)
 ```
 
 ### 5.2 MIL-STD-1553 Topology
 
 ```
-OBC (future BC — M7 complete)
-  └── 1553 bus bc_in (MIL1553_BC)
-          ↓
-  Mil1553Bus
-    ├── rt5_out (MIL1553_RT) → ReactionWheel rw1
-    │     SA1: aocs.rw1.torque_cmd  (BC_to_RT)
-    │     SA2: aocs.rw1.speed       (RT_to_BC)
-    └── rtN_out → future equipment
+OBC (BC)
+  └── 1553 bc_in (MIL1553_BC)
+Mil1553Bus
+  ├── rt5_out (MIL1553_RT) → ReactionWheel rw1
+  │     SA1: aocs.rw1.torque_cmd  (BC_to_RT)
+  │     SA2: aocs.rw1.speed       (RT_to_BC)
+  └── rtN_out → future equipment
 ```
 
 ### 5.3 Fault Injection
@@ -259,21 +259,16 @@ PUS-C TM: [Primary 6B][DFH 10B][App Data][CRC-16 2B]
 Test procedure / Ground
     ↓ PusTcPacket(service=20, subservice=1, app_data=pack(param_id, value))
 TtcEquipment.send_tc()
-    ↓ PusTcBuilder.build() → raw bytes
+    ↓ PusTcBuilder.build() → raw bytes with CRC-16
 ObcEquipment.receive_tc()
-    ↓ PusTcParser.parse() → validates CRC, extracts service/subservice
-    ↓ S20/1: param_id → SRDB canonical name (via ObcConfig.param_id_map)
-    ↓ CommandStore.inject(canonical_name, value, source_id="obc.s20.set")
+    ↓ PusTcParser.parse() → validate CRC, extract service/subservice
+    ↓ S20/1: param_id → SRDB canonical name → CommandStore.inject()
 Mil1553Bus.do_step()
-    ↓ BC_to_RT: ParameterStore.read(canonical) → CommandStore.inject(canonical)
-ReactionWheel.on_tick()
-    ↓ CommandStore.take("aocs.rw1.torque_cmd")
-    ↓ do_step(): integrate torque → speed
-    ↓ ParameterStore.write("aocs.rw1.speed", new_speed)
+    ↓ BC_to_RT subaddress routing → RT port
+Equipment.on_tick()
+    ↓ CommandStore.take() → do_step() → ParameterStore.write()
 ObcEquipment._generate_hk_reports()
-    ↓ ParameterStore.read("aocs.rw1.speed")
-    ↓ PusTmBuilder.build(TM(3,25)) → HK report
-TtcEquipment.get_tm_responses(service=3, subservice=25)
+    ↓ ParameterStore.read() → PusTmBuilder → TM(3,25)
 ```
 
 ---
@@ -285,8 +280,8 @@ TtcEquipment.get_tm_responses(service=3, subservice=25)
 ```
 SimulationMaster tick loop:
   1. Write svf.sim_time to ParameterStore
-  2. For each Equipment (incl. Bus adapters, OBC, TTC):
-       Equipment.on_tick(t, dt):
+  2. For each Equipment (incl. Bus, OBC, TTC):
+       on_tick(t, dt):
          CommandStore.take() → receive() for each IN port
          do_step()
          ParameterStore.write() for each OUT port
@@ -305,9 +300,52 @@ SimulationMaster tick loop:
 
 ---
 
-## 8. pytest Plugin
+## 8. Reference Equipment Library
 
-### 8.1 Marks Reference
+| Equipment | Subsystem | Interface | Key Physics | Status |
+|---|---|---|---|---|
+| `ObcEquipment` | DHS | 1553 BC | Mode FSM, OBT, watchdog, PUS routing | M7/M8 |
+| `TtcEquipment` | TTC | software | TC/TM byte pipe | M7 |
+| `make_reaction_wheel()` | AOCS | 1553 RT | Torque, friction, temperature | M6/M8 |
+| `make_star_tracker()` | AOCS | SpW/1553 | Quaternion, noise, sun blinding | M8 |
+| `make_sbt()` | TTC | UART | Carrier lock, mode FSM, bit rates | M8 |
+| `make_pcdu()` | EPS | 1553/CAN | LCL switching, MPPT, UVLO | M9 |
+| `EpsFmu` | EPS | FMI 3.0 | Solar array, Li-Ion battery, PCDU | M4 |
+
+Full interface contracts: `docs/equipment-library.md`
+
+---
+
+## 9. Validation Hierarchy
+
+Following ECSS-E-TM-10-21A four-level verification:
+
+```
+Level 1 — Model Validation
+  Each equipment verified in isolation
+  Nominal + failure test procedures per model
+  Status: complete (M8/M9)
+
+Level 2 — Interface Validation
+  Bus interfaces verified: 1553 nominal + full fault matrix
+  Status: complete (M6/M9)
+
+Level 3 — Integration Validation
+  Models + interfaces + PUS command/control chain
+  Platform scenarios + FDIR chains
+  Status: skeleton complete (M8/M9), full scenarios M10
+
+Level 4 — System Validation
+  OBC emulator (or stub) running OBSW
+  Real OBSW cycling against all equipment models
+  Status: planned (M10/M11)
+```
+
+---
+
+## 10. pytest Plugin
+
+### Marks Reference
 
 | Mark | Default | Description |
 |---|---|---|
@@ -318,71 +356,46 @@ SimulationMaster tick loop:
 | `svf_command_schedule([(t, name, value)])` | [] | Commands at simulation time t |
 | `requirement(*ids)` | — | Requirement IDs verified |
 
-### 8.2 Observable API
+### Observable API
 
 ```python
 svf_session.observe("eps.battery.soc").exceeds(0.88).within(120.0)
 svf_session.observe("aocs.rw1.speed").reaches(500.0).within(30.0)
-svf_session.observe("bus.platform_1553.active_bus").satisfies(
-    lambda v: v == 2.0  # bus B
-).within(5.0)
+svf_session.observe("aocs.str1.validity").exceeds(0.5).within(15.0)
+svf_session.observe("dhs.obc.watchdog_status").exceeds(0.5).within(25.0)
 ```
 
 ---
 
-## 9. Reference Models
-
-### 9.1 EPS Models
-
-**Integrated EPS FMU** — single FMU:
-
-| Parameter | Direction | Unit |
-|---|---|---|
-| eps.solar_array.illumination | IN (TC) | — |
-| eps.load.power | IN (TC) | W |
-| eps.battery.soc | OUT (TM) | — |
-| eps.battery.voltage | OUT (TM) | V |
-| eps.bus.voltage | OUT (TM) | V |
-| eps.solar_array.generated_power | OUT (TM) | W |
-| eps.battery.charge_current | OUT (TM) | A |
-
-**Decomposed EPS** — SolarArray + Battery + PCDU via `srdb/wiring/eps_wiring.yaml`.
-
-### 9.2 AOCS Reaction Wheel
-
-| Parameter | Direction | Unit | Bus |
-|---|---|---|---|
-| aocs.rw1.torque_cmd | IN (TC) | Nm | 1553 RT5 SA1 |
-| aocs.rw1.speed | OUT (TM) | rpm | 1553 RT5 SA2 |
-| aocs.rw1.status | OUT (TM) | — | — |
-
-### 9.3 OBC / TTC
-
-| Component | Purpose |
-|---|---|
-| ObcEquipment | PUS TC router — S1/3/5/17/20, essential HK at boot |
-| TtcEquipment | Ground interface — send_tc(), get_tm_responses() |
-
----
-
-## 10. Test Structure
+## 11. Test Structure
 
 ```
 tests/
 ├── unit/
 │   ├── pus/        PUS TC/TM tests (PUS-xxx)
-│   └── campaign/   Campaign loader/executor/reporter tests
+│   └── campaign/   Campaign manager tests
 │   test_*.py       SVF platform tests (SVF-DEV-xxx)
-├── equipment/      Equipment contract + bus tests (EQP-xxx, 1553-xxx)
+├── equipment/      Equipment contract and bus tests (EQP-xxx, 1553-xxx)
 ├── integration/    SVF infrastructure mechanics
-└── spacecraft/     Model behaviour (EPS-xxx, TC-1553-xxx, TC-PUS-xxx)
+└── spacecraft/     Model behaviour and end-to-end tests
+    ├── test_eps.py               EPS nominal procedures
+    ├── test_eps_failures.py      EPS failure procedures
+    ├── test_eps_subsystems.py    Decomposed EPS tests
+    ├── test_mil1553_procedures.py 1553 nominal procedures
+    ├── test_1553_failures.py     1553 failure procedures
+    ├── test_pus_procedures.py    PUS end-to-end procedures
+    ├── test_obc_failures.py      OBC failure procedures
+    ├── test_rw_failures.py       RW failure procedures
+    ├── test_st_failures.py       ST failure procedures
+    ├── test_sbt_failures.py      SBT failure procedures
+    └── test_platform_validation.py Platform integration + FDIR
 ```
 
 Rule: every test has `@pytest.mark.requirement()`. No exceptions.
 
 ---
 
-## 11. Technology Stack
+## 12. Technology Stack
 
 | Concern | Choice |
 |---|---|
@@ -402,39 +415,41 @@ Rule: every test has `@pytest.mark.requirement()`. No exceptions.
 
 ---
 
-## 12. Development Milestones
+## 13. Development Milestones
 
 | Milestone | Objective | Status |
 |---|---|---|
-| M1 - Simulation Master | fmpy, CSV, CI | ✅ DONE |
-| M2 - Simulation Bus | TickSource, SyncProtocol, DDS | ✅ DONE |
-| M3 - pytest Plugin | svf_session, observables, verdicts | ✅ DONE |
-| M3.5 - SRDB | Parameter definitions, PUS mappings | ✅ DONE |
-| M3.6 - Requirements Engineering | Traceability, EQP/EPS requirements | ✅ DONE |
-| M4 - First Real Model | Integrated EPS FMU | ✅ DONE |
-| M4.5 - Model Wiring | Equipment ABC, WiringMap, decomposed EPS | ✅ DONE |
-| M5 - Campaign & Reporting | YAML campaigns, HTML report, JUnit XML | ✅ DONE |
-| M6 - Bus Protocols | InterfaceType, Bus ABC, 1553, fault injection | ✅ DONE |
-| M7 - PUS TM/TC | TC/TM packets, S1/3/5/17/20, OBC, TTC | ✅ DONE |
-| M8 - ICD Integration | ICD parser, wiring YAML generator | PENDING |
-| M9 - Real-Time & HIL | RT_PREEMPT, HIL adapter | PENDING |
-| M10 - Ground Segment | YAMCS, XTCE, MIB, SpW, CAN | PENDING |
+| M1 - Simulation Master | fmpy, CSV, CI | ✅ Done |
+| M2 - Simulation Bus | TickSource, SyncProtocol, DDS | ✅ Done |
+| M3 - pytest Plugin | svf_session, observables, verdicts | ✅ Done |
+| M3.5 - SRDB | Parameter definitions, PUS mappings | ✅ Done |
+| M3.6 - Requirements Engineering | Traceability, EQP/EPS requirements | ✅ Done |
+| M4 - First Real Model | Integrated EPS FMU | ✅ Done |
+| M4.5 - Model Wiring | Equipment ABC, WiringMap, decomposed EPS | ✅ Done |
+| M5 - Campaign & Reporting | YAML campaigns, HTML report, JUnit XML | ✅ Done |
+| M6 - Bus Protocols | InterfaceType, Bus ABC, 1553, fault injection | ✅ Done |
+| M7 - PUS TM/TC | TC/TM packets, S1/3/5/17/20, OBC, TTC | ✅ Done |
+| M8 - Equipment Interface Library | OBC/RW/ST/SBT/PCDU models | ✅ Done |
+| M9 - Model & Interface Validation | Failure coverage, full fault matrix | ✅ Done |
+| M10 - Integration & System Validation | Full scenarios, FDIR chains, OBC stub | Next |
+| M11 - Real-Time & HIL | RT_PREEMPT, HIL adapter | Planned |
+| M12 - Ground Segment | YAMCS, XTCE, MIB, SpW, CAN | Planned |
 
 ---
 
-## 13. Out of Scope (current)
+## 14. Out of Scope (current)
 
-- Real-time / HIL (M9)
-- ICD parser (M8)
-- SMP2 model import (M8)
-- SpaceWire and CAN bus adapters (M10)
-- CCSDS packet stream adapter (M10)
-- DOORS NG / Jama Connect (M10)
+- Real-time / HIL (M11)
+- OBC emulator integration (M11)
+- ICD parser
+- SMP2 model import
+- SpaceWire and CAN bus adapters (M12)
+- CCSDS packet stream adapter (M12)
+- DOORS NG / Jama Connect
 - Tool qualification (DO-178C, ECSS-E-ST-40C)
 - Multi-node distributed simulation
-- SharedMemorySyncProtocol (M9)
-- RealtimeTickSource (M9)
-- ParameterStoreDdsBridge (M10)
+- SharedMemorySyncProtocol (M11)
+- RealtimeTickSource (M11)
+- ParameterStoreDdsBridge (M12)
 - SRDB calibration curves
-- XTCE export / MIB import (M10)
-- SSP file support (M8)
+- XTCE export / MIB import (M12)

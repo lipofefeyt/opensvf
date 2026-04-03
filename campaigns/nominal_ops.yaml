@@ -1,0 +1,25 @@
+campaign_id: NOM-VAL-001
+description: Nominal operations closed-loop scenario
+svf_version: "0.1"
+model_baseline: platform_stub_v1
+
+requirements:
+  - SVF-DEV-050
+  - SVF-DEV-051
+  - PUS-007
+  - PUS-008
+  - PUS-010
+
+test_cases:
+  - id: TC-NOM-001
+    test: tests/spacecraft/test_nominal_ops.py::test_nominal_ops_are_you_alive_roundtrip
+    timeout: 30
+  - id: TC-NOM-002
+    test: tests/spacecraft/test_nominal_ops.py::test_nominal_ops_s20_adjusts_rw_torque
+    timeout: 60
+  - id: TC-NOM-003
+    test: tests/spacecraft/test_nominal_ops.py::test_nominal_ops_hk_generated_periodically
+    timeout: 30
+  - id: TC-NOM-004
+    test: tests/spacecraft/test_nominal_ops.py::test_nominal_ops_stub_maintains_rw_when_st_valid
+    timeout: 60
