@@ -8,17 +8,27 @@ Implements: PUS-011
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Optional, Protocol, runtime_checkable
 
 from svf.abstractions import SyncProtocol
 from svf.equipment import Equipment, PortDefinition, PortDirection
-from svf.models.obc import ObcEquipment
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
 from svf.pus.tc import PusTcBuilder, PusTcPacket
 from svf.pus.tm import PusTmPacket
 
 logger = logging.getLogger(__name__)
+
+
+@runtime_checkable
+class ObcInterface(Protocol):
+    """
+    Protocol satisfied by ObcEquipment, ObcStub, and OBCEmulatorAdapter.
+    Allows TtcEquipment to work with any OBC implementation.
+    """
+    def receive_tc(self, raw_tc: bytes, t: float = 0.0) -> list[PusTmPacket]: ...
+    def get_tm_queue(self) -> list[PusTmPacket]: ...
+    def get_tm_by_service(self, service: int, subservice: int) -> list[PusTmPacket]: ...
 
 
 class TtcEquipment(Equipment):
@@ -28,9 +38,10 @@ class TtcEquipment(Equipment):
     Forwards raw PUS TC bytes to the OBC.
     Exposes received TM for observable assertions.
 
-    In a real spacecraft, TTC handles RF uplink/downlink,
-    frequency conversion, modulation, and frame sync.
-    This model abstracts all of that to a simple byte pipe.
+    Accepts any ObcInterface implementation:
+      - ObcEquipment (simulated OBC)
+      - ObcStub (configurable OBSW behaviour simulator)
+      - OBCEmulatorAdapter (real OBSW binary under test)
 
     Usage in test procedures:
         ttc.send_tc(PusTcPacket(service=17, subservice=1, ...))
@@ -39,7 +50,7 @@ class TtcEquipment(Equipment):
 
     def __init__(
         self,
-        obc: ObcEquipment,
+        obc: ObcInterface,
         sync_protocol: SyncProtocol,
         store: ParameterStore,
         command_store: Optional[CommandStore] = None,
@@ -95,10 +106,7 @@ class TtcEquipment(Equipment):
         )
 
     def send_tc(self, tc: PusTcPacket) -> None:
-        """
-        Queue a TC for forwarding to OBC on the next tick.
-        Called by test procedures to inject commands.
-        """
+        """Queue a TC for forwarding to OBC on the next tick."""
         self._pending_tcs.append(tc)
         logger.info(
             f"[ttc] TC queued: S{tc.service}/{tc.subservice} "
@@ -110,10 +118,7 @@ class TtcEquipment(Equipment):
         service: Optional[int] = None,
         subservice: Optional[int] = None,
     ) -> list[PusTmPacket]:
-        """
-        Get TM responses from OBC queue.
-        Optionally filter by service/subservice.
-        """
+        """Get TM responses from OBC queue, optionally filtered."""
         all_tm = self._obc.get_tm_queue()
         if service is None:
             return all_tm

@@ -45,6 +45,7 @@ from svf.command_store import CommandStore
 from svf.equipment import Equipment, PortDefinition, PortDirection
 from svf.models.obc import MODE_NOMINAL, MODE_SAFE
 from svf.parameter_store import ParameterStore
+from svf.pus.tm import PusTmPacket
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ class OBCEmulatorAdapter(Equipment):
         self._tm_seq:       int   = 0
 
         # Subprocess + reader thread
-        self._proc:   Optional[subprocess.Popen] = None
+        self._proc:   Optional[subprocess.Popen[bytes]] = None
         self._reader: Optional[threading.Thread] = None
         self._rx_q:   queue.Queue[Optional[bytes]] = queue.Queue()
         self._alive   = False
@@ -161,7 +162,8 @@ class OBCEmulatorAdapter(Equipment):
         self._alive = False
         if self._proc is not None:
             try:
-                self._proc.stdin.close()
+                if self._proc.stdin is not None:
+                    self._proc.stdin.close()
             except Exception:
                 pass
             try:
@@ -385,3 +387,19 @@ class OBCEmulatorAdapter(Equipment):
             self._mode = MODE_SAFE
         elif event_id == 0x0003:
             self._mode = MODE_NOMINAL
+    # ------------------------------------------------------------------ #
+    # ObcInterface compatibility                                           #
+    # ------------------------------------------------------------------ #
+
+    def receive_tc(self, raw_tc: bytes, t: float = 0.0) -> list[PusTmPacket]:
+        """ObcInterface compatibility — send raw TC bytes to obsw_sim."""
+        self._write_frame(raw_tc)
+        return []
+
+    def get_tm_queue(self) -> list[PusTmPacket]:
+        """ObcInterface compatibility — TM handled internally via _parse_tm."""
+        return []
+
+    def get_tm_by_service(self, service: int, subservice: int) -> list[PusTmPacket]:
+        """ObcInterface compatibility."""
+        return []

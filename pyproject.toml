@@ -45,3 +45,5 @@ svf = "svf.plugin"
 
 [tool.pytest.ini_options]
 python_classes = ["*Suite", "*Tests"]
+testpaths = ["tests"]
+norecursedirs = ["tests/hardware"]
