@@ -43,7 +43,7 @@ RW_PARAM_MAP = {
 def make_platform(
     stop_time: float = 30.0,
     dt: float = 0.1,
-) -> tuple:
+) -> tuple:  # type: ignore[type-arg]
     """Build full platform: OBC + TTC + 1553 + RW + ST + SBT."""
     participant = DomainParticipant()
     store = ParameterStore()
