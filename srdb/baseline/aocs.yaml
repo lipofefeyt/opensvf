@@ -378,3 +378,307 @@ parameters:
       service: 20
       subservice: 1
       parameter_id: 0x2051
+
+  # ── Magnetometer ──────────────────────────────────────────────────────────
+
+  aocs.mag.field_x:
+    description: Measured magnetic field X component
+    unit: T
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: mag
+    valid_range: [-0.0001, 0.0001]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2060
+
+  aocs.mag.field_y:
+    description: Measured magnetic field Y component
+    unit: T
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: mag
+    valid_range: [-0.0001, 0.0001]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2061
+
+  aocs.mag.field_z:
+    description: Measured magnetic field Z component
+    unit: T
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: mag
+    valid_range: [-0.0001, 0.0001]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2062
+
+  aocs.mag.status:
+    description: Magnetometer status (0=off, 1=nominal, 2=fault)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: AOCS
+    model_id: mag
+    valid_range: [0.0, 2.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2063
+
+  aocs.mag.power_enable:
+    description: Magnetometer power enable (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: AOCS
+    model_id: mag
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2064
+
+  # ── Magnetorquer status ───────────────────────────────────────────────────
+
+  aocs.mtq.status:
+    description: Magnetorquer status (0=off, 1=nominal)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: AOCS
+    model_id: mtq
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2065
+
+  aocs.mtq.power_enable:
+    description: Magnetorquer power enable (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: AOCS
+    model_id: mtq
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2066
+
+  # ── Coarse Sun Sensor ─────────────────────────────────────────────────────
+
+  aocs.css.sun_x:
+    description: Sun vector X component (body frame, normalised)
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: css
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2070
+
+  aocs.css.sun_y:
+    description: Sun vector Y component (body frame, normalised)
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: css
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2071
+
+  aocs.css.sun_z:
+    description: Sun vector Z component (body frame, normalised)
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: css
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2072
+
+  aocs.css.validity:
+    description: CSS validity (0=invalid/eclipse, 1=valid)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: AOCS
+    model_id: css
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2073
+
+  aocs.css.illumination:
+    description: CSS illumination fraction input (0=eclipse, 1=full sun)
+    unit: ""
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: css
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2074
+
+  # ── Gyroscope ─────────────────────────────────────────────────────────────
+
+  aocs.gyro.rate_x:
+    description: Measured angular rate X axis
+    unit: rad/s
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: gyro
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2080
+
+  aocs.gyro.rate_y:
+    description: Measured angular rate Y axis
+    unit: rad/s
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: gyro
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2081
+
+  aocs.gyro.rate_z:
+    description: Measured angular rate Z axis
+    unit: rad/s
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: gyro
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2082
+
+  aocs.gyro.temperature:
+    description: Gyroscope temperature
+    unit: degC
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: gyro
+    valid_range: [-40.0, 85.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2083
+
+  aocs.gyro.status:
+    description: Gyroscope status (0=off, 1=nominal, 2=fault)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: AOCS
+    model_id: gyro
+    valid_range: [0.0, 2.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x2084
+
+  aocs.gyro.power_enable:
+    description: Gyroscope power enable (0=off, 1=on)
+    unit: ""
+    dtype: int
+    classification: TC
+    domain: AOCS
+    model_id: gyro
+    valid_range: [0.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2085
+
+  # ── True rates (truth model input) ────────────────────────────────────────
+
+  aocs.truth.rate_x:
+    description: True angular rate X (input to sensor models)
+    unit: rad/s
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: truth
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2090
+
+  aocs.truth.rate_y:
+    description: True angular rate Y (input to sensor models)
+    unit: rad/s
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: truth
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2091
+
+  aocs.truth.rate_z:
+    description: True angular rate Z (input to sensor models)
+    unit: rad/s
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: truth
+    valid_range: [-1.0, 1.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x2092
