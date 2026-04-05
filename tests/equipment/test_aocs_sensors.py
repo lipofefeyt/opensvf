@@ -91,9 +91,9 @@ def test_mtq_torque_is_cross_product(sync: _NoSync, store: ParameterStore, cmd: 
     mtq.receive("aocs.mtq.dipole_x", 1.0)
     mtq.receive("aocs.mtq.dipole_y", 0.0)
     mtq.receive("aocs.mtq.dipole_z", 0.0)
-    mtq.receive("aocs.mag.field_x", 0.0)
-    mtq.receive("aocs.mag.field_y", 0.0)
-    mtq.receive("aocs.mag.field_z", 1e-4)
+    mtq.receive("aocs.mtq.b_field_x", 0.0)
+    mtq.receive("aocs.mtq.b_field_y", 0.0)
+    mtq.receive("aocs.mtq.b_field_z", 1e-4)
     mtq.do_step(t=0.0, dt=1.0)
     assert mtq.read_port("aocs.mtq.torque_x") == pytest.approx(0.0, abs=1e-10)
     assert mtq.read_port("aocs.mtq.torque_y") == pytest.approx(-1e-4, abs=1e-10)
@@ -107,7 +107,7 @@ def test_mtq_dipole_saturated(sync: _NoSync, store: ParameterStore, cmd: Command
     mtq.initialise()
     mtq.receive("aocs.mtq.power_enable", 1.0)
     mtq.receive("aocs.mtq.dipole_x", 999.0)
-    mtq.receive("aocs.mag.field_z", 1e-4)
+    mtq.receive("aocs.mtq.b_field_z", 1e-4)
     mtq.do_step(t=0.0, dt=1.0)
     assert abs(mtq.read_port("aocs.mtq.torque_y")) == pytest.approx(
         MAX_DIPOLE_AM2 * 1e-4, abs=1e-10

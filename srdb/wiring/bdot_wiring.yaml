@@ -1,0 +1,40 @@
+# B-dot detumbling wiring
+# MAG OUT → B-dot controller IN
+# B-dot controller OUT → MTQ IN
+
+connections:
+  - from: mag.aocs.mag.field_x
+    to:   bdot.aocs.mag.field_x
+    description: MAG field X to b-dot controller
+
+  - from: mag.aocs.mag.field_y
+    to:   bdot.aocs.mag.field_y
+    description: MAG field Y to b-dot controller
+
+  - from: mag.aocs.mag.field_z
+    to:   bdot.aocs.mag.field_z
+    description: MAG field Z to b-dot controller
+
+  - from: bdot.aocs.mtq.dipole_x
+    to:   mtq.aocs.mtq.dipole_x
+    description: B-dot dipole X to MTQ
+
+  - from: bdot.aocs.mtq.dipole_y
+    to:   mtq.aocs.mtq.dipole_y
+    description: B-dot dipole Y to MTQ
+
+  - from: bdot.aocs.mtq.dipole_z
+    to:   mtq.aocs.mtq.dipole_z
+    description: B-dot dipole Z to MTQ
+
+  - from: mag.aocs.mag.field_x
+    to:   mtq.aocs.mtq.b_field_x
+    description: MAG field X to MTQ (for torque calculation)
+
+  - from: mag.aocs.mag.field_y
+    to:   mtq.aocs.mtq.b_field_y
+    description: MAG field Y to MTQ
+
+  - from: mag.aocs.mag.field_z
+    to:   mtq.aocs.mtq.b_field_z
+    description: MAG field Z to MTQ

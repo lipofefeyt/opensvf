@@ -74,9 +74,9 @@ def make_magnetorquer(
              eq.read_port("aocs.mtq.dipole_z")))
 
         # Read B field
-        bx = eq.read_port("aocs.mag.field_x")
-        by = eq.read_port("aocs.mag.field_y")
-        bz = eq.read_port("aocs.mag.field_z")
+        bx = eq.read_port("aocs.mtq.b_field_x")
+        by = eq.read_port("aocs.mtq.b_field_y")
+        bz = eq.read_port("aocs.mtq.b_field_z")
 
         # Torque = m × B (cross product)
         tx = my * bz - mz * by
@@ -106,11 +106,11 @@ def make_magnetorquer(
                            unit="Am2", description="Dipole Y command"),
             PortDefinition("aocs.mtq.dipole_z", PortDirection.IN,
                            unit="Am2", description="Dipole Z command"),
-            PortDefinition("aocs.mag.field_x", PortDirection.IN,
+            PortDefinition("aocs.mtq.b_field_x", PortDirection.IN,
                            unit="T", description="B field X from MAG"),
-            PortDefinition("aocs.mag.field_y", PortDirection.IN,
+            PortDefinition("aocs.mtq.b_field_y", PortDirection.IN,
                            unit="T", description="B field Y from MAG"),
-            PortDefinition("aocs.mag.field_z", PortDirection.IN,
+            PortDefinition("aocs.mtq.b_field_z", PortDirection.IN,
                            unit="T", description="B field Z from MAG"),
             PortDefinition("aocs.mtq.torque_x", PortDirection.OUT,
                            unit="Nm", description="Generated torque X"),
