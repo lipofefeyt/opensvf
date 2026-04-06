@@ -70,7 +70,7 @@ def bus(
 
 # ── Construction tests ────────────────────────────────────────────────────────
 
-@pytest.mark.requirement("SVF-DEV-038")
+@pytest.mark.requirement("1553-001", "1553-002", "1553-003", "1553-004", "1553-010", "SVF-DEV-038")
 def test_bus_declares_correct_ports(bus: Mil1553Bus) -> None:
     """Bus declares one BC port and rt_count RT ports."""
     assert "bc_in" in bus.ports

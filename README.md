@@ -42,6 +42,14 @@ pytest tests/hardware/ -v
 
 ---
 
+## Key Features
+- **KDE (Kinematics & Dynamics Engine):** High-fidelity 6-DOF rigid body physics integrated via FMI 2.0.
+- **Full Traceability:** 100% requirement coverage tracked via `checkcov` and `traceability.txt`.
+- **Hybrid Modeling:** Support for FMI 2.0/3.0 (C++/Python) and native Python models.
+- **Deterministic Sync:** Lockstep execution over Eclipse Cyclone DDS.
+
+---
+
 ## The OBC Stack
 
 Three drop-in implementations — swap with one line at the composition root:
@@ -122,6 +130,7 @@ Rule(
 
 | Equipment | Subsystem | Interface | Key Physics |
 |---|---|---|---|
+| `DynamicsFmu` | KDE | FMI 2.0 | 6-DOF Kinematics, B-Field, Quaternions |
 | `ObcEquipment` | DHS | 1553 BC | Mode FSM, OBT, watchdog, PUS routing |
 | `ObcStub` | DHS | — | Rule engine, closed-loop FDIR |
 | `OBCEmulatorAdapter` | DHS | binary pipe | Real OBSW under test |

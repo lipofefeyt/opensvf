@@ -35,7 +35,7 @@ from svf.mil1553 import Mil1553Bus, SubaddressMapping
 from svf.pus.services import HkReportDefinition
 from svf.fmu_equipment import FmuEquipment
 
-EPS_FMU = "models/EpsFmu.fmu"
+EPS_FMU = "models/fmu/EpsFmu.fmu"
 EPS_MAP = {
     "battery_soc":        "eps.battery.soc",
     "battery_voltage":    "eps.battery.voltage",

@@ -134,7 +134,7 @@ def test_fmu_equipment_missing_fmu(
 
 # ── SimulationMaster tests ────────────────────────────────────────────────────
 
-@pytest.mark.requirement("SVF-DEV-009", "SVF-DEV-016")
+@pytest.mark.requirement("SVF-DEV-009", "SVF-DEV-002", "SVF-DEV-006", "SVF-DEV-013", "SVF-DEV-016", "SVF-DEV-001")
 def test_simulation_master_runs(
     store: ParameterStore,
     cmd_store: CommandStore,

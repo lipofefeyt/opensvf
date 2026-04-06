@@ -15,7 +15,7 @@ from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
 from svf.dds_sync import DdsSyncProtocol
 
-EPS_FMU = Path(__file__).parent.parent.parent / "models" / "EpsFmu.fmu"
+EPS_FMU = Path(__file__).parent.parent.parent / "models" / "fmu" / "EpsFmu.fmu"
 COUNTER_FMU = Path(__file__).parent.parent.parent / "examples" / "SimpleCounter.fmu"
 
 EPS_MAP = {

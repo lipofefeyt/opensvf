@@ -16,7 +16,7 @@ import pytest
 from pathlib import Path
 from svf.plugin.fixtures import FmuConfig
 
-EPS_FMU = Path(__file__).parent.parent.parent / "models" / "EpsFmu.fmu"
+EPS_FMU = Path(__file__).parent.parent.parent / "models" / "fmu" / "EpsFmu.fmu"
 
 # Maps FMU variable names to SRDB canonical parameter names
 EPS_PARAMETER_MAP = {
@@ -104,7 +104,7 @@ def test_tc_pwr_002_battery_discharges_in_eclipse(svf_session) -> None:  # type:
     ("eps.solar_array.illumination", 1.0),
     ("eps.load.power", 30.0),
 ])
-@pytest.mark.requirement("EPS-001", "EPS-003", "EPS-011", "SVF-DEV-063", "SVF-DEV-065")
+@pytest.mark.requirement("EPS-001", "EPS-003", "EPS-011", "SVF-DEV-063", "SVF-DEV-065", "SVF-DEV-048")
 def test_tc_pwr_003_charging_in_sunlight(svf_session) -> None:  # type: ignore[no-untyped-def]
     """
     TC-PWR-003: Charging behaviour in full sunlight.

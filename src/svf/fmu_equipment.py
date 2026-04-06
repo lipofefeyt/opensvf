@@ -38,7 +38,7 @@ class FmuEquipment(Equipment):
 
     Usage:
         eq = FmuEquipment(
-            fmu_path="models/EpsFmu.fmu",
+            fmu_path="models/fmu/EpsFmu.fmu",
             equipment_id="eps",
             sync_protocol=sync,
             store=store,

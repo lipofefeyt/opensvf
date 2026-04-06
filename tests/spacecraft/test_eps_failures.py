@@ -22,7 +22,7 @@ from svf.command_store import CommandStore
 from svf.fmu_equipment import FmuEquipment
 from pathlib import Path
 
-EPS_FMU = "models/EpsFmu.fmu"
+EPS_FMU = "models/fmu/EpsFmu.fmu"
 EPS_MAP = {
     "battery_soc":        "eps.battery.soc",
     "battery_voltage":    "eps.battery.voltage",

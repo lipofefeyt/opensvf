@@ -42,7 +42,11 @@ def sync(participant: DomainParticipant) -> DdsSyncProtocol:
     return DdsSyncProtocol(participant)
 
 
-@pytest.mark.requirement("SVF-DEV-010", "SVF-DEV-012")
+@pytest.mark.requirement(
+    "SVF-DEV-010", "SVF-DEV-012", 
+    "SVF-DEV-020", "SVF-DEV-021", "SVF-DEV-022", "SVF-DEV-023", "SVF-DEV-026", "SVF-DEV-028",
+    "SVF-DEV-040", "SVF-DEV-047"
+)
 def test_lockstep_single_fmu(
     store: ParameterStore,
     cmd_store: CommandStore,

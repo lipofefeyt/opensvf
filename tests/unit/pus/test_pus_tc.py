@@ -34,7 +34,7 @@ def packet() -> PusTcPacket:
     )
 
 
-@pytest.mark.requirement("SVF-DEV-037")
+@pytest.mark.requirement("PUS-001", "PUS-002", "PUS-003", "PUS-004")
 def test_build_and_parse_roundtrip(
     builder: PusTcBuilder,
     parser: PusTcParser,

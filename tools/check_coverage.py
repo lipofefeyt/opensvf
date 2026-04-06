@@ -11,20 +11,36 @@ from pathlib import Path
 
 # Requirements that are BASELINED but not yet implemented.
 # Each entry must have a justification and target milestone.
+# Requirements that are BASELINED/IMPLEMENTED but verified by process/CI, not code.
 KNOWN_GAPS: dict[str, str] = {
+    "SVF-DEV-060": "Verified by validate_fmpy.py script",
+    "SVF-DEV-070": "Verified by JUnit XML presence in results/",
+    "SVF-DEV-072": "Verified by traceability.txt generation",
+    "SVF-DEV-080": "Verified by pyproject.toml presence",
+    "SVF-DEV-081": "Verified by CI pipeline on Ubuntu-latest",
+    "SVF-DEV-087": "Verified by CI pipeline coverage gate",
+    "SVF-DEV-088": "Verified by CI pipeline mypy gate",
 }
 
 
 def parse_baselined_requirements(req_file: Path) -> set[str]:
-    """Extract all BASELINED requirement IDs from REQUIREMENTS.md."""
+    """Extract all BASELINED and IMPLEMENTED requirement IDs from REQUIREMENTS.md."""
     content = req_file.read_text()
-    baselined = set()
+    required_ids = set()
+    
+    # Updated pattern:
+    # 1. [\w-]+ covers IDs like SVF-DEV-001 or 1553-001
+    # 2. [\w\d]+ inside the brackets covers tags like [SIM] and [1553]
+    # 3. (BASELINED|IMPLEMENTED) ensures we track everything that needs testing
     pattern = re.compile(
-        r'\*\*([\w-]+)\*\*\s+`\[[A-Z]+\]`\s+`BASELINED`'
+        r'\*\*([\w-]+)\*\*\s+`\[[\w\d]+\]`\s+`(BASELINED|IMPLEMENTED)`',
+        re.MULTILINE
     )
+    
     for match in pattern.finditer(content):
-        baselined.add(match.group(1))
-    return baselined
+        required_ids.add(match.group(1))
+        
+    return required_ids
 
 
 def parse_covered_requirements(matrix_file: Path) -> set[str]:

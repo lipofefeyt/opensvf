@@ -17,6 +17,7 @@ Requirements are identified by a prefix followed by a zero-padded sequence numbe
 | Tag | Area |
 |---|---|
 | [SIM] | Simulation Core |
+| [KDE] | Dynamics and Kinematics Environment |
 | [ABS] | Abstraction Layer |
 | [BUS] | Communication Bus, Parameter Store & Command Store |
 | [SDB] | Spacecraft Reference Database (SRDB) |
@@ -75,6 +76,22 @@ The simulation master shall handle FMU initialisation errors gracefully and repo
 
 **SVF-DEV-008** `[SIM]` `DEFERRED`
 The simulation master shall support FMI 3.0 Scheduled Execution mode for deterministic clock-driven stepping.
+
+---
+
+## Kinematics & Dynamics Environment Requirements [KDE]
+
+**KDE-001** `[KDE]` `IMPLEMENTED`
+The platform shall provide a 6-DOF rigid body kinematics and dynamics engine wrapped as an FMI Co-Simulation FMU.
+
+**KDE-002** `[KDE]` `IMPLEMENTED`
+The KDE FMU shall accept a 3-axis mechanical torque input vector (Nm) to drive rotational integration.
+
+**KDE-003** `[KDE]` `IMPLEMENTED`
+The KDE FMU shall numerically integrate and output the spacecraft attitude (quaternion) and angular velocity (rad/s) over time.
+
+**KDE-004** `[KDE]` `IMPLEMENTED`
+The KDE FMU shall compute and output the localized environmental magnetic field vector (Tesla) in the spacecraft body frame.
 
 ---
 
@@ -615,7 +632,7 @@ The platform shall support soft real-time execution on RT_PREEMPT patched Linux.
 | SVF-DEV-045 | ORC | DEFERRED | — | — |
 | SVF-DEV-046 | ORC | DRAFT | — | — |
 | SVF-DEV-047 | ORC | IMPLEMENTED | M3 | test_fixture_default_fmu |
-| SVF-DEV-048 | ORC | IMPLEMENTED | M4.5 | test_tc_pwr_003_sunlight_to_eclipse_transition |
+| SVF-DEV-048 | ORC | IMPLEMENTED | M4.5 | test_tc_pwr_003_charging_in_sunlight |
 | SVF-DEV-050 | CAM | IMPLEMENTED | M5 | test_load_valid_campaign |
 | SVF-DEV-051 | CAM | IMPLEMENTED | M5 | test_test_cases_ordered |
 | SVF-DEV-052 | CAM | IMPLEMENTED | M5 | test_missing_required_field_raises |
@@ -628,7 +645,7 @@ The platform shall support soft real-time execution on RT_PREEMPT patched Linux.
 | SVF-DEV-063 | MOD | IMPLEMENTED | M4 | test_tc_pwr_001 |
 | SVF-DEV-064 | MOD | DEFERRED | M8 | — |
 | SVF-DEV-065 | MOD | IMPLEMENTED | M4 | test_tc_pwr_001 |
-| SVF-DEV-066 | MOD | IMPLEMENTED | M4.5 | test_decomposed_eps_sunlight |
+| SVF-DEV-066 | MOD | IMPLEMENTED | M4.5 | test_decomposed_eps_charges_in_sunlight |
 | SVF-DEV-070 | REP | IMPLEMENTED | M5 | results/test_results.xml |
 | SVF-DEV-071 | REP | IMPLEMENTED | M5 | test_report_contains_verdicts |
 | SVF-DEV-072 | REP | IMPLEMENTED | M3.6 | traceability.txt |

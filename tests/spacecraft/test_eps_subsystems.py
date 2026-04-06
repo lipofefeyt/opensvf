@@ -12,7 +12,7 @@ from svf.command_store import CommandStore
 from svf.fmu_equipment import FmuEquipment
 from svf.simulation import SimulationMaster
 
-MODELS = Path(__file__).parent.parent.parent / "models"
+MODELS = Path(__file__).parent.parent.parent / "models" / "fmu"
 
 SOLAR_MAP = {
     "solar_illumination": "eps.solar_array.illumination",
@@ -278,8 +278,7 @@ def eps_wired(sync: _NoSync, store: ParameterStore,
     )
     return master, wired_store, wired_cmd
 
-
-@pytest.mark.requirement("EPS-014", "EPS-016")
+@pytest.mark.requirement("EPS-014", "EPS-015", "EPS-016", "SVF-DEV-066")
 def test_decomposed_eps_charges_in_sunlight(
     eps_wired: tuple[SimulationMaster, ParameterStore, CommandStore]
 ) -> None:
