@@ -8,7 +8,7 @@ import pytest
 from svf.models.fmu.DynamicsFmu import DynamicsFmu
 
 @pytest.mark.requirement("KDE-001", "KDE-002", "KDE-003", "KDE-004", "SVF-DEV-061")
-def test_physics_bridge():
+def test_physics_bridge() -> None:
     """
     Verifies that the Python ctypes bridge successfully passes float arrays to the 
     C++ FMI interface and retrieves the numerically integrated results.

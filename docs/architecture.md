@@ -1,172 +1,171 @@
 # SVF Architecture
 
-> **Status:** v1.1
-> **Last updated:** 2026-03
+> **Status:** v1.2
+> **Last updated:** 2026-04
 > **Author:** lipofefeyt
 
 ---
 
 ## 1. Overview
 
-The Software Validation Facility (SVF) is an open-core platform for the validation of spacecraft software and systems. It provides a simulation infrastructure, a communication bus, a spacecraft reference database, a component modelling framework, bus protocol adapters, PUS TM/TC support, and a test orchestration layer — designed to be standards-based, modular, and incrementally scalable.
+The Software Validation Facility (SVF) is an open-core platform for the validation of spacecraft software and systems. It connects three independent projects into a single closed-loop simulation:
+
+- **opensvf** — Python orchestration layer (this repo)
+- **opensvf-kde** — C++ 6-DOF physics engine, compiled to FMI 2.0 FMU
+- **openobsw** — C11 OBSW: PUS services, b-dot, FDIR, validated on MSP430
 
 From ECSS-E-TM-10-21A:
 
-> *System modelling and simulation is a support activity to OBSW validation. The ability to inject failures in the models enables the user to trigger the OBSW monitoring processes as well as to exercise the FDIR mechanisms. Sometimes simpler so-called "model responders" may be sufficient to test the open-loop behaviour of the OBSW. The SVF is used repeatedly during the programme for each version of the onboard software and each version of the spacecraft database associated with it.*
+> *System modelling and simulation is a support activity to OBSW validation. The ability to inject failures in the models enables the user to trigger the OBSW monitoring processes as well as to exercise the FDIR mechanisms.*
 
-OpenSVF implements this definition across four validation levels:
+---
+
+## 2. The Three-Project Architecture
 
 ```
-Level 1 — Model validation (M8/M9):     each subsystem verified in isolation
-Level 2 — Interface validation (M6/M9): bus interfaces + full fault matrix
-Level 3 — Integration validation (M10): models + interfaces + PUS chain
-Level 4 — System validation (M11):      real OBSW binary under test via HIL
+┌─────────────────────────────────────────────────────────────────────┐
+│  opensvf-kde (C++ / Eigen3)         openobsw (C11 / bare metal)     │
+│  6-DOF physics engine               Real OBSW binary                │
+│  Euler's equations                  b-dot algorithm                 │
+│  Quaternion kinematics              PUS S1/3/5/8/17/20              │
+│  Earth B-field model                FDIR state machine              │
+│         │                                    │                      │
+│         │  true ω, B  (FMI 2.0)             │  TC/TM (pipe proto)  │
+│         ▼                                    ▼                      │
+│              opensvf (Python / pytest)                              │
+│              SVF tick loop (DDS lockstep)                           │
+│              Sensor models: MAG, GYRO, ST, CSS                      │
+│              Actuator models: MTQ, RW, PCDU                         │
+│              OBC: stub | emulator                                   │
+│              PUS commanding chain (ECSS-E-ST-70-41C)                │
+│              Campaign manager + ECSS-compatible reports             │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Design Principles
+## 3. Design Principles
 
-**Equipment as the universal model abstraction.**
-Every spacecraft model — FMU, native Python, bus adapter, OBC, TTC, or real OBSW binary — is an `Equipment`. Equipment extends `ModelAdapter` so every model is directly driveable by `SimulationMaster`.
+**Equipment as the universal abstraction.**
+Every model — FMU, native Python, C++ physics engine, real OBSW binary — is an `Equipment`. `SimulationMaster` drives all of them identically.
 
-**Interface-typed ports.**
-Equipment ports carry an `InterfaceType`. The `WiringLoader` validates compatibility at load time. You cannot wire a 1553 BC port to a SpaceWire node.
-
-**Bus as Equipment.**
-Every bus adapter extends `Bus` which extends `Equipment`. Buses have typed ports and built-in fault injection. `SimulationMaster` drives buses identically to any other Equipment.
-
-**TM and TC are architecturally separate.**
-`ParameterStore` holds telemetry (TM). `CommandStore` holds telecommands (TC). Never conflated.
-
-**One data one source.**
-Every parameter has exactly one authoritative definition in the SRDB.
-
-**PUS as the commanding language.**
-All ground-to-spacecraft commanding flows through PUS-C (ECSS-E-ST-70-41C).
-
-**ObcInterface protocol — the HIL plug-in point.**
-`TtcEquipment` accepts any `ObcInterface` implementation:
+**ObcInterface — the HIL plug-in point.**
+`TtcEquipment` accepts any `ObcInterface`:
 - `ObcEquipment` — simulated OBC
-- `ObcStub` — configurable OBSW behaviour simulator
-- `OBCEmulatorAdapter` — real OBSW binary under test
+- `ObcStub` — configurable rule-based OBSW simulator
+- `OBCEmulatorAdapter` — real OBSW binary via pipe protocol
 
-Swap at the composition root with one line. Nothing else changes.
+**FMI 2.0 as the physics boundary.**
+The KDE C++ engine is wrapped as an FMI 2.0 Co-Simulation FMU. The Python SVF is the FMI master. One SVF tick = one FMU `doStep()`.
 
-**Port commands are consumed.**
-One-shot commands (mode_cmd, watchdog_kick, dump_cmd) are consumed after processing. No sticky state.
+**SRDB as the shared parameter contract.**
+Every parameter has one canonical name. The openobsw SRDB pip package makes this contract explicit across OBSW and SVF.
 
-**Requirements traceability from day one.**
-Every test references a requirement. Every BASELINED requirement has a test. The traceability matrix is generated automatically after every CI run.
+**Wiring as the composition layer.**
+`WiringLoader` validates port types and injects values via `CommandStore` each tick. The wiring YAML defines the closed loop — no code changes needed to rewire.
 
 ---
 
-## 3. Layered Architecture
+## 4. Layered Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    GROUND SEGMENT (M12)                         │
-│         YAMCS | SCOS-2000 | XTCE export | MIB import            │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ PUS TC/TM bytes
-┌──────────────────────────▼──────────────────────────────────────┐
-│                    TTC EQUIPMENT                                 │
-│  send_tc(PusTcPacket) → forwards to OBC via ObcInterface        │
-│  get_tm_responses() ← exposes TM for test assertions            │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ ObcInterface
-              ┌────────────┼────────────────────┐
-              │            │                    │
-┌─────────────▼──┐ ┌───────▼──────┐ ┌──────────▼──────────────┐
-│ ObcEquipment   │ │  ObcStub     │ │  OBCEmulatorAdapter     │
-│ Simulated OBC  │ │  Rule engine │ │  Real OBSW under test   │
-│ M7/M8          │ │  M10         │ │  M11 ← YOU ARE HERE     │
-│ PUS routing    │ │  Closed-loop │ │  obsw_sim binary        │
-│ DHS state      │ │  FDIR rules  │ │  Pipe protocol          │
-└────────────────┘ └──────────────┘ └─────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                  GROUND SEGMENT (M12)                        │
+│        YAMCS | SCOS-2000 | XTCE | MIB                       │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ PUS TC/TM
+┌──────────────────────────▼───────────────────────────────────┐
+│                  TTC EQUIPMENT                               │
+│  ObcInterface: ObcEquipment | ObcStub | OBCEmulatorAdapter   │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ 1553 BC / pipe
+┌──────────────────────────▼───────────────────────────────────┐
+│              BUS ADAPTERS + ACTUATORS                        │
+│  Mil1553Bus (fault injection) | MTQ | RW | PCDU              │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ torques → KDE IN ports
+┌──────────────────────────▼───────────────────────────────────┐
+│              KDE FMU (C++ physics)                           │
+│  6-DOF Euler integration + quaternion kinematics             │
+│  Earth B-field model (simplified dipole)                     │
+│  OUT: true ω (rad/s) | true B (T) | true q (quaternion)      │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ true state → sensor truth ports
+┌──────────────────────────▼───────────────────────────────────┐
+│              SENSOR MODELS                                   │
+│  MAG: true B + noise + bias drift                            │
+│  GYRO: true ω + ARW noise + bias                             │
+│  CSS: sun vector + eclipse detection                         │
+│  ST: quaternion propagation + blinding                       │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ noisy measurements → OBSW
+┌──────────────────────────▼───────────────────────────────────┐
+│         PARAMETER STORE (TM) │ COMMAND STORE (TC)            │
+│         SRDB canonical names │ WiringMap connections         │
+└──────────────────────────┬───────────────────────────────────┘
                            │
-┌──────────────────────────▼──────────────────────────────────────┐
-│                    BUS ADAPTERS                                  │
-│  Mil1553Bus: bc_in (MIL1553_BC) + rtN_out (MIL1553_RT)         │
-│  BusFault: NO_RESPONSE | LATE_RESPONSE | BAD_PARITY | BUS_ERROR │
-│  bus.{id}.fault.{target}.{type} via CommandStore                 │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────────┐
-│                 EQUIPMENT & PORT LAYER                           │
-│  Equipment(ModelAdapter): typed IN/OUT ports                    │
-│  on_tick(): CommandStore → do_step() → ParameterStore           │
-│  FmuEquipment | NativeEquipment | Bus(abstract)                 │
-└──────┬──────────────────────┬───────────────────────────────────┘
-       │                      │
-┌──────▼──────┐  ┌────────────▼──────────────────────────────────┐
-│ PARAMETER   │  │  COMMAND STORE                                 │
-│ STORE (TM)  │  │  TC only — take() atomic                       │
-│ SRDB keys   │  │  written by: inject, schedule, wiring, OBC     │
-└──────┬──────┘  └────────────────────────────────────────────────┘
-       │
-┌──────▼──────────────────────────────────────────────────────────┐
-│              SRDB | PUS TM/TC | DDS | Campaign | Plugin         │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────▼───────────────────────────────────┐
+│         SIMULATION MASTER (DDS lockstep)                     │
+│         pytest + SVF plugin + campaigns + reports            │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 4. OBC Implementation Options
+## 5. KDE Equipment — Physics Bridge
 
-Three drop-in implementations of `ObcInterface`:
+`make_kde_equipment()` wraps `DynamicsFmu` as a `NativeEquipment` with SRDB-canonical port names.
 
-### ObcEquipment (M7/M8)
-Simulated OBC. PUS TC routing + DHS state machine (mode FSM, OBT, watchdog, memory). Use for unit and integration testing without OBSW.
+### Ports
 
-### ObcStub (M10)
-Configurable OBSW behaviour simulator. Rule engine evaluates ParameterStore conditions and fires CommandStore actions each tick. Use for closed-loop Level 3/4 validation without a real OBSW binary.
+| Port | Direction | Unit | Description |
+|---|---|---|---|
+| `aocs.mtq.torque_x/y/z` | IN | Nm | Mechanical torques from MTQ model |
+| `aocs.truth.rate_x/y/z` | OUT | rad/s | True angular velocity (→ GYRO) |
+| `aocs.mag.true_x/y/z` | OUT | T | True magnetic field (→ MAG) |
+| `aocs.attitude.quaternion_w/x/y/z` | OUT | — | True attitude quaternion (→ ST) |
 
-```python
-stub = ObcStub(config, sync, store, cmd_store, rules=[
-    Rule(
-        name="low_battery_safe",
-        watch="eps.battery.soc",
-        condition=lambda e: e is not None and e.value < 0.3,
-        action=lambda cs, t: cs.inject("dhs.obc.mode_cmd", 0.0, t=t),
-    ),
-])
-```
-
-### OBCEmulatorAdapter (M11)
-Real OBSW binary under test. Wraps `obsw_sim` as an Equipment. One OBC control cycle per SVF tick:
+### FMU wire protocol
 
 ```
-SVF tick → send TC frames to obsw_sim stdin → wait 0xFF sync byte
-         → parse TM packets from stdout → update OUT ports
-```
-
-```python
-obc = OBCEmulatorAdapter(
-    sim_path="obsw_sim",
-    sync_protocol=sync,
-    store=store,
-    command_store=cmd_store,
-)
-```
-
-### Swapping implementations
-
-```python
-# Level 3 — simulated OBC
-obc = ObcStub(config, sync, store, cmd_store, rules=[...])
-
-# Level 4 — real OBSW under test (one line change)
-obc = OBCEmulatorAdapter(sim_path="obsw_sim", sync_protocol=sync,
-                         store=store, command_store=cmd_store)
-
-# TtcEquipment accepts all three via ObcInterface protocol
-ttc = TtcEquipment(obc, sync, store, cmd_store)
+SVF tick → kde.do_step(t, dt):
+  1. Read aocs.mtq.torque_x/y/z from ports
+  2. fmu.setReal([tq_mtq_x, tq_mtq_y, tq_mtq_z], torques)
+  3. fmu.doStep(currentCommunicationPoint=t, communicationStepSize=dt)
+  4. q = fmu.getReal([q_w, q_x, q_y, q_z])
+  5. ω = fmu.getReal([omega_x, omega_y, omega_z])
+  6. B = fmu.getReal([b_field_x, b_field_y, b_field_z])
+  7. Write to ParameterStore via OUT ports
 ```
 
 ---
 
-## 5. ObcInterface Protocol
+## 6. Closed-Loop Wiring
+
+`srdb/wiring/kde_wiring.yaml` defines the full detumbling loop:
+
+```
+KDE.aocs.truth.rate_x/y/z  → GYRO.aocs.truth.rate_x/y/z
+KDE.aocs.mag.true_x/y/z    → MAG.aocs.mag.true_x/y/z
+MAG.aocs.mag.field_x/y/z   → bdot.aocs.mag.field_x/y/z
+MAG.aocs.mag.field_x/y/z   → MTQ.aocs.mtq.b_field_x/y/z
+bdot.aocs.mtq.dipole_x/y/z → MTQ.aocs.mtq.dipole_x/y/z
+MTQ.aocs.mtq.torque_x/y/z  → KDE.aocs.mtq.torque_x/y/z  ← loop closed
+```
+
+All wiring is validated by `WiringLoader` at load time — mismatched port directions or unknown equipment IDs raise `WiringLoadError` before simulation starts.
+
+---
+
+## 7. OBC Implementation Options
+
+| Implementation | Use case |
+|---|---|
+| `ObcEquipment` | Unit and integration testing without OBSW |
+| `ObcStub` | Closed-loop Level 3/4 testing with rule-based OBSW behaviour |
+| `OBCEmulatorAdapter` | Real OBSW binary under test via binary pipe |
+
+### ObcInterface Protocol
 
 ```python
 @runtime_checkable
@@ -176,145 +175,75 @@ class ObcInterface(Protocol):
     def get_tm_by_service(self, service: int, subservice: int) -> list[PusTmPacket]: ...
 ```
 
-All three OBC implementations satisfy this protocol. `TtcEquipment` accepts any `ObcInterface`.
+### OBCEmulatorAdapter wire protocol
+
+```
+SVF → obsw_sim stdin:  [uint16 BE length][TC frame bytes]
+obsw_sim → SVF stdout: [uint16 BE length][TM packet bytes] ... [0xFF sync]
+```
+
+S5 events drive mode state: `event_id=0x0002` → SAFE, `event_id=0x0003` → NOMINAL.
 
 ---
 
-## 6. OBCEmulatorAdapter — Wire Protocol
+## 8. Four Validation Levels
 
 ```
-SVF → obsw_sim stdin:
-  [uint16 BE length][TC frame bytes]   (one or more per tick)
+Level 1 — Model Validation (M8/M9)
+  Each equipment verified in isolation
+  Nominal + failure test procedures per model
+  Status: complete
 
-obsw_sim → SVF stdout:
-  [uint16 BE length][TM packet bytes]  (zero or more per cycle)
-  [0xFF]                               (sync byte — end of cycle)
-```
+Level 2 — Interface Validation (M6/M9)
+  1553 bus interfaces + full fault matrix
+  Status: complete
 
-S5 events drive mode state in the adapter:
-- `event_id=0x0002` → `MODE_SAFE`
-- `event_id=0x0003` → `MODE_NOMINAL`
+Level 3 — Integration Validation (M10)
+  Models + PUS chain + closed-loop FDIR scenarios
+  OBC stub drives all transitions
+  Status: complete
 
-S17 ping sent as heartbeat every tick so `obsw_sim` never blocks.
-
----
-
-## 7. Interface-Typed Port System
-
-```python
-class InterfaceType(enum.Enum):
-    FLOAT       = "float"        # Default
-    MIL1553_BC  = "mil1553_bc"   # 1553 Bus Controller
-    MIL1553_RT  = "mil1553_rt"   # 1553 Remote Terminal
-    SPACEWIRE   = "spacewire"    # SpaceWire node
-    CAN         = "can"          # CAN node
-    UART        = "uart"         # UART
-    ANALOG      = "analog"       # Analog signal
-    DIGITAL     = "digital"      # Digital signal
-```
-
-WiringLoader rejects mismatched interface types at load time.
-
----
-
-## 8. Bus Protocol Architecture
-
-```
-Equipment (ABC)
-    └── Bus (ABC)
-            └── Mil1553Bus      — complete (M6)
-            └── SpaceWireBus    — planned (M12)
-            └── CanBus          — planned (M12)
-```
-
-Fault injection via `BusFault` or `CommandStore`:
-
-```python
-bus.inject_fault(BusFault(FaultType.NO_RESPONSE, "rt5", 5.0, t))
-# or via svf_command_schedule:
-(10.0, "bus.platform_1553.fault.rt5.no_response", 5.0)
+Level 4 — System Validation (M11/M11.5)
+  Real OBSW binary under test (OBCEmulatorAdapter)
+  Real C++ physics engine (opensvf-kde FMU)
+  Full closed-loop co-simulation
+  Status: complete
 ```
 
 ---
 
-## 9. PUS TM/TC Architecture
+## 9. Reference Equipment Library
 
-**Packet structure (ECSS-E-ST-70-41C):**
-```
-TC: [Primary 6B][DFH 5B][App Data][CRC-16 2B]
-TM: [Primary 6B][DFH 10B][App Data][CRC-16 2B]
-```
+| Equipment | Subsystem | Key Physics | Status |
+|---|---|---|---|
+| `make_kde_equipment()` | Dynamics | 6-DOF physics, B-field | M11.5 |
+| `ObcEquipment` | DHS | Mode FSM, OBT, watchdog, PUS routing | M7/M8 |
+| `ObcStub` | DHS | Rule engine, closed-loop FDIR | M10 |
+| `OBCEmulatorAdapter` | DHS | Real OBSW via binary pipe | M11 |
+| `TtcEquipment` | TTC | TC/TM byte pipe | M7 |
+| `make_reaction_wheel()` | AOCS | Torque, friction, temperature | M6/M8 |
+| `make_star_tracker()` | AOCS | Quaternion, noise, sun blinding | M8 |
+| `make_magnetometer()` | AOCS | B-field measurement + noise | M11.5 |
+| `make_magnetorquer()` | AOCS | Torque = m × B | M11.5 |
+| `make_gyroscope()` | AOCS | Rate measurement + ARW noise | M11.5 |
+| `make_css()` | AOCS | Sun vector + eclipse | M11.5 |
+| `make_bdot_controller()` | AOCS | m = −k·Ḃ detumbling | M11.5 |
+| `make_sbt()` | TTC | Carrier lock, mode FSM | M8 |
+| `make_pcdu()` | EPS | LCL switching, MPPT, UVLO | M9 |
+| `EpsFmu` | EPS | Solar array, Li-Ion battery | M4 |
 
-**Services implemented:**
+---
 
-| Service | Description |
+## 10. Milestones
+
+| Milestone | Status |
 |---|---|
-| S1 | Request Verification (acceptance, completion, failure) |
-| S3 | Housekeeping (define, enable/disable, TM(3,25), essential HK) |
-| S5 | Event Reporting (severity 1-4) |
-| S17 | Test (are-you-alive) |
-| S20 | Parameter Management (set, get) |
-
----
-
-## 10. Reference Equipment Library
-
-| Equipment | Subsystem | Interface | Key Physics | Status |
-|---|---|---|---|---|
-| `ObcEquipment` | DHS | 1553 BC | Mode FSM, OBT, watchdog, PUS routing | M7/M8 |
-| `ObcStub` | DHS | — | Rule engine, closed-loop FDIR | M10 |
-| `OBCEmulatorAdapter` | DHS | binary pipe | Real OBSW under test | M11 |
-| `TtcEquipment` | TTC | ObcInterface | TC/TM byte pipe | M7 |
-| `make_reaction_wheel()` | AOCS | 1553 RT | Torque, friction, temperature | M6/M8 |
-| `make_star_tracker()` | AOCS | SpW/1553 | Quaternion, noise, sun blinding | M8 |
-| `make_sbt()` | TTC | UART | Carrier lock, mode FSM, bit rates | M8 |
-| `make_pcdu()` | EPS | 1553/CAN | LCL switching, MPPT, UVLO | M9 |
-| `EpsFmu` | EPS | FMI 3.0 | Solar array, Li-Ion battery, PCDU | M4 |
-
-Full contracts: `docs/equipment-library.md`
-
----
-
-## 11. Test Structure
-
-```
-tests/
-├── unit/pus/        PUS TC/TM tests
-├── unit/campaign/   Campaign manager tests
-├── unit/            SVF platform tests
-├── equipment/       Equipment contract + bus tests
-├── integration/     SVF infrastructure tests
-├── spacecraft/      Model behaviour + end-to-end + system tests
-└── hardware/        HIL tests (require obsw_sim binary)
-                     Run explicitly: pytest tests/hardware/ -v
-```
-
----
-
-## 12. Campaigns
-
-| Campaign | Scenario | Level |
-|---|---|---|
-| `eps_validation.yaml` | EPS power system | 1 |
-| `mil1553_validation.yaml` | 1553 bus + FDIR | 2 |
-| `pus_validation.yaml` | PUS commanding chain | 3 |
-| `platform_validation.yaml` | Full platform | 3 |
-| `safe_mode_recovery.yaml` | Closed-loop recovery | 3/4 |
-| `nominal_ops.yaml` | Nominal operations | 3/4 |
-| `contact_pass.yaml` | Ground contact | 3/4 |
-| `fdir_chain.yaml` | FDIR end-to-end | 3/4 |
-
----
-
-## 13. Development Milestones
-
-| Milestone | Objective | Status |
-|---|---|---|
-| M1-M5 | Core platform, campaigns, reporting | ✅ Done |
-| M6 - Bus Protocols | 1553, fault injection | ✅ Done |
-| M7 - PUS TM/TC | TC/TM packets, S1/3/5/17/20, OBC, TTC | ✅ Done |
-| M8 - Equipment Interface Library | OBC/RW/ST/SBT/PCDU models | ✅ Done |
-| M9 - Model & Interface Validation | Failure coverage, full fault matrix | ✅ Done |
-| M10 - Integration & System Validation | OBC stub, closed-loop scenarios | ✅ Done |
-| M11 - OBC Emulator Integration | OBCEmulatorAdapter, real OBSW | ✅ Done |
-| M12 - Ground Segment | YAMCS, XTCE, MIB, SpW, CAN | Planned |
+| M1–M5 — Core platform | ✅ Done |
+| M6 — Bus Protocols (1553) | ✅ Done |
+| M7 — PUS TM/TC | ✅ Done |
+| M8 — Equipment Interface Library | ✅ Done |
+| M9 — Model & Interface Validation | ✅ Done |
+| M10 — Integration & System Validation | ✅ Done |
+| M11 — OBC Emulator Integration | ✅ Done |
+| M11.5 — KDE Co-Simulation Integration | ✅ Done |
+| M12 — Ground Segment (YAMCS, SpW, CAN) | Planned |

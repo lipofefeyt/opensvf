@@ -1,0 +1,82 @@
+# KDE closed-loop wiring
+# MTQ torques → KDE physics engine
+# KDE true state → sensor truth inputs
+
+connections:
+  # MTQ torques feed the physics engine
+  - from: mtq.aocs.mtq.torque_x
+    to:   kde.aocs.mtq.torque_x
+    description: MTQ torque X to KDE
+
+  - from: mtq.aocs.mtq.torque_y
+    to:   kde.aocs.mtq.torque_y
+    description: MTQ torque Y to KDE
+
+  - from: mtq.aocs.mtq.torque_z
+    to:   kde.aocs.mtq.torque_z
+    description: MTQ torque Z to KDE
+
+  # KDE true rates feed GYRO truth input
+  - from: kde.aocs.truth.rate_x
+    to:   gyro.aocs.truth.rate_x
+    description: True rate X to GYRO
+
+  - from: kde.aocs.truth.rate_y
+    to:   gyro.aocs.truth.rate_y
+    description: True rate Y to GYRO
+
+  - from: kde.aocs.truth.rate_z
+    to:   gyro.aocs.truth.rate_z
+    description: True rate Z to GYRO
+
+  # KDE true B field feeds MAG truth input
+  - from: kde.aocs.mag.true_x
+    to:   mag.aocs.mag.true_x
+    description: True B field X to MAG
+
+  - from: kde.aocs.mag.true_y
+    to:   mag.aocs.mag.true_y
+    description: True B field Y to MAG
+
+  - from: kde.aocs.mag.true_z
+    to:   mag.aocs.mag.true_z
+    description: True B field Z to MAG
+
+  # MAG measured field feeds b-dot controller
+  - from: mag.aocs.mag.field_x
+    to:   bdot.aocs.mag.field_x
+    description: MAG field X to b-dot
+
+  - from: mag.aocs.mag.field_y
+    to:   bdot.aocs.mag.field_y
+    description: MAG field Y to b-dot
+
+  - from: mag.aocs.mag.field_z
+    to:   bdot.aocs.mag.field_z
+    description: MAG field Z to b-dot
+
+  # MAG measured field also feeds MTQ (for torque calculation)
+  - from: mag.aocs.mag.field_x
+    to:   mtq.aocs.mtq.b_field_x
+    description: MAG field X to MTQ
+
+  - from: mag.aocs.mag.field_y
+    to:   mtq.aocs.mtq.b_field_y
+    description: MAG field Y to MTQ
+
+  - from: mag.aocs.mag.field_z
+    to:   mtq.aocs.mtq.b_field_z
+    description: MAG field Z to MTQ
+
+  # B-dot controller dipole commands feed MTQ
+  - from: bdot.aocs.mtq.dipole_x
+    to:   mtq.aocs.mtq.dipole_x
+    description: B-dot dipole X to MTQ
+
+  - from: bdot.aocs.mtq.dipole_y
+    to:   mtq.aocs.mtq.dipole_y
+    description: B-dot dipole Y to MTQ
+
+  - from: bdot.aocs.mtq.dipole_z
+    to:   mtq.aocs.mtq.dipole_z
+    description: B-dot dipole Z to MTQ

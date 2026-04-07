@@ -30,18 +30,19 @@ dev = [
 [project.scripts]
 svf = "svf.campaign.cli:main"
 
+[project.entry-points."pytest11"]
+svf = "svf.plugin"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.mypy]
 strict = true
-exclude = [
-    "examples/",
-    "setup_issues.py",
-]
+exclude = ["examples/", "setup_issues.py"]
 
-[project.entry-points."pytest11"]
-svf = "svf.plugin"
+[[tool.mypy.overrides]]
+module = ["fmpy", "fmpy.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 python_classes = ["*Suite", "*Tests"]
