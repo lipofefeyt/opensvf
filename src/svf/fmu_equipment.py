@@ -11,8 +11,8 @@ import logging
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from fmpy import read_model_description, extract  # type: ignore[import-untyped]
-from fmpy.simulation import instantiate_fmu      # type: ignore[import-untyped]
+from fmpy import read_model_description, extract
+from fmpy.simulation import instantiate_fmu
 
 from svf.abstractions import SyncProtocol
 from svf.equipment import Equipment, PortDefinition, PortDirection
