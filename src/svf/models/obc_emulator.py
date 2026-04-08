@@ -2,29 +2,18 @@
 OBC Emulator Adapter
 Drop-in replacement for ObcStub using the openobsw host sim (obsw_sim).
 
-Extends Equipment directly — same port interface as ObcEquipment and
-ObcStub. Swap at the composition root:
+Extended pipe protocol with type-prefixed frames:
+  Type 0x01 — TC uplink:       [0x01][uint16 BE length][TC frame bytes]
+  Type 0x02 — Sensor injection: [0x02][uint16 BE length][obsw_sensor_frame_t]
 
-    # Before (simulated OBC):
-    obc = ObcStub(config, sync, store, cmd_store, rules=[...])
+obsw_sensor_frame_t (packed, little-endian floats):
+  float mag_x, mag_y, mag_z; uint8_t mag_valid;
+  float st_q_w, st_q_x, st_q_y, st_q_z; uint8_t st_valid;
+  float gyro_x, gyro_y, gyro_z; uint8_t gyro_valid;
+  float sim_time;
 
-    # After (real OBSW under test):
-    obc = OBCEmulatorAdapter(
-        sim_path="build/sim/obsw_sim",
-        sync_protocol=sync,
-        store=store,
-        command_store=cmd_store,
-    )
-
-do_step() protocol (called by Equipment.on_tick() each tick):
-  1. Map IN port values → TC frames and send to obsw_sim stdin
-  2. Wait for 0xFF sync byte on stdout (one OBC control cycle)
-  3. Parse TM packets received before sync byte
-  4. Update OUT port values from parsed TM
-
-stdin:  [uint16 BE length][TC frame bytes]
-stdout: [uint16 BE length][TM packet bytes]  (zero or more per cycle)
-        [0xFF]                               (sync byte — end of cycle)
+obsw_sim stdout (unchanged):
+  [uint16 BE length][TM packet bytes] ... [0xFF sync]
 
 Implements: SVF-DEV-029, SVF-DEV-034, SVF-DEV-037
 """
@@ -49,20 +38,25 @@ from svf.pus.tm import PusTmPacket
 
 logger = logging.getLogger(__name__)
 
-SYNC_BYTE = 0xFF
+SYNC_BYTE       = 0xFF
+FRAME_TC        = 0x01
+FRAME_SENSOR    = 0x02
+
+# obsw_sensor_frame_t: 3f+B + 4f+B + 3f+B + f = 47 bytes (little-endian, packed)
+_SENSOR_FMT = "<3fB4fB3fBf"
+_SENSOR_LEN = struct.calcsize(_SENSOR_FMT)
 
 
 class OBCEmulatorAdapter(Equipment):
     """
     OBC Emulator Adapter — wraps obsw_sim as an Equipment.
 
-    Args:
-        sim_path:       Path to obsw_sim executable.
-        sync_protocol:  SyncProtocol passed to Equipment.
-        store:          ParameterStore passed to Equipment.
-        command_store:  CommandStore passed to Equipment.
-        sync_timeout:   Seconds to wait for 0xFF sync byte per tick.
-        apid:           OBC APID expected in TM packets (default 0x010).
+    Each SVF tick:
+      1. Read sensor values from ParameterStore
+      2. Send type-0x02 sensor frame to obsw_sim
+      3. Send type-0x01 TC frames (heartbeat ping or queued TCs)
+      4. Wait for 0xFF sync byte
+      5. Parse TM packets → update OUT ports
     """
 
     def __init__(
@@ -74,19 +68,17 @@ class OBCEmulatorAdapter(Equipment):
         sync_timeout: float = 5.0,
         apid: int = 0x010,
     ) -> None:
-        self._sim_path    = Path(sim_path)
+        self._sim_path     = Path(sim_path)
         self._sync_timeout = sync_timeout
-        self._apid        = apid
+        self._apid         = apid
 
-        # OBC state mirrored from parsed TM
-        self._obt:          float = 0.0
-        self._mode:         int   = MODE_SAFE
-        self._tm_seq:       int   = 0
+        self._obt:    float = 0.0
+        self._mode:   int   = MODE_SAFE
+        self._tm_seq: int   = 0
 
-        # Subprocess + reader thread
         self._proc:   Optional[subprocess.Popen[bytes]] = None
-        self._reader: Optional[threading.Thread] = None
-        self._rx_q:   queue.Queue[Optional[bytes]] = queue.Queue()
+        self._reader: Optional[threading.Thread]        = None
+        self._rx_q:   queue.Queue[Optional[bytes]]      = queue.Queue()
         self._alive   = False
 
         super().__init__(
@@ -95,8 +87,6 @@ class OBCEmulatorAdapter(Equipment):
             store=store,
             command_store=command_store,
         )
-
-        # Sentinel for mode_cmd: -1.0 = no command (allows MODE_SAFE=0)
         self._port_values["dhs.obc.mode_cmd"] = -1.0
 
     # ------------------------------------------------------------------ #
@@ -104,40 +94,25 @@ class OBCEmulatorAdapter(Equipment):
     # ------------------------------------------------------------------ #
 
     def _declare_ports(self) -> list[PortDefinition]:
-        """Identical to ObcEquipment — drop-in port compatibility."""
         return [
-            PortDefinition("obc.tc_input",           PortDirection.IN,
-                           description="TC arrival signal"),
-            PortDefinition("dhs.obc.mode_cmd",       PortDirection.IN,
-                           description="Mode transition command (-1=none)"),
-            PortDefinition("dhs.obc.watchdog_kick",  PortDirection.IN,
-                           description="Watchdog kick (write 1)"),
-            PortDefinition("dhs.obc.memory_dump_cmd",PortDirection.IN,
-                           description="Memory dump command"),
-            PortDefinition("dhs.obc.mode",           PortDirection.OUT,
-                           description="Current OBC mode"),
-            PortDefinition("dhs.obc.obt",            PortDirection.OUT,
-                           unit="s", description="On-board time"),
-            PortDefinition("dhs.obc.watchdog_status",PortDirection.OUT,
-                           description="Watchdog status"),
-            PortDefinition("dhs.obc.memory_used_pct",PortDirection.OUT,
-                           unit="%", description="Mass memory used"),
-            PortDefinition("dhs.obc.health",         PortDirection.OUT,
-                           description="OBC health status"),
-            PortDefinition("dhs.obc.reset_count",    PortDirection.OUT,
-                           description="Reset counter"),
-            PortDefinition("dhs.obc.cpu_load",       PortDirection.OUT,
-                           unit="%", description="CPU load"),
-            PortDefinition("obc.tm_output",          PortDirection.OUT,
-                           description="Latest TM sequence count"),
+            PortDefinition("obc.tc_input",            PortDirection.IN),
+            PortDefinition("dhs.obc.mode_cmd",        PortDirection.IN),
+            PortDefinition("dhs.obc.watchdog_kick",   PortDirection.IN),
+            PortDefinition("dhs.obc.memory_dump_cmd", PortDirection.IN),
+            PortDefinition("dhs.obc.mode",            PortDirection.OUT),
+            PortDefinition("dhs.obc.obt",             PortDirection.OUT, unit="s"),
+            PortDefinition("dhs.obc.watchdog_status", PortDirection.OUT),
+            PortDefinition("dhs.obc.memory_used_pct", PortDirection.OUT, unit="%"),
+            PortDefinition("dhs.obc.health",          PortDirection.OUT),
+            PortDefinition("dhs.obc.reset_count",     PortDirection.OUT),
+            PortDefinition("dhs.obc.cpu_load",        PortDirection.OUT, unit="%"),
+            PortDefinition("obc.tm_output",           PortDirection.OUT),
         ]
 
     def initialise(self, start_time: float = 0.0) -> None:
-        """Spawn obsw_sim and start stdout reader thread."""
         if not self._sim_path.exists():
             raise FileNotFoundError(
-                f"obsw_sim not found at {self._sim_path}. "
-                f"Build openobsw first: cmake --build build"
+                f"obsw_sim not found at {self._sim_path}."
             )
         self._proc = subprocess.Popen(
             [str(self._sim_path)],
@@ -152,13 +127,9 @@ class OBCEmulatorAdapter(Equipment):
             daemon=True,
         )
         self._reader.start()
-        logger.info(
-            f"[obc-emu] obsw_sim started PID={self._proc.pid} "
-            f"path={self._sim_path}"
-        )
+        logger.info(f"[obc-emu] obsw_sim PID={self._proc.pid}")
 
     def teardown(self) -> None:
-        """Terminate obsw_sim and join reader thread."""
         self._alive = False
         if self._proc is not None:
             try:
@@ -172,105 +143,120 @@ class OBCEmulatorAdapter(Equipment):
             except Exception:
                 self._proc.kill()
             self._proc = None
-        self._rx_q.put(None)   # unblock reader
+        self._rx_q.put(None)
         if self._reader is not None:
             self._reader.join(timeout=2.0)
             self._reader = None
         logger.info("[obc-emu] Terminated")
 
     def do_step(self, t: float, dt: float) -> None:
-        """
-        One OBC control cycle:
-          1. Build TC frames from IN ports and send to obsw_sim
-          2. Wait for 0xFF sync byte
-          3. Parse TM packets → update OUT ports
-        """
         self._obt += dt
-        self._send_tcs(t)
-        tm_packets, synced = self._collect_until_sync(self._sync_timeout)
 
+        # Send sensor frame first (AOCS needs fresh data each cycle)
+        self._send_sensor_frame(t)
+
+        # Send TC frames (heartbeat + any queued TCs)
+        self._send_tcs(t)
+
+        tm_packets, synced = self._collect_until_sync(self._sync_timeout)
         if not synced:
-            logger.warning(f"[obc-emu] No sync byte within {self._sync_timeout}s at t={t:.3f}")
+            logger.warning(f"[obc-emu] No sync at t={t:.3f}")
 
         for pkt in tm_packets:
             self._parse_tm(pkt, t)
 
-        # Write OBC state to OUT ports
-        self.write_port("dhs.obc.mode",          float(self._mode))
-        self.write_port("dhs.obc.obt",           self._obt)
+        self.write_port("dhs.obc.mode",           float(self._mode))
+        self.write_port("dhs.obc.obt",            self._obt)
         self.write_port("dhs.obc.watchdog_status", 0.0)
         self.write_port("dhs.obc.memory_used_pct", 0.0)
-        self.write_port("dhs.obc.health",         0.0)
-        self.write_port("dhs.obc.reset_count",    0.0)
-        self.write_port("dhs.obc.cpu_load",       0.0)
-        self.write_port("obc.tm_output",          float(self._tm_seq))
+        self.write_port("dhs.obc.health",          0.0)
+        self.write_port("dhs.obc.reset_count",     0.0)
+        self.write_port("dhs.obc.cpu_load",        0.0)
+        self.write_port("obc.tm_output",           float(self._tm_seq))
 
     # ------------------------------------------------------------------ #
-    # TC building                                                          #
+    # Sensor frame (type 0x02)                                            #
+    # ------------------------------------------------------------------ #
+
+    def _send_sensor_frame(self, t: float) -> None:
+        """Pack obsw_sensor_frame_t from ParameterStore and send to obsw_sim."""
+        def _read(key: str, default: float = 0.0) -> float:
+            e = self._store.read(key)
+            return e.value if e is not None else default
+
+        mag_x = _read("aocs.mag.field_x")
+        mag_y = _read("aocs.mag.field_y")
+        mag_z = _read("aocs.mag.field_z")
+        mag_valid = 1 if self._store.read("aocs.mag.status") is not None and \
+            (self._store.read("aocs.mag.status").value or 0) > 0.5 else 0  # type: ignore[union-attr]
+
+        st_w = _read("aocs.str1.quaternion_w", 1.0)
+        st_x = _read("aocs.str1.quaternion_x")
+        st_y = _read("aocs.str1.quaternion_y")
+        st_z = _read("aocs.str1.quaternion_z")
+        st_valid_entry = self._store.read("aocs.str1.validity")
+        st_valid = 1 if st_valid_entry is not None and st_valid_entry.value > 0.5 else 0
+
+        gyro_x = _read("aocs.gyro.rate_x")
+        gyro_y = _read("aocs.gyro.rate_y")
+        gyro_z = _read("aocs.gyro.rate_z")
+        gyro_status = self._store.read("aocs.gyro.status")
+        gyro_valid = 1 if gyro_status is not None and gyro_status.value > 0.5 else 0
+
+        frame = struct.pack(
+            _SENSOR_FMT,
+            mag_x, mag_y, mag_z, mag_valid,
+            st_w, st_x, st_y, st_z, st_valid,
+            gyro_x, gyro_y, gyro_z, gyro_valid,
+            float(t),
+        )
+        self._write_typed_frame(FRAME_SENSOR, frame)
+
+    # ------------------------------------------------------------------ #
+    # TC building (type 0x01)                                             #
     # ------------------------------------------------------------------ #
 
     def _send_tcs(self, t: float) -> None:
-        """Map IN port values to TC frames and send them."""
         frames: list[bytes] = []
 
-        # mode_cmd: -1.0 = no command
         mode_cmd = self.read_port("dhs.obc.mode_cmd")
         if mode_cmd >= 0.0:
-            mode = int(round(mode_cmd))
-            if mode == MODE_NOMINAL:
+            if int(round(mode_cmd)) == MODE_NOMINAL:
                 frames.append(self._build_s8_recover_nominal())
-            self._port_values["dhs.obc.mode_cmd"] = -1.0   # consume
+            self._port_values["dhs.obc.mode_cmd"] = -1.0
 
-        # watchdog_kick: send S17 ping as keep-alive when kicked
         wdg_kick = self.read_port("dhs.obc.watchdog_kick")
         if wdg_kick > 0.5:
             frames.append(self._build_s17_ping())
             self._port_values["dhs.obc.watchdog_kick"] = 0.0
 
-        # Raw TC bytes from CommandStore via obc.tc_input port
-        # (tc_input port value encodes whether a TC is pending)
-        if self.read_port("obc.tc_input") > 0.5 and self._command_store is not None:
-            try:
-                raw = self._command_store.take("obc.tc_uplink")
-                if raw is not None and isinstance(raw.value, (bytes, bytearray)):
-                    frames.append(bytes(raw.value))
-            except (ValueError, KeyError, AttributeError):
-                pass
-            self._port_values["obc.tc_input"] = 0.0
-
-        # Heartbeat — always send at least one ping so obsw_sim never
-        # blocks on fread() and can emit the sync byte on schedule
         if not frames:
             frames.append(self._build_s17_ping())
 
         for frame in frames:
-            self._write_frame(frame)
+            self._write_typed_frame(FRAME_TC, frame)
 
     def _build_s17_ping(self) -> bytes:
-        """TC(17,1) are-you-alive space packet."""
         return bytes.fromhex("1801c0000003201101" + "00")
 
     def _build_s8_recover_nominal(self) -> bytes:
-        """TC(8,1) function_id=1 (recover to NOMINAL)."""
-        # Space packet: APID=0x010, S8/1, user_data = [0x00, 0x01, 0x00]
-        user_data = bytes([0x00, 0x01, 0x00])   # fn_id=1, args_len=0
-        data_len  = 3 + len(user_data) - 1       # PUS secondary hdr (3B) + data - 1
+        user_data = bytes([0x00, 0x01, 0x00])
+        data_len  = 3 + len(user_data) - 1
         hdr = struct.pack(">HHHBBB",
-            0x1801,          # version=0, TC, sec_hdr=1, APID=0x001
-            0xC000,          # unsegmented, seq=0
-            data_len,        # data field length - 1
-            0x20,            # PUS version + ack flags
-            8,               # service
-            1,               # subservice
+            0x1801, 0xC000, data_len, 0x20, 8, 1,
         )
         return hdr + user_data
 
-    def _write_frame(self, frame: bytes) -> None:
-        """Send a length-prefixed frame to obsw_sim stdin."""
+    def _write_typed_frame(self, frame_type: int, frame: bytes) -> None:
+        """Send [type_byte][uint16 BE length][frame bytes] to obsw_sim stdin."""
         if self._proc is None or self._proc.stdin is None:
             return
         try:
-            self._proc.stdin.write(struct.pack(">H", len(frame)) + frame)
+            self._proc.stdin.write(
+                bytes([frame_type]) +
+                struct.pack(">H", len(frame)) +
+                frame
+            )
             self._proc.stdin.flush()
         except Exception as e:
             logger.error(f"[obc-emu] stdin write failed: {e}")
@@ -280,7 +266,6 @@ class OBCEmulatorAdapter(Equipment):
     # ------------------------------------------------------------------ #
 
     def _stdout_reader(self) -> None:
-        """Background thread — reads bytes from obsw_sim stdout into queue."""
         proc = self._proc
         if proc is None or proc.stdout is None:
             return
@@ -296,7 +281,6 @@ class OBCEmulatorAdapter(Equipment):
             self._rx_q.put(None)
 
     def _read_byte(self, timeout: float) -> Optional[int]:
-        """Read one byte from queue with timeout. Returns None on timeout/EOF."""
         deadline = time.monotonic() + timeout
         while True:
             remaining = deadline - time.monotonic()
@@ -313,7 +297,6 @@ class OBCEmulatorAdapter(Equipment):
     def _collect_until_sync(
         self, timeout: float
     ) -> tuple[list[bytes], bool]:
-        """Read stdout until 0xFF sync byte or timeout."""
         packets: list[bytes] = []
         deadline = time.monotonic() + timeout
 
@@ -325,11 +308,9 @@ class OBCEmulatorAdapter(Equipment):
             b = self._read_byte(remaining)
             if b is None:
                 return packets, False
-
             if b == SYNC_BYTE:
                 return packets, True
 
-            # Length-prefixed TM packet
             b2 = self._read_byte(remaining)
             if b2 is None:
                 return packets, False
@@ -348,7 +329,6 @@ class OBCEmulatorAdapter(Equipment):
                 if b3 is None:
                     return packets, False
                 body.append(b3)
-
             packets.append(bytes(body))
 
     # ------------------------------------------------------------------ #
@@ -356,50 +336,43 @@ class OBCEmulatorAdapter(Equipment):
     # ------------------------------------------------------------------ #
 
     def _parse_tm(self, pkt: bytes, t: float) -> None:
-        """Parse a PUS-C TM packet and update internal state."""
         if len(pkt) < 10:
             return
-
         svc    = pkt[7]
         subsvc = pkt[8]
         self._tm_seq += 1
-
         if svc == 1:
             self._on_s1(subsvc, pkt, t)
         elif svc == 5:
             self._on_s5(subsvc, pkt, t)
         elif svc == 17 and subsvc == 2:
-            logger.info(f"[obc-emu] TM(17,2) pong at t={t:.3f}")
+            logger.info(f"[obc-emu] TM(17,2) pong t={t:.3f}")
 
     def _on_s1(self, subsvc: int, pkt: bytes, t: float) -> None:
-        labels = {1:"accepted", 2:"accept_failed", 7:"completed", 8:"completion_failed"}
+        labels = {1: "accepted", 2: "accept_failed",
+                  7: "completed", 8: "completion_failed"}
         logger.debug(f"[obc-emu] TM(1,{subsvc}) {labels.get(subsvc,'?')} t={t:.3f}")
 
     def _on_s5(self, subsvc: int, pkt: bytes, t: float) -> None:
-        """S5 event — detect safe mode entry/exit from event ID."""
         if len(pkt) < 19:
             return
         event_id = struct.unpack(">H", pkt[17:19])[0]
         logger.info(f"[obc-emu] TM(5,{subsvc}) event=0x{event_id:04X} t={t:.3f}")
-        # SRDB event IDs for mode transitions (from srdb/data/events.yaml)
-        # boot_complete=0x0001, safe_mode_entry=0x0002, safe_mode_exit=0x0003
         if event_id == 0x0002:
             self._mode = MODE_SAFE
         elif event_id == 0x0003:
             self._mode = MODE_NOMINAL
+
     # ------------------------------------------------------------------ #
     # ObcInterface compatibility                                           #
     # ------------------------------------------------------------------ #
 
     def receive_tc(self, raw_tc: bytes, t: float = 0.0) -> list[PusTmPacket]:
-        """ObcInterface compatibility — send raw TC bytes to obsw_sim."""
-        self._write_frame(raw_tc)
+        self._write_typed_frame(FRAME_TC, raw_tc)
         return []
 
     def get_tm_queue(self) -> list[PusTmPacket]:
-        """ObcInterface compatibility — TM handled internally via _parse_tm."""
         return []
 
     def get_tm_by_service(self, service: int, subservice: int) -> list[PusTmPacket]:
-        """ObcInterface compatibility."""
         return []
