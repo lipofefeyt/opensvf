@@ -88,3 +88,23 @@ class DdsSyncProtocol(SyncProtocol):
             return False
 
         return True
+
+    def close(self) -> None:
+        """
+        Explicitly close DDS participant.
+        Call this instead of relying on garbage collection.
+        Prevents corrupted double-linked list crash on teardown.
+        """
+        try:
+            self._participant._delete()
+        except Exception:
+            pass
+        logger.info("DdsSyncProtocol closed")
+
+    def __del__(self) -> None:
+        """Fallback cleanup — prefer explicit close()."""
+        try:
+            self.close()
+        except Exception:
+            pass
+

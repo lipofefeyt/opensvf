@@ -233,12 +233,18 @@ class SimulationMaster:
 
 
     def _teardown(self) -> None:
-        """Tear down all models cleanly."""
+        """Tear down all models then DDS sync protocol cleanly."""
         for model in self._models:
             try:
                 model.teardown()
             except Exception as e:
                 logger.warning(f"Error during teardown of '{model.model_id}': {e}")
+        # Explicitly close DDS sync protocol to prevent double-linked list crash
+        if hasattr(self._sync_protocol, "close"):
+            try:
+                self._sync_protocol.close()
+            except Exception as e:
+                logger.warning(f"Error closing sync protocol: {e}")
 
     @property
     def time(self) -> float:
