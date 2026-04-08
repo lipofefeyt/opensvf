@@ -34,7 +34,12 @@ from svf.models.magnetorquer import make_magnetorquer
 from svf.models.gyroscope import make_gyroscope
 from svf.models.star_tracker import make_star_tracker
 
-OBSW_SIM = Path("obsw_sim")
+_root = Path(__file__).parent.parent.parent
+OBSW_SIM = next(
+    (p for p in [_root / "obsw_sim", Path("obsw_sim")]
+     if p.exists()),
+    _root / "obsw_sim"
+)
 KDE_FMU  = Path("models/fmu/SpacecraftDynamics.fmu")
 
 pytestmark = pytest.mark.skipif(
@@ -72,7 +77,7 @@ def make_full_system(
         "mtq": mtq, "obc": obc,
     }
     wiring = WiringLoader(equipment).load(
-        Path("srdb/wiring/kde_wiring.yaml")
+        Path("srdb/wiring/full_loop_wiring.yaml")
     )
 
     master = SimulationMaster(

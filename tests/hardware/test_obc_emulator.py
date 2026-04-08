@@ -24,7 +24,12 @@ from svf.mil1553 import Mil1553Bus, SubaddressMapping
 from svf.pus.tc import PusTcPacket, PusTcBuilder
 from svf.models.obc import MODE_SAFE, MODE_NOMINAL
 
-OBSW_SIM = Path("obsw_sim")
+_root = Path(__file__).parent.parent.parent
+OBSW_SIM = next(
+    (p for p in [_root / "obsw_sim", Path("obsw_sim")]
+     if p.exists()),
+    _root / "obsw_sim"
+)
 
 pytestmark = pytest.mark.skipif(
     not OBSW_SIM.exists(),

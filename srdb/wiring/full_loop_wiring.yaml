@@ -1,0 +1,56 @@
+# Full closed-loop wiring — KDE + obsw_sim
+# No Python b-dot controller — obsw_sim handles AOCS internally
+# MTQ gets zero dipoles for now (obsw_sim actuator output TBD)
+
+connections:
+  # KDE true rates → GYRO truth input
+  - from: kde.aocs.truth.rate_x
+    to:   gyro.aocs.truth.rate_x
+    description: True rate X to GYRO
+
+  - from: kde.aocs.truth.rate_y
+    to:   gyro.aocs.truth.rate_y
+    description: True rate Y to GYRO
+
+  - from: kde.aocs.truth.rate_z
+    to:   gyro.aocs.truth.rate_z
+    description: True rate Z to GYRO
+
+  # KDE true B field → MAG truth input
+  - from: kde.aocs.mag.true_x
+    to:   mag.aocs.mag.true_x
+    description: True B field X to MAG
+
+  - from: kde.aocs.mag.true_y
+    to:   mag.aocs.mag.true_y
+    description: True B field Y to MAG
+
+  - from: kde.aocs.mag.true_z
+    to:   mag.aocs.mag.true_z
+    description: True B field Z to MAG
+
+  # MAG measured field → MTQ (for torque = m×B when dipoles arrive)
+  - from: mag.aocs.mag.field_x
+    to:   mtq.aocs.mtq.b_field_x
+    description: MAG field X to MTQ
+
+  - from: mag.aocs.mag.field_y
+    to:   mtq.aocs.mtq.b_field_y
+    description: MAG field Y to MTQ
+
+  - from: mag.aocs.mag.field_z
+    to:   mtq.aocs.mtq.b_field_z
+    description: MAG field Z to MTQ
+
+  # MTQ torques → KDE physics
+  - from: mtq.aocs.mtq.torque_x
+    to:   kde.aocs.mtq.torque_x
+    description: MTQ torque X to KDE
+
+  - from: mtq.aocs.mtq.torque_y
+    to:   kde.aocs.mtq.torque_y
+    description: MTQ torque Y to KDE
+
+  - from: mtq.aocs.mtq.torque_z
+    to:   kde.aocs.mtq.torque_z
+    description: MTQ torque Z to KDE
