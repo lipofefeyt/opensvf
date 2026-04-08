@@ -119,7 +119,7 @@ def pytest_runtest_makereport(
     rep = outcome.get_result()
     if rep.when == "call":
         item._svf_rep = rep  # type: ignore[attr-defined]
-        rep.own_markers = list(item.own_markers)
+
 
         # Add ECSS verdict and requirement IDs as JUnit XML properties
         from svf.plugin.verdict import Verdict
@@ -146,3 +146,10 @@ __all__ = [
     "ObservableFactory",
     "ConditionNotMet",
 ]
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Force GC in each worker process to clean up DDS participants."""
+    import gc
+    gc.collect()
+    gc.collect()
+    gc.collect()
