@@ -13,6 +13,7 @@ from typing import Optional
 
 from svf.abstractions import TickSource, SyncProtocol, ModelAdapter
 from svf.wiring import WiringMap
+from svf.replay import SeedManager
 from svf.command_store import CommandStore
 from svf.parameter_store import ParameterStore
 
@@ -60,6 +61,7 @@ class SimulationMaster:
         wiring: Optional[WiringMap] = None,
         command_store: Optional[CommandStore] = None,
         param_store: Optional[ParameterStore] = None,
+        seed: Optional[int] = None,
     ) -> None:
         if not models:
             raise SimulationError("SimulationMaster requires at least one ModelAdapter.")
@@ -76,6 +78,7 @@ class SimulationMaster:
         self._time: float = 0.0
         self._running = False
         self._model_ids = [m.model_id for m in models]
+        self._seed_manager: SeedManager = SeedManager(seed)
 
     def run(self, start_time: float = 0.0) -> None:
         """
@@ -146,7 +149,17 @@ class SimulationMaster:
         finally:
             self._teardown()
 
-        logger.info("SimulationMaster run complete")
+        self._seed_manager.save()
+        logger.info(f"SimulationMaster run complete (seed={self._seed_manager.master_seed})")
+
+    @property
+    def seed(self) -> int:
+        """Master seed for this simulation run."""
+        return int(self._seed_manager.master_seed)
+
+    def seed_for(self, model_id: str) -> int:
+        """Get deterministic seed for a specific model."""
+        return int(self._seed_manager.seed_for(model_id))
 
     def stop(self) -> None:
         """Signal the simulation to stop after the current tick."""
