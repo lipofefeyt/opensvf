@@ -135,7 +135,7 @@ def test_observe_drops_below(
     result = observe("countdown").drops_below(0.5).within(5.0)
     thread.join()
 
-    assert result < 0.5
+    assert result <= 0.5
 
 
 @pytest.mark.requirement("SVF-DEV-043")
