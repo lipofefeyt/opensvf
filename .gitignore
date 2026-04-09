@@ -222,3 +222,6 @@ core.*
 
 # The OBSW image
 obsw_sim
+
+# Firebase / Nix stuff
+.idx
