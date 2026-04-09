@@ -1,0 +1,36 @@
+services:
+  - class: org.yamcs.ProcessorCreatorService
+    args:
+      name: realtime
+      type: realtime
+
+dataLinks:
+  - name: tm-in
+    class: org.yamcs.tctm.TcpTmDataLink
+    host: 127.0.0.1
+    port: 10015
+    stream: tm_realtime
+
+  - name: tc-out
+    class: org.yamcs.tctm.TcpTcDataLink
+    host: 127.0.0.1
+    port: 10025
+    stream: tc_realtime
+
+mdb:
+  - type: xtce
+    spec: "/workspaces/opensvf/yamcs/mdb/opensvf.xml"
+
+streamConfig:
+  tm:
+    - name: tm_realtime
+      processor: realtime
+  tc:
+    - name: tc_realtime
+      processor: realtime
+  event:
+    - name: events_realtime
+      processor: realtime
+  cmdHist:
+    - name: cmdhist_realtime
+      processor: realtime

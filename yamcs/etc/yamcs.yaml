@@ -1,0 +1,11 @@
+services:
+  - class: org.yamcs.http.HttpServer
+    args:
+      port: 8090
+      zeroCopyEnabled: false
+
+instances:
+  - opensvf
+
+dataDir: /tmp/yamcs-data
+secretKey: "opensvf-dev"

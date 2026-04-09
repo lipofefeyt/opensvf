@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SpaceSystem name="opensvf"
+  xmlns="http://www.omg.org/spec/XTCE/20180204"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+  <Header date="2026-01" version="1.0"
+    classification="opensvf SVF auto-generated from SRDB"/>
+
+  <TelemetryMetaData>
+    <ParameterTypeSet>
+      <FloatParameterType name="float32" sizeInBits="32">
+        <UnitSet/>
+      </FloatParameterType>
+      <IntegerParameterType name="uint16" sizeInBits="16" signed="false">
+        <UnitSet/>
+      </IntegerParameterType>
+    </ParameterTypeSet>
+
+    <ParameterSet>
+      <Parameter name="aocs_attitude_quaternion_w" parameterTypeRef="float32">
+        <LongDescription>Attitude quaternion scalar component</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_attitude_quaternion_x" parameterTypeRef="float32">
+        <LongDescription>Attitude quaternion X component</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_attitude_quaternion_y" parameterTypeRef="float32">
+        <LongDescription>Attitude quaternion Y component</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_attitude_quaternion_z" parameterTypeRef="float32">
+        <LongDescription>Attitude quaternion Z component</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_css_sun_x" parameterTypeRef="float32">
+        <LongDescription>Sun vector X component (body frame, normalised)</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_css_sun_y" parameterTypeRef="float32">
+        <LongDescription>Sun vector Y component (body frame, normalised)</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_css_sun_z" parameterTypeRef="float32">
+        <LongDescription>Sun vector Z component (body frame, normalised)</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_css_validity" parameterTypeRef="float32">
+        <LongDescription>CSS validity (0=invalid/eclipse, 1=valid)</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_gyro_rate_x" parameterTypeRef="float32">
+        <LongDescription>Measured angular rate X axis</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_gyro_rate_y" parameterTypeRef="float32">
+        <LongDescription>Measured angular rate Y axis</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_gyro_rate_z" parameterTypeRef="float32">
+        <LongDescription>Measured angular rate Z axis</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_gyro_status" parameterTypeRef="float32">
+        <LongDescription>Gyroscope status (0=off, 1=nominal, 2=fault)</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_gyro_temperature" parameterTypeRef="float32">
+        <LongDescription>Gyroscope temperature</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_mag_field_x" parameterTypeRef="float32">
+        <LongDescription>Measured magnetic field X component</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_mag_field_y" parameterTypeRef="float32">
+        <LongDescription>Measured magnetic field Y component</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_mag_field_z" parameterTypeRef="float32">
+        <LongDescription>Measured magnetic field Z component</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_mag_status" parameterTypeRef="float32">
+        <LongDescription>Magnetometer status (0=off, 1=nominal, 2=fault)</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_mode" parameterTypeRef="float32">
+        <LongDescription>AOCS operating mode (0=safe, 1=detumbling, 2=nadir, 3=target)</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_mtq_status" parameterTypeRef="float32">
+        <LongDescription>Magnetorquer status (0=off, 1=nominal)</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_rate_x" parameterTypeRef="float32">
+        <LongDescription>Angular rate around X axis</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_rate_y" parameterTypeRef="float32">
+        <LongDescription>Angular rate around Y axis</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_rate_z" parameterTypeRef="float32">
+        <LongDescription>Angular rate around Z axis</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_rw1_speed" parameterTypeRef="float32">
+        <LongDescription>Reaction wheel 1 speed</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_rw1_status" parameterTypeRef="float32">
+        <LongDescription>Reaction wheel 1 status (1=nominal)</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_rw1_temperature" parameterTypeRef="float32">
+        <LongDescription>Reaction wheel 1 bearing temperature</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_str1_acquisition_progress" parameterTypeRef="float32">
+        <LongDescription>Star tracker 1 acquisition progress (0.0 to 1.0)</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_str1_mode" parameterTypeRef="float32">
+        <LongDescription>Star tracker 1 mode (0=off, 1=acquiring, 2=tracking)</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_str1_quaternion_w" parameterTypeRef="float32">
+        <LongDescription>Star tracker 1 attitude quaternion scalar component</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_str1_quaternion_x" parameterTypeRef="float32">
+        <LongDescription>Star tracker 1 attitude quaternion X component</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_str1_quaternion_y" parameterTypeRef="float32">
+        <LongDescription>Star tracker 1 attitude quaternion Y component</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_str1_quaternion_z" parameterTypeRef="float32">
+        <LongDescription>Star tracker 1 attitude quaternion Z component</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_str1_temperature" parameterTypeRef="float32">
+        <LongDescription>Star tracker 1 detector temperature</LongDescription>
+      </Parameter>
+      <Parameter name="aocs_str1_validity" parameterTypeRef="float32">
+        <LongDescription>Star tracker 1 measurement validity (0=invalid, 1=valid)</LongDescription>
+      </Parameter>
+      <Parameter name="dhs_obc_cpu_load" parameterTypeRef="float32">
+        <LongDescription>OBC CPU load percentage</LongDescription>
+      </Parameter>
+      <Parameter name="dhs_obc_health" parameterTypeRef="float32">
+        <LongDescription>OBC health status (0=nominal, 1=degraded, 2=failed)</LongDescription>
+      </Parameter>
+      <Parameter name="dhs_obc_memory_used_pct" parameterTypeRef="float32">
+        <LongDescription>Mass memory used percentage</LongDescription>
+      </Parameter>
+      <Parameter name="dhs_obc_mode" parameterTypeRef="float32">
+        <LongDescription>OBC operating mode (0=safe, 1=nominal, 2=payload)</LongDescription>
+      </Parameter>
+      <Parameter name="dhs_obc_obt" parameterTypeRef="float32">
+        <LongDescription>On-board time in seconds since epoch</LongDescription>
+      </Parameter>
+      <Parameter name="dhs_obc_reset_count" parameterTypeRef="float32">
+        <LongDescription>OBC reset counter since launch</LongDescription>
+      </Parameter>
+      <Parameter name="dhs_obc_watchdog_status" parameterTypeRef="float32">
+        <LongDescription>Watchdog status (0=nominal, 1=timeout_warning, 2=reset)</LongDescription>
+      </Parameter>
+      <Parameter name="eps_battery_charge_current" parameterTypeRef="float32">
+        <LongDescription>Battery charge current. Positive = charging, negative = discharging.</LongDescription>
+      </Parameter>
+      <Parameter name="eps_battery_soc" parameterTypeRef="float32">
+        <LongDescription>Battery state of charge</LongDescription>
+      </Parameter>
+      <Parameter name="eps_battery_voltage" parameterTypeRef="float32">
+        <LongDescription>Battery terminal voltage</LongDescription>
+      </Parameter>
+      <Parameter name="eps_bus_voltage" parameterTypeRef="float32">
+        <LongDescription>Regulated power bus voltage</LongDescription>
+      </Parameter>
+      <Parameter name="eps_pcdu_charge_current" parameterTypeRef="float32">
+        <LongDescription>Battery charge current commanded by PCDU</LongDescription>
+      </Parameter>
+      <Parameter name="eps_pcdu_lcl1_status" parameterTypeRef="float32">
+        <LongDescription>LCL1 status (0=off, 1=on)</LongDescription>
+      </Parameter>
+      <Parameter name="eps_pcdu_lcl2_status" parameterTypeRef="float32">
+        <LongDescription>LCL2 status (0=off, 1=on)</LongDescription>
+      </Parameter>
+      <Parameter name="eps_pcdu_lcl3_status" parameterTypeRef="float32">
+        <LongDescription>LCL3 status (0=off, 1=on)</LongDescription>
+      </Parameter>
+      <Parameter name="eps_pcdu_lcl4_status" parameterTypeRef="float32">
+        <LongDescription>LCL4 status (0=off, 1=on)</LongDescription>
+      </Parameter>
+      <Parameter name="eps_pcdu_lcl5_status" parameterTypeRef="float32">
+        <LongDescription>LCL5 status (0=off, 1=on)</LongDescription>
+      </Parameter>
+      <Parameter name="eps_pcdu_lcl6_status" parameterTypeRef="float32">
+        <LongDescription>LCL6 status (0=off, 1=on)</LongDescription>
+      </Parameter>
+      <Parameter name="eps_pcdu_lcl7_status" parameterTypeRef="float32">
+        <LongDescription>LCL7 status (0=off, 1=on)</LongDescription>
+      </Parameter>
+      <Parameter name="eps_pcdu_lcl8_status" parameterTypeRef="float32">
+        <LongDescription>LCL8 status (0=off, 1=on)</LongDescription>
+      </Parameter>
+      <Parameter name="eps_pcdu_mppt_efficiency" parameterTypeRef="float32">
+        <LongDescription>MPPT efficiency (0.0-1.0)</LongDescription>
+      </Parameter>
+      <Parameter name="eps_pcdu_total_load" parameterTypeRef="float32">
+        <LongDescription>Total spacecraft load power</LongDescription>
+      </Parameter>
+      <Parameter name="eps_pcdu_uvlo_active" parameterTypeRef="float32">
+        <LongDescription>Under-voltage lockout active (0=nominal, 1=UVLO)</LongDescription>
+      </Parameter>
+      <Parameter name="eps_solar_array_generated_power" parameterTypeRef="float32">
+        <LongDescription>Solar array generated power</LongDescription>
+      </Parameter>
+      <Parameter name="obdh_memory_storage_used" parameterTypeRef="float32">
+        <LongDescription>Mass memory storage used</LongDescription>
+      </Parameter>
+      <Parameter name="obdh_mode_current" parameterTypeRef="float32">
+        <LongDescription>Current spacecraft operating mode (0=safe, 1=nominal, 2=payload)</LongDescription>
+      </Parameter>
+      <Parameter name="obdh_obc_cpu_load" parameterTypeRef="float32">
+        <LongDescription>OBC CPU load percentage</LongDescription>
+      </Parameter>
+      <Parameter name="obdh_obc_memory_free" parameterTypeRef="float32">
+        <LongDescription>OBC free memory</LongDescription>
+      </Parameter>
+      <Parameter name="obdh_obc_uptime" parameterTypeRef="float32">
+        <LongDescription>OBC uptime since last reset</LongDescription>
+      </Parameter>
+      <Parameter name="obdh_watchdog_reset_count" parameterTypeRef="float32">
+        <LongDescription>Watchdog reset counter since launch</LongDescription>
+      </Parameter>
+      <Parameter name="thermal_battery_temperature" parameterTypeRef="float32">
+        <LongDescription>Battery pack temperature</LongDescription>
+      </Parameter>
+      <Parameter name="thermal_heater_battery_status" parameterTypeRef="float32">
+        <LongDescription>Battery heater status (0=off, 1=on)</LongDescription>
+      </Parameter>
+      <Parameter name="thermal_obc_temperature" parameterTypeRef="float32">
+        <LongDescription>OBC board temperature</LongDescription>
+      </Parameter>
+      <Parameter name="thermal_solar_panel_temperature" parameterTypeRef="float32">
+        <LongDescription>Solar panel temperature</LongDescription>
+      </Parameter>
+      <Parameter name="thermal_structure_temperature" parameterTypeRef="float32">
+        <LongDescription>Spacecraft structure temperature</LongDescription>
+      </Parameter>
+      <Parameter name="ttc_antenna_mode" parameterTypeRef="float32">
+        <LongDescription>Antenna mode (0=omni, 1=high-gain)</LongDescription>
+      </Parameter>
+      <Parameter name="ttc_link_bit_error_rate" parameterTypeRef="float32">
+        <LongDescription>Downlink bit error rate</LongDescription>
+      </Parameter>
+      <Parameter name="ttc_sbt_downlink_active" parameterTypeRef="float32">
+        <LongDescription>S-Band downlink active (0=inactive, 1=active)</LongDescription>
+      </Parameter>
+      <Parameter name="ttc_sbt_mode" parameterTypeRef="float32">
+        <LongDescription>SBT operating mode (0=idle, 1=ranging, 2=tc_rx, 3=tm_tx)</LongDescription>
+      </Parameter>
+      <Parameter name="ttc_sbt_rx_bitrate" parameterTypeRef="float32">
+        <LongDescription>Uplink bit rate</LongDescription>
+      </Parameter>
+      <Parameter name="ttc_sbt_tx_bitrate" parameterTypeRef="float32">
+        <LongDescription>Downlink bit rate</LongDescription>
+      </Parameter>
+      <Parameter name="ttc_sbt_uplink_lock" parameterTypeRef="float32">
+        <LongDescription>S-Band uplink carrier lock (0=unlocked, 1=locked)</LongDescription>
+      </Parameter>
+      <Parameter name="ttc_transponder_lock_status" parameterTypeRef="float32">
+        <LongDescription>Uplink carrier lock status (0=unlocked, 1=locked)</LongDescription>
+      </Parameter>
+      <Parameter name="ttc_transponder_rx_signal_level" parameterTypeRef="float32">
+        <LongDescription>Uplink received signal level</LongDescription>
+      </Parameter>
+      <Parameter name="ttc_transponder_tx_power" parameterTypeRef="float32">
+        <LongDescription>Downlink transmit power</LongDescription>
+      </Parameter>
+    </ParameterSet>
+
+    <ContainerSet>
+      <!-- PUS-C TM(17,2) Are-You-Alive response -->
+      <SequenceContainer name="TM_17_2">
+        <LongDescription>Are-You-Alive response</LongDescription>
+        <EntryList/>
+      </SequenceContainer>
+
+      <!-- PUS-C TM(3,25) Housekeeping report -->
+      <SequenceContainer name="TM_3_25">
+        <LongDescription>Housekeeping parameter report</LongDescription>
+        <EntryList>
+          <ParameterRefEntry parameterRef="aocs_attitude_quaternion_w"/>
+          <ParameterRefEntry parameterRef="aocs_attitude_quaternion_x"/>
+          <ParameterRefEntry parameterRef="aocs_attitude_quaternion_y"/>
+          <ParameterRefEntry parameterRef="aocs_attitude_quaternion_z"/>
+          <ParameterRefEntry parameterRef="aocs_css_sun_x"/>
+          <ParameterRefEntry parameterRef="aocs_css_sun_y"/>
+          <ParameterRefEntry parameterRef="aocs_css_sun_z"/>
+          <ParameterRefEntry parameterRef="aocs_css_validity"/>
+          <ParameterRefEntry parameterRef="aocs_gyro_rate_x"/>
+          <ParameterRefEntry parameterRef="aocs_gyro_rate_y"/>
+          <ParameterRefEntry parameterRef="aocs_gyro_rate_z"/>
+          <ParameterRefEntry parameterRef="aocs_gyro_status"/>
+          <ParameterRefEntry parameterRef="aocs_gyro_temperature"/>
+          <ParameterRefEntry parameterRef="aocs_mag_field_x"/>
+          <ParameterRefEntry parameterRef="aocs_mag_field_y"/>
+          <ParameterRefEntry parameterRef="aocs_mag_field_z"/>
+        </EntryList>
+      </SequenceContainer>
+    </ContainerSet>
+  </TelemetryMetaData>
+
+
+  <CommandMetaData>
+    <ArgumentTypeSet>
+      <IntegerArgumentType name="uint16_arg" sizeInBits="16" signed="false">
+        <UnitSet/>
+      </IntegerArgumentType>
+      <FloatArgumentType name="float32_arg" sizeInBits="32">
+        <UnitSet/>
+      </FloatArgumentType>
+    </ArgumentTypeSet>
+    <MetaCommandSet>
+
+      <!-- TC(17,1) Are-You-Alive -->
+      <MetaCommand name="TC_17_1_AreYouAlive">
+        <LongDescription>Send S17 Are-You-Alive ping to OBC</LongDescription>
+        <ArgumentList/>
+        <CommandContainer name="TC_17_1_AreYouAlive_cc">
+          <EntryList/>
+        </CommandContainer>
+      </MetaCommand>
+
+      <!-- TC(20,1) Set Parameter -->
+      <MetaCommand name="TC_20_1_SetParameter">
+        <LongDescription>Set on-board parameter value (S20)</LongDescription>
+        <ArgumentList>
+          <Argument name="parameter_id" argumentTypeRef="uint16_arg"/>
+          <Argument name="value" argumentTypeRef="float32_arg"/>
+        </ArgumentList>
+        <CommandContainer name="TC_20_1_SetParameter_cc">
+          <EntryList>
+            <ArgumentRefEntry argumentRef="parameter_id"/>
+            <ArgumentRefEntry argumentRef="value"/>
+          </EntryList>
+        </CommandContainer>
+      </MetaCommand>
+
+    </MetaCommandSet>
+  </CommandMetaData>
+</SpaceSystem>
