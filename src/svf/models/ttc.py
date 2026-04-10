@@ -16,6 +16,7 @@ from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
 from svf.pus.tc import PusTcBuilder, PusTcPacket
 from svf.pus.tm import PusTmPacket
+from svf.yamcs_bridge import YamcsBridge
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +55,10 @@ class TtcEquipment(Equipment):
         sync_protocol: SyncProtocol,
         store: ParameterStore,
         command_store: Optional[CommandStore] = None,
+        yamcs_bridge: Optional[YamcsBridge] = None,
     ) -> None:
         self._obc = obc
+        self._yamcs_bridge = yamcs_bridge
         self._builder = PusTcBuilder()
         self._pending_tcs: list[PusTcPacket] = []
         self._sim_time: float = 0.0
@@ -87,6 +90,15 @@ class TtcEquipment(Equipment):
         """Forward pending TCs to OBC."""
         self._sim_time = t
 
+        # Poll TC from YAMCS operator
+        if self._yamcs_bridge is not None:
+            while True:
+                raw_tc = self._yamcs_bridge.get_tc()
+                if raw_tc is None:
+                    break
+                self._obc.receive_tc(raw_tc, t=t)
+                logger.info(f"[ttc] TC from YAMCS forwarded to OBC at t={t:.1f}s")
+
         uplink = 0.0
         if self._pending_tcs:
             uplink = 1.0
@@ -100,6 +112,13 @@ class TtcEquipment(Equipment):
             self._pending_tcs.clear()
 
         self.write_port("ttc.uplink_active", uplink)
+        # Forward TM queue to YAMCS
+        if self._yamcs_bridge is not None:
+            from svf.pus.tm import PusTmBuilder
+            builder = PusTmBuilder()
+            for pkt in self._obc.get_tm_queue():
+                self._yamcs_bridge.send_tm(builder.build(pkt))
+
         self.write_port(
             "ttc.downlink_active",
             1.0 if self._obc.get_tm_by_service(3, 25) else 0.0,
