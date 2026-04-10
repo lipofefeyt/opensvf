@@ -2,7 +2,7 @@
 
 **Open-core spacecraft Software Validation Facility**
 
-OpenSVF is a Python-based platform for validating spacecraft software and systems — from individual subsystem models to full closed-loop co-simulation with a C++ physics engine and a real OBSW binary running inside.
+OpenSVF is a Python-based platform for validating spacecraft software and systems — from individual subsystem models to full closed-loop co-simulation with a C++ physics engine, a real OBSW binary, and a YAMCS ground station.
 
 ---
 
@@ -10,7 +10,7 @@ OpenSVF is a Python-based platform for validating spacecraft software and system
 
 From ECSS-E-TM-10-21A:
 
-> *System modelling and simulation is a support activity to OBSW validation. The ability to inject failures in the models enables the user to trigger the OBSW monitoring processes as well as to exercise the FDIR mechanisms. Sometimes simpler so-called "model responders" may be sufficient to test the open-loop behaviour of the OBSW. The SVF is used repeatedly during the programme for each version of the onboard software and each version of the spacecraft database associated with it.*
+> *System modelling and simulation is a support activity to OBSW validation. The ability to inject failures in the models enables the user to trigger the OBSW monitoring processes as well as to exercise the FDIR mechanisms.*
 
 OpenSVF implements this across four validation levels:
 
@@ -18,8 +18,8 @@ OpenSVF implements this across four validation levels:
 |---|---|---|
 | 1 — Model validation | Each subsystem verified in isolation | ✅ Complete |
 | 2 — Interface validation | Bus interfaces + full fault matrix | ✅ Complete |
-| 3 — Integration validation | Models + interfaces + PUS chain | ✅ Complete |
-| 4 — System validation | Real OBSW + C++ physics co-simulation | ✅ Complete |
+| 3 — Integration validation | Models + PUS chain + closed-loop FDIR | ✅ Complete |
+| 4 — System validation | Real OBSW + C++ physics + YAMCS ground station | ✅ Complete |
 
 ---
 
@@ -28,26 +28,23 @@ OpenSVF implements this across four validation levels:
 ```bash
 git clone https://github.com/lipofefeyt/opensvf
 cd opensvf
-pip install -e ".[dev]"
+source scripts/setup-workspace.sh
 
 # Run all tests
-pytest
+testosvf
 
 # Run a campaign
 svf run campaigns/fdir_chain.yaml
 
-# Run closed-loop detumbling test (requires KDE FMU)
-pytest tests/integration/test_closed_loop_detumbling.py -v
-
-# Run with real OBSW (requires obsw_sim binary)
-pytest tests/hardware/ -v
+# Full demo: SVF + YAMCS ground station
+bash scripts/demo.sh
 ```
 
 ---
 
-## Closed-Loop Co-Simulation
+## The Closed Loop
 
-The full simulation loop connects three independent projects:
+Three independent projects run together in a single simulation tick:
 
 ```
 opensvf-kde (C++ / Eigen3)          openobsw (C11 / bare metal)
@@ -56,18 +53,43 @@ opensvf-kde (C++ / Eigen3)          openobsw (C11 / bare metal)
   Quaternion kinematics                PUS S1/3/5/8/17/20
   Earth B-field model                  FDIR state machine
          │                                     │
-         │  true ω, B (via FMI 2.0)           │  TC/TM (via pipe protocol)
+         │  true ω, B  via FMI 2.0            │  TC/TM via pipe protocol
          ▼                                     ▼
               opensvf (Python / pytest)
                 SVF tick loop (DDS lockstep)
                 Sensor models (MAG, GYRO, ST, CSS)
-                Actuator models (MTQ, RW)
+                Actuator models (MTQ, RW, PCDU)
                 OBC models (stub / emulator)
                 PUS commanding chain
                 Campaign manager + reports
+                         │
+                         │  PUS TM/TC via TCP
+                         ▼
+                    YAMCS 5.12.6
+                    Ground station UI
+                    XTCE mission database
+                    TC uplink / TM display
 ```
 
-One SVF tick = one physics step + one OBC control cycle + all sensor/actuator updates.
+---
+
+## Ground Segment (YAMCS)
+
+OpenSVF integrates with YAMCS as a real ground station:
+
+```bash
+# Terminal 1 — start YAMCS
+source scripts/setup-workspace.sh
+yamcs-start && yamcs-log-follow
+
+# Terminal 2 — run simulation
+source scripts/setup-workspace.sh
+svf-demo-fg
+```
+
+Then open `http://localhost:8090` — the opensvf instance shows live TM parameters, and TC commands can be sent from the YAMCS UI directly to the simulated OBC.
+
+The XTCE mission database is auto-generated from SRDB on every YAMCS start — 78 parameters, 2 TM containers, 2 commands.
 
 ---
 
@@ -76,7 +98,7 @@ One SVF tick = one physics step + one OBC control cycle + all sensor/actuator up
 Three drop-in implementations — swap with one line at the composition root:
 
 ```python
-# Level 3 — simulated OBC with rule-based OBSW behaviour
+# Level 3 — rule-based OBSW behaviour simulator
 obc = ObcStub(config, sync, store, cmd_store, rules=[
     Rule(
         name="low_battery_safe",
@@ -86,64 +108,52 @@ obc = ObcStub(config, sync, store, cmd_store, rules=[
     ),
 ])
 
-# Level 4 — real OBSW binary under test (one line change)
-obc = OBCEmulatorAdapter(
-    sim_path="obsw_sim",
-    sync_protocol=sync,
-    store=store,
-    command_store=cmd_store,
-)
+# Level 4 — real OBSW binary under test
+obc = OBCEmulatorAdapter(sim_path="obsw_sim", ...)
 
-# TtcEquipment accepts both via ObcInterface protocol
-ttc = TtcEquipment(obc, sync, store, cmd_store)
+# TtcEquipment accepts both — and optionally connects to YAMCS
+ttc = TtcEquipment(obc, sync, store, cmd_store, yamcs_bridge=bridge)
 ```
 
 ---
 
-## The Physics Engine (opensvf-kde)
+## Deterministic Replay
 
-The KDE FMU provides high-fidelity 6-DOF spacecraft dynamics:
+Every simulation run logs its seed to `results/seed.json`:
 
-```python
-# KDE as a NativeEquipment — participates in SVF tick loop
-kde = make_kde_equipment(sync, store, cmd_store)
-
-# Wiring closes the loop: MTQ torques → KDE → true state → sensors
-wiring = WiringLoader({"kde": kde, "mag": mag, "mtq": mtq, ...}).load(
-    Path("srdb/wiring/kde_wiring.yaml")
-)
+```
+SVF seed: 809481067  (replay with seed=809481067)
 ```
 
-**KDE ports:**
+Replay any run exactly:
 
-| Port | Direction | Unit | Description |
-|---|---|---|---|
-| `aocs.mtq.torque_x/y/z` | IN | Nm | Mechanical torques from MTQ |
-| `aocs.truth.rate_x/y/z` | OUT | rad/s | True angular velocity |
-| `aocs.mag.true_x/y/z` | OUT | T | True magnetic field |
-| `aocs.attitude.quaternion_w/x/y/z` | OUT | — | True attitude quaternion |
+```python
+master = SimulationMaster(..., seed=809481067)
+master.run()  # identical noise, identical results
+```
 
 ---
 
 ## Reference Equipment Library
 
-| Equipment | Factory | Subsystem | Interface | Key Physics |
-|---|---|---|---|---|
-| `ObcEquipment` | class | DHS | 1553 BC | Mode FSM, OBT, watchdog, PUS routing |
-| `ObcStub` | class | DHS | — | Rule engine, closed-loop FDIR |
-| `OBCEmulatorAdapter` | class | DHS | binary pipe | Real OBSW under test |
-| `TtcEquipment` | class | TTC | ObcInterface | TC/TM byte pipe |
-| `make_kde_equipment()` | factory | Dynamics | FMI 2.0 | 6-DOF physics, B-field model |
-| `make_reaction_wheel()` | factory | AOCS | 1553 RT | Torque, friction, temperature |
-| `make_star_tracker()` | factory | AOCS | SpW/1553 | Quaternion, noise, sun blinding |
-| `make_magnetometer()` | factory | AOCS | — | B-field measurement + noise |
-| `make_magnetorquer()` | factory | AOCS | — | Torque = m × B |
-| `make_gyroscope()` | factory | AOCS | — | Rate measurement + ARW noise |
-| `make_css()` | factory | AOCS | — | Sun vector + eclipse detection |
-| `make_bdot_controller()` | factory | AOCS | — | m = −k·Ḃ detumbling law |
-| `make_sbt()` | factory | TTC | UART | Carrier lock, mode FSM |
-| `make_pcdu()` | factory | EPS | — | LCL switching, MPPT, UVLO |
-| `EpsFmu` | FmuEquipment | EPS | FMI 3.0 | Solar array, Li-Ion battery |
+| Equipment | Factory | Subsystem | Key Physics |
+|---|---|---|---|
+| `ObcEquipment` | class | DHS | Mode FSM, OBT, watchdog, PUS routing |
+| `ObcStub` | class | DHS | Rule engine, closed-loop FDIR |
+| `OBCEmulatorAdapter` | class | DHS | Real OBSW via binary pipe |
+| `TtcEquipment` | class | TTC | TC/TM pipe, optional YAMCS bridge |
+| `YamcsBridge` | class | GND | TCP TM/TC bridge to YAMCS |
+| `make_kde_equipment()` | factory | Dynamics | 6-DOF physics, B-field model |
+| `make_reaction_wheel()` | factory | AOCS | Torque, friction, temperature |
+| `make_star_tracker()` | factory | AOCS | Quaternion, noise, sun blinding |
+| `make_magnetometer()` | factory | AOCS | B-field measurement + noise |
+| `make_magnetorquer()` | factory | AOCS | Torque = m × B |
+| `make_gyroscope()` | factory | AOCS | Rate measurement + ARW noise |
+| `make_css()` | factory | AOCS | Sun vector + eclipse detection |
+| `make_bdot_controller()` | factory | AOCS | m = −k·Ḃ detumbling law |
+| `make_sbt()` | factory | TTC | Carrier lock, mode FSM |
+| `make_pcdu()` | factory | EPS | LCL switching, MPPT, UVLO |
+| `EpsFmu` | FmuEquipment | EPS | Solar array, Li-Ion battery |
 
 ---
 
@@ -155,19 +165,10 @@ wiring = WiringLoader({"kde": kde, "mag": mag, "mtq": mtq, ...}).load(
 | `mil1553_validation.yaml` | 1553 bus + FDIR | 2 |
 | `pus_validation.yaml` | PUS commanding chain | 3 |
 | `platform_validation.yaml` | Full platform | 3 |
-| `safe_mode_recovery.yaml` | Closed-loop recovery (OBC stub) | 3/4 |
-| `nominal_ops.yaml` | Nominal operations (OBC stub) | 3/4 |
-| `contact_pass.yaml` | Ground contact pass (OBC stub) | 3/4 |
-| `fdir_chain.yaml` | FDIR chain end-to-end (OBC stub) | 3/4 |
-
----
-
-## Related Projects
-
-| Project | Role |
-|---|---|
-| [opensvf-kde](https://github.com/lipofefeyt/opensvf-kde) | C++ 6-DOF physics engine (FMI 2.0 FMU) |
-| [openobsw](https://github.com/lipofefeyt/openobsw) | C11 OBSW: PUS services, b-dot, FDIR, validated on MSP430 |
+| `safe_mode_recovery.yaml` | Closed-loop recovery | 3/4 |
+| `nominal_ops.yaml` | Nominal operations | 3/4 |
+| `contact_pass.yaml` | Ground contact pass | 3/4 |
+| `fdir_chain.yaml` | FDIR chain end-to-end | 3/4 |
 
 ---
 
@@ -180,36 +181,42 @@ src/svf/
 │   ├── obc.py              ObcEquipment — simulated OBC
 │   ├── obc_stub.py         ObcStub — rule-based OBSW simulator
 │   ├── obc_emulator.py     OBCEmulatorAdapter — real OBSW via pipe
-│   ├── ttc.py              TtcEquipment (accepts ObcInterface)
-│   ├── reaction_wheel.py   RW with friction + temperature
-│   ├── star_tracker.py     ST with quaternion + blinding
+│   ├── ttc.py              TtcEquipment (ObcInterface + YamcsBridge)
 │   ├── magnetometer.py     MAG with noise + bias drift
 │   ├── magnetorquer.py     MTQ torque = m × B
-│   ├── gyroscope.py        GYRO with ARW noise + bias
+│   ├── gyroscope.py        GYRO with ARW noise + bias drift
 │   ├── css.py              CSS sun vector + eclipse
 │   ├── bdot_controller.py  B-dot reference controller
-│   ├── sbt.py              SBT with carrier lock + modes
-│   ├── pcdu.py             PCDU with LCL + MPPT + UVLO
-│   └── fmu/
-│       ├── DynamicsFmu.py  Raw FMI wrapper for KDE
-│       ├── EpsFmu.py       EPS FMU source
-│       └── ...
+│   └── ...
+├── yamcs_bridge.py         TCP TM/TC bridge to YAMCS
+├── replay.py               SeedManager — deterministic replay
+├── simulation.py           SimulationMaster (seed param)
 ├── pus/                    PUS-C TC/TM (S1/3/5/8/17/20)
 ├── campaign/               YAML campaigns + HTML reports
-├── plugin/                 pytest plugin (svf_session, observables)
-└── srdb/                   Spacecraft Reference Database
+└── plugin/                 pytest plugin (xdist compatible)
 
-srdb/wiring/
-├── kde_wiring.yaml         Full closed-loop: KDE↔sensors↔actuators
-└── bdot_wiring.yaml        Standalone b-dot: MAG→bdot→MTQ
+yamcs/
+├── etc/                    YAMCS server + instance config
+└── mdb/                    XTCE mission database (from SRDB)
 
-tests/
-├── integration/            Closed-loop and infrastructure tests
-│   └── test_closed_loop_detumbling.py  Full co-simulation test
-├── spacecraft/             Model + system tests
-├── hardware/               HIL tests (require obsw_sim)
-└── unit/ equipment/        Unit + contract tests
+scripts/
+├── setup-workspace.sh      One-shot environment setup
+├── start-yamcs.sh          Start YAMCS ground station
+├── demo.sh                 Full demo (tmux, two windows)
+└── demo_yamcs.py           SVF + YAMCS demo script
+
+tools/
+└── generate_xtce.py        XTCE generator from SRDB
 ```
+
+---
+
+## Related Projects
+
+| Project | Role |
+|---|---|
+| [opensvf-kde](https://github.com/lipofefeyt/opensvf-kde) | C++ 6-DOF physics engine (FMI 2.0 FMU) |
+| [openobsw](https://github.com/lipofefeyt/openobsw) | C11 OBSW: PUS services, b-dot, FDIR, validated on MSP430 |
 
 ---
 
@@ -217,10 +224,11 @@ tests/
 
 | Milestone | Status |
 |---|---|
-| M1–M10 (core platform through closed-loop validation) | ✅ Done |
-| M11 - OBC Emulator Integration | ✅ Done |
-| M11.5 - KDE Co-Simulation Integration | ✅ Done |
-| M12 - Ground Segment (YAMCS, SpW, CAN) | Planned |
+| M1–M10 — Core platform through closed-loop validation | ✅ Done |
+| M11 — OBC Emulator Integration | ✅ Done |
+| M11.5 — KDE Co-Simulation Integration | ✅ Done |
+| M12 — Ground Segment (YAMCS) | ✅ Done |
+| Next — Dockerfile, SpaceWire, CAN, variable timestep | Planned |
 
 ---
 
@@ -230,4 +238,4 @@ Apache 2.0 — see [`LICENSE`](LICENSE).
 
 ---
 
-*Built by lipofefeyt · Sister projects: [opensvf-kde](https://github.com/lipofefeyt/opensvf-kde) · [openobsw](https://github.com/lipofefeyt/openobsw)* 
+*Built by lipofefeyt · Sister projects: [opensvf-kde](https://github.com/lipofefeyt/opensvf-kde) · [openobsw](https://github.com/lipofefeyt/openobsw)*
