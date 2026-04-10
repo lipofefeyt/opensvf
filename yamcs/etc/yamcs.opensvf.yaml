@@ -19,7 +19,7 @@ dataLinks:
 
 mdb:
   - type: xtce
-    spec: "/workspaces/opensvf/yamcs/mdb/opensvf.xml"
+    spec: "/home/user/opensvf/yamcs/mdb/opensvf.xml"
 
 streamConfig:
   tm:

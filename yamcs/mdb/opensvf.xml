@@ -285,7 +285,6 @@
     </ContainerSet>
   </TelemetryMetaData>
 
-
   <CommandMetaData>
     <ArgumentTypeSet>
       <IntegerArgumentType name="uint16_arg" sizeInBits="16" signed="false">
