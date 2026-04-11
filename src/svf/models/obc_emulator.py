@@ -338,27 +338,38 @@ class OBCEmulatorAdapter(Equipment):
     def _collect_until_sync(
         self, timeout: float
     ) -> tuple[list[bytes], bool]:
+        """
+        Read type-prefixed frames until 0xFF sync byte.
+
+        Protocol v3 stdout:
+          [0x04][uint16 BE len][TM bytes]       — PUS TM packet
+          [0x03][uint16 BE len][actuator bytes] — actuator frame
+          [0xFF]                                — end of tick
+        """
         packets: list[bytes] = []
         deadline = time.monotonic() + timeout
-
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 return packets, False
 
-            b = self._read_byte(remaining)
-            if b is None:
+            frame_type = self._read_byte(remaining)
+            if frame_type is None:
                 return packets, False
-            if b == SYNC_BYTE:
+            if frame_type == SYNC_BYTE:
                 return packets, True
 
-            b2 = self._read_byte(remaining)
-            if b2 is None:
+            # Read 2-byte BE length
+            b1 = self._read_byte(deadline - time.monotonic())
+            b2 = self._read_byte(deadline - time.monotonic())
+            if b1 is None or b2 is None:
                 return packets, False
+            length = (b1 << 8) | b2
 
-            length = (b << 8) | b2
-            if length == 0 or length > 1024:
-                logger.warning(f"[obc-emu] Bad frame length {length}")
+            if length == 0 or length > 4096:
+                logger.warning(
+                    f"[obc-emu] Bad length {length} type=0x{frame_type:02X}"
+                )
                 continue
 
             body = bytearray()
@@ -366,12 +377,19 @@ class OBCEmulatorAdapter(Equipment):
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     return packets, False
-                b3 = self._read_byte(remaining)
-                if b3 is None:
+                b = self._read_byte(remaining)
+                if b is None:
                     return packets, False
-                body.append(b3)
-            packets.append(bytes(body))
+                body.append(b)
 
+            if frame_type == FRAME_TM:
+                packets.append(bytes(body))
+            elif frame_type == FRAME_ACTUATOR:
+                self._parse_actuator(bytes(body))
+            else:
+                logger.warning(
+                    f"[obc-emu] Unknown frame type 0x{frame_type:02X}"
+                )
     # ------------------------------------------------------------------ #
     # TM parsing                                                           #
     # ------------------------------------------------------------------ #
