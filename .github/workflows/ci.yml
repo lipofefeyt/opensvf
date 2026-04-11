@@ -40,3 +40,22 @@ jobs:
         with:
           name: junit-results
           path: results/junit.xml
+
+  docker:
+    name: docker build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Build Docker image
+        run: docker build -t opensvf .
+
+      - name: Smoke test in container
+        run: |
+          docker run --rm opensvf python3 -c "
+          import svf
+          from svf.simulation import SimulationMaster
+          from svf.parameter_store import ParameterStore
+          print('SVF imports OK')
+          "
