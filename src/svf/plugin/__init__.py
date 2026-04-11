@@ -1,3 +1,4 @@
+
 """
 SVF pytest Plugin
 Registers SVF fixtures and hooks with pytest.
@@ -10,10 +11,20 @@ import pytest
 import pluggy
 
 from typing import cast as typing_cast
-from typing import Generator
+from typing import Any, Generator
 from svf.plugin.fixtures import svf_participant, svf_session, FmuConfig
 from svf.plugin.verdict import Verdict, VerdictRecorder
 from svf.plugin.observable import ObservableFactory, ConditionNotMet
+
+# Global registry of DDS participants for explicit cleanup at session end
+_dds_participants: list[Any] = []
+
+
+def _register_participant(p: Any) -> Any:
+    """Register a DomainParticipant for cleanup at session end."""
+    _dds_participants.append(p)
+    return p
+
 
 def pytest_terminal_summary(
     terminalreporter: pytest.TerminalReporter,
@@ -148,8 +159,15 @@ __all__ = [
 ]
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
-    """Force GC in each worker process to clean up DDS participants."""
+    """Explicitly delete all DDS participants before Python shuts down."""
     import gc
+    # Delete all tracked participants explicitly
+    for p in _dds_participants:
+        try:
+            p._delete()
+        except Exception:
+            pass
+    _dds_participants.clear()
     gc.collect()
     gc.collect()
     gc.collect()

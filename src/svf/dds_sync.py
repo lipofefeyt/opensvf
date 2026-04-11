@@ -42,6 +42,12 @@ class DdsSyncProtocol(SyncProtocol):
     def __init__(self, participant: DomainParticipant) -> None:
         self._participant = participant
         self._closed = False
+        # Register for explicit cleanup at pytest session end
+        try:
+            from svf.plugin import _register_participant
+            _register_participant(participant)
+        except ImportError:
+            pass
 
         # KEEP_ALL ensures no ack is dropped when multiple models
         # publish to the same topic before wait_for_ready reads them
@@ -106,9 +112,11 @@ class DdsSyncProtocol(SyncProtocol):
         logger.info("DdsSyncProtocol closed")
 
     def __del__(self) -> None:
-        """Fallback cleanup — prefer explicit close()."""
-        try:
-            self.close()
-        except Exception:
-            pass
+        """
+        Do NOT call close() here — calling _delete() during Python
+        interpreter shutdown or GC finalization causes corrupted
+        double-linked list abort. Explicit close() via
+        SimulationMaster._teardown() is the only safe teardown path.
+        """
+        pass
 
