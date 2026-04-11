@@ -41,10 +41,15 @@ logger = logging.getLogger(__name__)
 SYNC_BYTE       = 0xFF
 FRAME_TC        = 0x01
 FRAME_SENSOR    = 0x02
+FRAME_ACTUATOR  = 0x03
+FRAME_TM        = 0x04
 
 # obsw_sensor_frame_t: 3f+B + 4f+B + 3f+B + f = 47 bytes (little-endian, packed)
-_SENSOR_FMT = "<3fB4fB3fBf"
-_SENSOR_LEN = struct.calcsize(_SENSOR_FMT)
+# obsw_actuator_frame_t: 3f + 3f + B + f = 29 bytes (little-endian, packed)
+_SENSOR_FMT   = "<3fB4fB3fBf"
+_SENSOR_LEN   = struct.calcsize(_SENSOR_FMT)
+_ACTUATOR_FMT = "<6fBf"
+_ACTUATOR_LEN = struct.calcsize(_ACTUATOR_FMT)
 
 
 class OBCEmulatorAdapter(Equipment):
@@ -293,6 +298,35 @@ class OBCEmulatorAdapter(Equipment):
             if chunk is None:
                 return None
             return chunk[0]
+
+    def _parse_actuator(self, body: bytes) -> None:
+        """Parse type-0x03 actuator frame and inject into ParameterStore."""
+        if len(body) < _ACTUATOR_LEN:
+            logger.warning(f"[obc-emu] Actuator frame too short: {len(body)}")
+            return
+        (mtq_x, mtq_y, mtq_z,
+         rw_x,  rw_y,  rw_z,
+         controller, sim_time) = struct.unpack_from(_ACTUATOR_FMT, body)
+
+        if self._store is None:
+            return
+
+        # Inject MTQ dipole commands (b-dot output)
+        self._store.write("aocs.mtq.dipole_x", mtq_x, t=sim_time, model_id="obc")
+        self._store.write("aocs.mtq.dipole_y", mtq_y, t=sim_time, model_id="obc")
+        self._store.write("aocs.mtq.dipole_z", mtq_z, t=sim_time, model_id="obc")
+
+        # Inject RW torque commands (ADCS output)
+        self._store.write("aocs.rw1.torque_cmd", rw_x, t=sim_time, model_id="obc")
+        self._store.write("aocs.rw2.torque_cmd", rw_y, t=sim_time, model_id="obc")
+        self._store.write("aocs.rw3.torque_cmd", rw_z, t=sim_time, model_id="obc")
+
+        ctrl_name = "bdot" if controller == 0 else "adcs"
+        logger.debug(
+            f"[obc-emu] actuator [{ctrl_name}] "
+            f"mtq=[{mtq_x:.3e},{mtq_y:.3e},{mtq_z:.3e}] "
+            f"rw=[{rw_x:.3e},{rw_y:.3e},{rw_z:.3e}]"
+        )
 
     def _collect_until_sync(
         self, timeout: float
