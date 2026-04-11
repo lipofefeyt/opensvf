@@ -24,8 +24,8 @@ ENV PYTHONUNBUFFERED=1
 # ------------------------------------------------------------------ #
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Python
-    python3.11 \
-    python3.11-venv \
+    python3 \
+    python3-venv \
     python3-pip \
     # Java (for YAMCS)
     openjdk-21-jre-headless \
@@ -63,7 +63,7 @@ COPY pyproject.toml ./
 COPY src/ src/
 
 # Create venv and install deps
-RUN python3.11 -m venv /opensvf/.venv && \
+RUN python3 -m venv /opensvf/.venv && \
     /opensvf/.venv/bin/pip install --upgrade pip && \
     /opensvf/.venv/bin/pip install -e ".[dev]"
 
