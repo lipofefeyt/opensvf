@@ -308,18 +308,25 @@ class OBCEmulatorAdapter(Equipment):
          rw_x,  rw_y,  rw_z,
          controller, sim_time) = struct.unpack_from(_ACTUATOR_FMT, body)
 
-        if self._store is None:
+        if self._command_store is None:
             return
 
-        # Inject MTQ dipole commands (b-dot output)
-        self._store.write("aocs.mtq.dipole_x", mtq_x, t=sim_time, model_id="obc")
-        self._store.write("aocs.mtq.dipole_y", mtq_y, t=sim_time, model_id="obc")
-        self._store.write("aocs.mtq.dipole_z", mtq_z, t=sim_time, model_id="obc")
+        # Inject MTQ dipole commands (b-dot output) into CommandStore
+        # so wiring picks them up → MTQ.read_port() → torque = m×B
+        self._command_store.inject("aocs.mtq.dipole_x", mtq_x,
+                                   t=sim_time, source_id="obc-emu")
+        self._command_store.inject("aocs.mtq.dipole_y", mtq_y,
+                                   t=sim_time, source_id="obc-emu")
+        self._command_store.inject("aocs.mtq.dipole_z", mtq_z,
+                                   t=sim_time, source_id="obc-emu")
 
-        # Inject RW torque commands (ADCS output)
-        self._store.write("aocs.rw1.torque_cmd", rw_x, t=sim_time, model_id="obc")
-        self._store.write("aocs.rw2.torque_cmd", rw_y, t=sim_time, model_id="obc")
-        self._store.write("aocs.rw3.torque_cmd", rw_z, t=sim_time, model_id="obc")
+        # Inject RW torque commands (ADCS output) into CommandStore
+        self._command_store.inject("aocs.rw1.torque_cmd", rw_x,
+                                   t=sim_time, source_id="obc-emu")
+        self._command_store.inject("aocs.rw2.torque_cmd", rw_y,
+                                   t=sim_time, source_id="obc-emu")
+        self._command_store.inject("aocs.rw3.torque_cmd", rw_z,
+                                   t=sim_time, source_id="obc-emu")
 
         ctrl_name = "bdot" if controller == 0 else "adcs"
         logger.debug(

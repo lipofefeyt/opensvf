@@ -1,6 +1,6 @@
 # Full closed-loop wiring — KDE + obsw_sim
 # No Python b-dot controller — obsw_sim handles AOCS internally
-# MTQ gets zero dipoles for now (obsw_sim actuator output TBD)
+# MTQ dipoles injected by OBCEmulatorAdapter via CommandStore each tick
 
 connections:
   # KDE true rates → GYRO truth input
