@@ -44,38 +44,37 @@ bash scripts/demo.sh
 
 ## The Closed Loop
 
-Three independent projects run together in a single simulation tick:
+Four independent components run together in a single simulation tick:
 
 ```
 opensvf-kde (C++ / Eigen3)          openobsw (C11 / bare metal)
   6-DOF physics engine                 Real OBSW binary
-  Euler's equations                    b-dot algorithm
-  Quaternion kinematics                PUS S1/3/5/8/17/20
-  Earth B-field model                  FDIR state machine
-         │                                     │
-         │  true ω, B  via FMI 2.0            │  TC/TM via pipe protocol
-         ▼                                     ▼
-              opensvf (Python / pytest)
-                SVF tick loop (DDS lockstep)
-                Sensor models (MAG, GYRO, ST, CSS)
-                Actuator models (MTQ, RW, PCDU)
-                OBC models (stub / emulator)
-                PUS commanding chain
-                Campaign manager + reports
-                         │
-                         │  PUS TM/TC via TCP
-                         ▼
-                    YAMCS 5.12.6
-                    Ground station UI
-                    XTCE mission database
-                    TC uplink / TM display
+  Euler's equations                    b-dot (SAFE mode)
+  Quaternion kinematics                ADCS PD (NOMINAL mode)
+  Earth B-field model                  PUS S1/3/5/8/17/20
+         │                             FDIR state machine
+         │  true ω, B  via FMI 2.0           │
+         ▼                                    │ type-0x02 sensor frames
+              opensvf (Python)         ◄──────┘
+              SVF tick loop                    │ type-0x03 actuator frames
+              Sensor models                    │ (dipoles / RW torques)
+              MTQ, RW actuators        ────────►
+              PUS commanding
+                    │
+                    │  PUS TM/TC via TCP
+                    ▼
+               YAMCS 5.12.6
+               Ground station UI
+               TC uplink / TM display
 ```
+
+**Mode-aware AOCS:**
+- FSM SAFE + MAG valid → b-dot → MTQ dipoles → torque = m×B → KDE
+- FSM NOMINAL + ST + GYRO → ADCS PD → RW torques → KDE
 
 ---
 
 ## Ground Segment (YAMCS)
-
-OpenSVF integrates with YAMCS as a real ground station:
 
 ```bash
 # Terminal 1 — start YAMCS
@@ -87,45 +86,55 @@ source scripts/setup-workspace.sh
 svf-demo-fg
 ```
 
-Then open `http://localhost:8090` — the opensvf instance shows live TM parameters, and TC commands can be sent from the YAMCS UI directly to the simulated OBC.
+Then open `http://localhost:8090` — the opensvf instance shows live TM parameters and TC commands can be sent from the YAMCS UI to the simulated OBC.
 
-The XTCE mission database is auto-generated from SRDB on every YAMCS start — 78 parameters, 2 TM containers, 2 commands.
+The XTCE mission database (78 parameters, 2 TM containers, 2 commands) is auto-generated from SRDB on every YAMCS start.
 
 ---
 
 ## The OBC Stack
 
-Three drop-in implementations — swap with one line at the composition root:
+Three drop-in implementations via `ObcInterface`:
 
 ```python
 # Level 3 — rule-based OBSW behaviour simulator
-obc = ObcStub(config, sync, store, cmd_store, rules=[
-    Rule(
-        name="low_battery_safe",
-        watch="eps.battery.soc",
-        condition=lambda e: e is not None and e.value < 0.3,
-        action=lambda cs, t: cs.inject("dhs.obc.mode_cmd", 0.0, t=t),
-    ),
-])
+obc = ObcStub(config, sync, store, cmd_store, rules=[...])
 
 # Level 4 — real OBSW binary under test
 obc = OBCEmulatorAdapter(sim_path="obsw_sim", ...)
 
-# TtcEquipment accepts both — and optionally connects to YAMCS
+# With YAMCS ground station
+bridge = YamcsBridge(store)
+bridge.start()
 ttc = TtcEquipment(obc, sync, store, cmd_store, yamcs_bridge=bridge)
+```
+
+---
+
+## Wire Protocol (obsw_sim ↔ SVF)
+
+```
+SVF → obsw_sim stdin:
+  [0x01][uint16 BE len][TC frame]          — TC uplink
+  [0x02][uint16 BE len][sensor_frame_t]    — MAG/GYRO/ST injection
+
+obsw_sim → SVF stdout:
+  [0x04][uint16 BE len][TM packet]         — PUS TM downlink
+  [0x03][uint16 BE len][actuator_frame_t]  — dipoles / RW torques
+  [0xFF]                                   — end of tick (sync)
 ```
 
 ---
 
 ## Deterministic Replay
 
-Every simulation run logs its seed to `results/seed.json`:
+Every run logs its seed to `results/seed.json`:
 
 ```
 SVF seed: 809481067  (replay with seed=809481067)
 ```
 
-Replay any run exactly:
+Replay exactly:
 
 ```python
 master = SimulationMaster(..., seed=809481067)
@@ -140,7 +149,7 @@ master.run()  # identical noise, identical results
 |---|---|---|---|
 | `ObcEquipment` | class | DHS | Mode FSM, OBT, watchdog, PUS routing |
 | `ObcStub` | class | DHS | Rule engine, closed-loop FDIR |
-| `OBCEmulatorAdapter` | class | DHS | Real OBSW via binary pipe |
+| `OBCEmulatorAdapter` | class | DHS | Real OBSW via typed pipe protocol |
 | `TtcEquipment` | class | TTC | TC/TM pipe, optional YAMCS bridge |
 | `YamcsBridge` | class | GND | TCP TM/TC bridge to YAMCS |
 | `make_kde_equipment()` | factory | Dynamics | 6-DOF physics, B-field model |
@@ -150,7 +159,7 @@ master.run()  # identical noise, identical results
 | `make_magnetorquer()` | factory | AOCS | Torque = m × B |
 | `make_gyroscope()` | factory | AOCS | Rate measurement + ARW noise |
 | `make_css()` | factory | AOCS | Sun vector + eclipse detection |
-| `make_bdot_controller()` | factory | AOCS | m = −k·Ḃ detumbling law |
+| `make_bdot_controller()` | factory | AOCS | m = −k·Ḃ detumbling (reference) |
 | `make_sbt()` | factory | TTC | Carrier lock, mode FSM |
 | `make_pcdu()` | factory | EPS | LCL switching, MPPT, UVLO |
 | `EpsFmu` | FmuEquipment | EPS | Solar array, Li-Ion battery |
@@ -177,7 +186,7 @@ master.run()  # identical noise, identical results
 ```
 src/svf/
 ├── models/
-│   ├── kde_equipment.py    KDE FMU wrapper (NativeEquipment)
+│   ├── kde_equipment.py    KDE FMU wrapper
 │   ├── obc.py              ObcEquipment — simulated OBC
 │   ├── obc_stub.py         ObcStub — rule-based OBSW simulator
 │   ├── obc_emulator.py     OBCEmulatorAdapter — real OBSW via pipe
@@ -186,14 +195,10 @@ src/svf/
 │   ├── magnetorquer.py     MTQ torque = m × B
 │   ├── gyroscope.py        GYRO with ARW noise + bias drift
 │   ├── css.py              CSS sun vector + eclipse
-│   ├── bdot_controller.py  B-dot reference controller
-│   └── ...
+│   └── bdot_controller.py  B-dot reference controller
 ├── yamcs_bridge.py         TCP TM/TC bridge to YAMCS
 ├── replay.py               SeedManager — deterministic replay
-├── simulation.py           SimulationMaster (seed param)
-├── pus/                    PUS-C TC/TM (S1/3/5/8/17/20)
-├── campaign/               YAML campaigns + HTML reports
-└── plugin/                 pytest plugin (xdist compatible)
+└── simulation.py           SimulationMaster (seed, explicit DDS teardown)
 
 yamcs/
 ├── etc/                    YAMCS server + instance config
@@ -202,11 +207,8 @@ yamcs/
 scripts/
 ├── setup-workspace.sh      One-shot environment setup
 ├── start-yamcs.sh          Start YAMCS ground station
-├── demo.sh                 Full demo (tmux, two windows)
+├── demo.sh                 Full demo (tmux)
 └── demo_yamcs.py           SVF + YAMCS demo script
-
-tools/
-└── generate_xtce.py        XTCE generator from SRDB
 ```
 
 ---
@@ -216,7 +218,7 @@ tools/
 | Project | Role |
 |---|---|
 | [opensvf-kde](https://github.com/lipofefeyt/opensvf-kde) | C++ 6-DOF physics engine (FMI 2.0 FMU) |
-| [openobsw](https://github.com/lipofefeyt/openobsw) | C11 OBSW: PUS services, b-dot, FDIR, validated on MSP430 |
+| [openobsw](https://github.com/lipofefeyt/openobsw) | C11 OBSW: PUS, b-dot, ADCS, FDIR, validated on MSP430 |
 
 ---
 
@@ -224,11 +226,9 @@ tools/
 
 | Milestone | Status |
 |---|---|
-| M1–M10 — Core platform through closed-loop validation | ✅ Done |
-| M11 — OBC Emulator Integration | ✅ Done |
-| M11.5 — KDE Co-Simulation Integration | ✅ Done |
-| M12 — Ground Segment (YAMCS) | ✅ Done |
-| Next — Dockerfile, SpaceWire, CAN, variable timestep | Planned |
+| M1–M12 — Core platform through ground segment | ✅ Done |
+| M13 — SIL Attitude Loop Closure (ADCS closed loop) | ✅ Done |
+| M14 — Real-Time & HIL (Renode, real-time tick, Dockerfile) | Planned |
 
 ---
 

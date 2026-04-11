@@ -41,6 +41,7 @@ class DdsSyncProtocol(SyncProtocol):
 
     def __init__(self, participant: DomainParticipant) -> None:
         self._participant = participant
+        self._closed = False
 
         # KEEP_ALL ensures no ack is dropped when multiple models
         # publish to the same topic before wait_for_ready reads them
@@ -95,6 +96,9 @@ class DdsSyncProtocol(SyncProtocol):
         Call this instead of relying on garbage collection.
         Prevents corrupted double-linked list crash on teardown.
         """
+        if self._closed:
+            return
+        self._closed = True
         try:
             self._participant._delete()
         except Exception:

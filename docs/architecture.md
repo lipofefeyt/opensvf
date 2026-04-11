@@ -1,6 +1,6 @@
 # SVF Architecture
 
-> **Status:** v1.3
+> **Status:** v1.4
 > **Last updated:** 2026-04
 > **Author:** lipofefeyt
 
@@ -12,7 +12,7 @@ The Software Validation Facility (SVF) is an open-core platform for the validati
 
 - **opensvf** — Python orchestration layer (this repo)
 - **opensvf-kde** — C++ 6-DOF physics engine, compiled to FMI 2.0 FMU
-- **openobsw** — C11 OBSW: PUS services, b-dot, FDIR, validated on MSP430
+- **openobsw** — C11 OBSW: PUS services, b-dot, ADCS PD, FDIR, validated on MSP430
 - **YAMCS 5.12.6** — Ground station: TC uplink, TM display, XTCE MDB
 
 ---
@@ -24,141 +24,123 @@ The Software Validation Facility (SVF) is an open-core platform for the validati
 │  YAMCS 5.12.6 (Ground Station)                                       │
 │  http://localhost:8090                                               │
 │  XTCE MDB: 78 parameters, 2 containers, 2 commands                  │
-│  TC uplink (operator) | TM display (live parameters)                │
 └──────────────────────────┬───────────────────────────────────────────┘
                            │ PUS TM/TC via TCP (10015/10025)
 ┌──────────────────────────▼───────────────────────────────────────────┐
-│  YamcsBridge                                                         │
-│  TCP server: TM on 10015, TC on 10025                               │
-│  send_tm(): push PUS bytes to YAMCS each tick                       │
-│  get_tc(): drain TC queue from YAMCS operator                       │
+│  YamcsBridge + TtcEquipment                                          │
 └──────────────────────────┬───────────────────────────────────────────┘
                            │ PUS bytes
 ┌──────────────────────────▼───────────────────────────────────────────┐
-│  TtcEquipment (ObcInterface + optional YamcsBridge)                 │
+│  OBCEmulatorAdapter                                                  │
+│  stdin:  [0x01] TC uplink                                           │
+│          [0x02] sensor injection (MAG/GYRO/ST each tick)            │
+│  stdout: [0x04] TM packets                                          │
+│          [0x03] actuator frame (dipoles / RW torques)               │
+│          [0xFF] sync byte                                            │
 └──────────────────────────┬───────────────────────────────────────────┘
-                           │
+                           │ pipe protocol
 ┌──────────────────────────▼───────────────────────────────────────────┐
-│  OBC (three implementations, drop-in via ObcInterface)              │
-│  ObcEquipment | ObcStub (rules) | OBCEmulatorAdapter (real OBSW)   │
+│  openobsw obsw_sim (C11)                                             │
+│  FSM SAFE    → b-dot  → mtq_dipole[3]  (type-0x03)                 │
+│  FSM NOMINAL → ADCS PD → rw_torque[3] (type-0x03)                  │
+│  PUS S1/3/5/8/17/20                                                 │
 └──────────────────────────┬───────────────────────────────────────────┘
-                           │ 1553 BC / pipe protocol
+                           │ actuator frame → CommandStore
 ┌──────────────────────────▼───────────────────────────────────────────┐
-│  Bus Adapters + Actuators                                            │
-│  Mil1553Bus (fault injection) | MTQ | RW | PCDU                     │
+│  Actuator Models                                                     │
+│  MTQ: torque = m × B  (b-dot dipoles from obsw_sim)                │
+│  RW:  torque command  (ADCS torques from obsw_sim)                  │
 └──────────────────────────┬───────────────────────────────────────────┘
                            │ torques → KDE IN ports
 ┌──────────────────────────▼───────────────────────────────────────────┐
 │  opensvf-kde FMU (C++ physics)                                      │
-│  6-DOF Euler integration + quaternion kinematics                    │
-│  Earth B-field model                                                │
 │  OUT: true ω (rad/s) | true B (T) | true q (quaternion)            │
 └──────────────────────────┬───────────────────────────────────────────┘
-                           │ true state → sensor truth ports
+                           │ true state → sensor models
 ┌──────────────────────────▼───────────────────────────────────────────┐
-│  Sensor Models                                                       │
-│  MAG: true B + noise + bias drift                                   │
-│  GYRO: true ω + ARW noise + bias                                    │
-│  CSS: sun vector + eclipse detection                                │
-│  ST: quaternion propagation + blinding                              │
-└──────────────────────────┬───────────────────────────────────────────┘
-                           │ noisy measurements
-┌──────────────────────────▼───────────────────────────────────────────┐
-│  ParameterStore (TM) | CommandStore (TC)                            │
-│  SRDB canonical names | WiringMap connections                       │
-└──────────────────────────┬───────────────────────────────────────────┘
-                           │
-┌──────────────────────────▼───────────────────────────────────────────┐
-│  SimulationMaster (DDS lockstep, seed management)                   │
-│  pytest + SVF plugin (xdist compatible) + campaigns + reports       │
+│  Sensor Models (MAG, GYRO, ST, CSS)                                 │
+│  Noisy measurements → type-0x02 frame → obsw_sim stdin             │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Design Principles
+## 3. obsw_sim Wire Protocol (v3)
 
-**Equipment as the universal abstraction.**
-Every model — FMU, native Python, C++ physics engine, real OBSW binary — is an `Equipment`. `SimulationMaster` drives all of them identically.
+```
+SVF → obsw_sim stdin (type-prefixed):
+  [0x01][uint16 BE len][TC frame]          TC uplink
+  [0x02][uint16 BE len][sensor_frame_t]    MAG/GYRO/ST injection
 
-**ObcInterface — the HIL plug-in point.**
-`TtcEquipment` accepts any `ObcInterface`:
-- `ObcEquipment` — simulated OBC
-- `ObcStub` — configurable rule-based OBSW simulator
-- `OBCEmulatorAdapter` — real OBSW binary via pipe protocol
+obsw_sim → SVF stdout (type-prefixed):
+  [0x04][uint16 BE len][TM packet]         PUS TM downlink
+  [0x03][uint16 BE len][actuator_frame_t]  Actuator commands
+  [0xFF]                                   End of tick (sync)
+```
 
-**YamcsBridge — the ground segment plug-in point.**
-`TtcEquipment` optionally accepts a `YamcsBridge`. When present, TM flows to YAMCS each tick and TC from the YAMCS operator is forwarded to the OBC.
+### obsw_sensor_frame_t (type 0x02)
 
-**FMI 2.0 as the physics boundary.**
-The KDE C++ engine is wrapped as an FMI 2.0 Co-Simulation FMU. One SVF tick = one FMU `doStep()`.
+```c
+typedef struct {
+    float mag_x, mag_y, mag_z; uint8_t mag_valid;
+    float st_q_w, st_q_x, st_q_y, st_q_z; uint8_t st_valid;
+    float gyro_x, gyro_y, gyro_z; uint8_t gyro_valid;
+    float sim_time;
+} obsw_sensor_frame_t;
+```
 
-**SRDB as the shared parameter contract.**
-Every parameter has one canonical name. The XTCE mission database is auto-generated from SRDB on every YAMCS start.
+### obsw_actuator_frame_t (type 0x03)
 
-**Deterministic replay.**
-`SeedManager` derives per-model seeds from a master seed via SHA-256. Every run logs its seed to `results/seed.json`. Replay = run again with the same seed.
+```c
+typedef struct {
+    float mtq_dipole_x, mtq_dipole_y, mtq_dipole_z;  // Am² (b-dot)
+    float rw_torque_x,  rw_torque_y,  rw_torque_z;   // Nm  (ADCS)
+    uint8_t controller;  // 0=bdot (SAFE), 1=adcs (NOMINAL)
+    float sim_time;
+} obsw_actuator_frame_t;
+```
 
 ---
 
-## 4. YAMCS Integration
+## 4. Mode-Aware AOCS
 
-### Bridge Architecture
+The real C OBSW selects the control algorithm based on FSM state:
 
 ```
-SVF (TCP server)              YAMCS (TCP client)
-  port 10015  ←connects—  TM data link
-  port 10025  ←connects—  TC data link
+FSM state = SAFE:
+  if mag_valid:
+    b-dot: m = -k · dB/dt
+    → mtq_dipole[3] in actuator frame
+    → CommandStore → MTQ.read_port() → torque = m × B → KDE
+
+FSM state = NOMINAL:
+  if st_valid AND gyro_valid:
+    ADCS PD: τ = -Kp·q_err_vec - Kd·ω
+    → rw_torque[3] in actuator frame
+    → CommandStore → RW.read_port() → KDE
+  else fallback to b-dot
 ```
 
-SVF is the server. YAMCS connects as a client. This means SVF can start/stop independently — YAMCS reconnects automatically.
-
-### XTCE Mission Database
-
-Generated from SRDB via `tools/generate_xtce.py`:
-
-```bash
-python3 tools/generate_xtce.py > yamcs/mdb/opensvf.xml
-```
-
-Contains:
-- 78 TM parameters (from SRDB TM classification)
-- TM containers: `TM_17_2` (ping response), `TM_3_25` (HK report)
-- Commands: `TC_17_1_AreYouAlive`, `TC_20_1_SetParameter`
-
-### Workflow
-
-```bash
-# Terminal 1
-yamcs-start && yamcs-log-follow
-
-# Terminal 2
-svf-demo-fg
-```
-
-Or one command:
-```bash
-bash scripts/demo.sh
-```
+This matches flight OBSW behaviour: magnetorquers for detumbling, reaction wheels for precision pointing.
 
 ---
 
 ## 5. Deterministic Replay
 
 ```python
-# Run with auto-generated seed (logged to results/seed.json)
+# Auto-generated seed logged to results/seed.json
 master = SimulationMaster(...)
 master.run()
-# SVF seed: 809481067  (replay with seed=809481067)
+# SVF seed: 809481067
 
-# Replay exactly
+# Exact replay
 master = SimulationMaster(..., seed=809481067)
-master.run()  # identical noise, identical results
+master.run()  # identical noise, identical AOCS trajectory
 ```
 
-Per-model seeds are derived as:
+Per-model seeds derived via SHA-256:
 ```python
-seed_for_model = SHA256(f"{master_seed}:{model_id}")[:4]
+seed_for_model = int.from_bytes(SHA256(f"{master}:{model_id}")[:4], "big")
 ```
 
 ---
@@ -166,26 +148,14 @@ seed_for_model = SHA256(f"{master_seed}:{model_id}")[:4]
 ## 6. Four Validation Levels
 
 ```
-Level 1 — Model Validation
-  Each equipment verified in isolation
-  Nominal + failure test procedures per model
-  Status: complete (M8/M9)
-
-Level 2 — Interface Validation
-  1553 bus interfaces + full fault matrix
-  Status: complete (M6/M9)
-
-Level 3 — Integration Validation
-  Models + PUS chain + closed-loop FDIR scenarios
-  OBC stub drives all transitions
-  Status: complete (M10)
-
-Level 4 — System Validation
-  Real OBSW binary (OBCEmulatorAdapter)
-  Real C++ physics (opensvf-kde FMU)
+Level 1 — Model Validation         (M8/M9) ✅
+Level 2 — Interface Validation     (M6/M9) ✅
+Level 3 — Integration Validation   (M10)   ✅
+Level 4 — System Validation        (M11–M13) ✅
+  Real OBSW (OBCEmulatorAdapter)
+  Real physics (opensvf-kde FMU)
   Real ground station (YAMCS)
-  Full closed-loop co-simulation
-  Status: complete (M11/M11.5/M12)
+  Mode-aware AOCS (b-dot ↔ ADCS PD)
 ```
 
 ---
@@ -194,13 +164,9 @@ Level 4 — System Validation
 
 | Milestone | Status |
 |---|---|
-| M1–M5 — Core platform | ✅ Done |
-| M6 — Bus Protocols (1553) | ✅ Done |
-| M7 — PUS TM/TC | ✅ Done |
-| M8 — Equipment Interface Library | ✅ Done |
-| M9 — Model & Interface Validation | ✅ Done |
-| M10 — Integration & System Validation | ✅ Done |
+| M1–M10 — Core platform through closed-loop validation | ✅ Done |
 | M11 — OBC Emulator Integration | ✅ Done |
 | M11.5 — KDE Co-Simulation Integration | ✅ Done |
 | M12 — Ground Segment (YAMCS) | ✅ Done |
-| Next — Dockerfile, SpW, CAN, variable timestep | Planned |
+| M13 — SIL Attitude Loop Closure (ADCS closed loop) | ✅ Done |
+| M14 — Real-Time & HIL (Renode, real-time tick, Dockerfile) | Planned |
