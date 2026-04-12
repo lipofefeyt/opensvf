@@ -24,6 +24,7 @@ import logging
 import queue
 import struct
 import subprocess
+import importlib.metadata
 import threading
 import time
 from pathlib import Path
@@ -114,6 +115,44 @@ class OBCEmulatorAdapter(Equipment):
             PortDefinition("obc.tm_output",           PortDirection.OUT),
         ]
 
+
+    def _check_srdb_version(self, srdb_version: str) -> None:
+        """Compare obsw_sim SRDB version against installed obsw-srdb package."""
+        try:
+            pkg_version = importlib.metadata.version("obsw-srdb")
+        except importlib.metadata.PackageNotFoundError:
+            logger.warning(
+                "[obc-emu] obsw-srdb package not installed — "
+                "cannot verify SRDB version handshake"
+            )
+            return
+
+        if srdb_version != pkg_version:
+            logger.warning(
+                f"[obc-emu] SRDB VERSION MISMATCH: "
+                f"obsw_sim={srdb_version} vs opensvf={pkg_version} — "
+                f"parameter names may be inconsistent"
+            )
+        else:
+            logger.info(
+                f"[obc-emu] SRDB version handshake OK: {srdb_version}"
+            )
+
+    def _stderr_reader(self) -> None:
+        """Read obsw_sim stderr, parse SRDB version, forward to logger."""
+        proc = self._proc
+        if proc is None or proc.stderr is None:
+            return
+        while True:
+            raw = proc.stderr.readline()
+            if not raw:
+                break
+            line = raw.decode(errors="replace").rstrip()
+            logger.debug(f"[obsw] {line}")
+            if "SRDB version:" in line:
+                srdb_version = line.split("SRDB version:")[-1].strip()
+                self._check_srdb_version(srdb_version)
+
     def initialise(self, start_time: float = 0.0) -> None:
         if not self._sim_path.exists():
             raise FileNotFoundError(
@@ -133,6 +172,24 @@ class OBCEmulatorAdapter(Equipment):
         )
         self._reader.start()
         logger.info(f"[obc-emu] obsw_sim PID={self._proc.pid}")
+
+        # Read startup lines synchronously — version handshake
+        import time as _time
+        _time.sleep(0.1)  # give obsw_sim time to write startup lines
+        import select as _select, os as _os
+        if self._proc.stderr:
+            for _ in range(5):  # read up to 5 startup lines
+                ready = _select.select([self._proc.stderr], [], [], 0.2)
+                if not ready[0]:
+                    break
+                raw = _os.read(self._proc.stderr.fileno(), 256)
+                if not raw:
+                    break
+                for line in raw.decode(errors="replace").splitlines():
+                    logger.debug(f"[obsw] {line}")
+                    if "SRDB version:" in line:
+                        srdb_version = line.split("SRDB version:")[-1].strip()
+                        self._check_srdb_version(srdb_version)
 
     def teardown(self) -> None:
         self._alive = False
