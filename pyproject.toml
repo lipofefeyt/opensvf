@@ -45,7 +45,7 @@ module = ["fmpy", "fmpy.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["obsw_srdb", "obsw_srdb.*"]
+module = ["obsw_srdb.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
