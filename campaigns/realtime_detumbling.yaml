@@ -1,0 +1,21 @@
+# SVF Real-Time Detumbling Campaign
+# Runs b-dot detumbling at wall-clock speed using RealtimeTickSource.
+# Observable in YAMCS: start YAMCS, then run this campaign.
+campaign_id: RT-DET-001
+description: >
+  Real-time b-dot detumbling — 30s simulation at 1:1 wall clock.
+  Designed for YAMCS operator observation: angular rate visible
+  in TM display as it decreases in real time.
+svf_version: "0.1"
+model_baseline: kde_obsw_emulator_v1
+requirements:
+  - SVF-DEV-010
+  - KDE-001
+  - KDE-003
+test_cases:
+  - id: TC-RT-001
+    test: tests/spacecraft/test_realtime_detumbling.py::test_realtime_bdot_observable_in_yamcs
+    timeout: 60
+  - id: TC-RT-002
+    test: tests/spacecraft/test_realtime_detumbling.py::test_realtime_tick_overrun_warning
+    timeout: 15
