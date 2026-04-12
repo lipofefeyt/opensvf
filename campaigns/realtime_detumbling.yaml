@@ -14,8 +14,8 @@ requirements:
   - KDE-003
 test_cases:
   - id: TC-RT-001
-    test: tests/spacecraft/test_realtime_detumbling.py::test_realtime_bdot_observable_in_yamcs
+    test: tests/hardware/test_realtime_detumbling.py::test_realtime_bdot_observable_in_yamcs
     timeout: 60
   - id: TC-RT-002
-    test: tests/spacecraft/test_realtime_detumbling.py::test_realtime_tick_overrun_warning
+    test: tests/hardware/test_realtime_detumbling.py::test_realtime_tick_overrun_warning
     timeout: 15
