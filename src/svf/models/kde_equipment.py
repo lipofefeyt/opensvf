@@ -32,6 +32,7 @@ def make_kde_equipment(
     sync_protocol: SyncProtocol,
     store: ParameterStore,
     command_store: Optional[CommandStore] = None,
+    initial_omega: Optional[list[float]] = None,
 ) -> NativeEquipment:
     """
     Create a KDE NativeEquipment wrapping the SpacecraftDynamics FMU.
@@ -122,7 +123,7 @@ def make_kde_equipment(
 
     def _initialise(start_time: float = 0.0) -> None:
         nonlocal dynamics
-        dynamics = DynamicsFmu()
+        dynamics = DynamicsFmu(initial_omega=initial_omega)
         sim_time[0] = start_time
         logger.info("[kde] SpacecraftDynamics FMU initialised")
         original_initialise(start_time)

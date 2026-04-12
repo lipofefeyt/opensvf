@@ -15,7 +15,7 @@ import fmpy
 class DynamicsFmu:
     """Wrapper for the SpacecraftDynamics FMI 2.0 Co-Simulation FMU."""
 
-    def __init__(self) -> None:
+    def __init__(self, initial_omega: list[float] | None = None) -> None:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.fmu_path = os.path.join(
             current_dir, "..", "..", "..", "..", "models", "fmu",
@@ -30,7 +30,18 @@ class DynamicsFmu:
         )
         self.fmu.instantiate()
         self.fmu.setupExperiment(startTime=0.0)
+        self.vrs = {
+            "tq_mtq_x": 0, "tq_mtq_y": 1, "tq_mtq_z": 2,
+            "q_w": 3, "q_x": 4, "q_y": 5, "q_z": 6,
+            "omega_x": 7, "omega_y": 8, "omega_z": 9,
+            "b_field_x": 10, "b_field_y": 11, "b_field_z": 12,
+        }
         self.fmu.enterInitializationMode()
+        if initial_omega is not None:
+            self.fmu.setReal(
+                [self.vrs["omega_x"], self.vrs["omega_y"], self.vrs["omega_z"]],
+                initial_omega,
+            )
         self.fmu.exitInitializationMode()
 
         self.vrs = {

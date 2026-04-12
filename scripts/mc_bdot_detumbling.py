@@ -50,7 +50,18 @@ def run_bdot(seed: int) -> dict:
     cmd_store   = CommandStore()
     sync        = DdsSyncProtocol(participant)
 
-    kde  = make_kde_equipment(sync, store, cmd_store)
+    # Vary initial tumble rate based on seed (0.1 to 2.0 rad/s)
+    import random
+    rng_ic = random.Random(seed * 1000)  # separate RNG for initial conditions
+    omega_scale = rng_ic.uniform(0.1, 2.0)
+    initial_omega = [
+        rng_ic.gauss(0.0, omega_scale),
+        rng_ic.gauss(0.0, omega_scale),
+        rng_ic.gauss(0.0, omega_scale),
+    ]
+    initial_rate = (sum(w**2 for w in initial_omega) ** 0.5)
+    kde  = make_kde_equipment(sync, store, cmd_store,
+                              initial_omega=initial_omega)
     mag  = make_magnetometer(sync, store, cmd_store, seed=seed)
     gyro = make_gyroscope(sync, store, cmd_store, seed=seed)
     st   = make_star_tracker(sync, store, cmd_store, seed=seed)
@@ -105,11 +116,10 @@ def run_bdot(seed: int) -> dict:
     )
 
     return {
-        "final_rate_rad_s":  final_rate,
-        "converged":         1.0 if final_rate < 1.0 else 0.0,
-        "rate_x_rad_s":      rate_x.value,
-        "rate_y_rad_s":      rate_y.value,
-        "rate_z_rad_s":      rate_z.value,
+        "initial_rate_rad_s": initial_rate,
+        "final_rate_rad_s":   final_rate,
+        "converged":          1.0 if final_rate < 1.0 else 0.0,
+        "rate_reduction":     initial_rate - final_rate,
     }
 
 
