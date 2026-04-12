@@ -78,18 +78,23 @@ echo "    XTCE: $(wc -l < yamcs/mdb/opensvf.xml) lines → yamcs/mdb/opensvf.xml
 # ------------------------------------------------------------------ #
 echo "[6/6] Setting up aliases..."
 
+# Checks and Tests
 alias testosvf='pytest tests/ --junitxml=results/junit.xml -v'
 alias checkosvf='mypy src/ --config-file pyproject.toml'
 alias checkcov='python3 scripts/check_coverage.py'
+
+# Yaml Campaigns
+alias svf-campaign='svf run'
+alias svf-campaign-all='for f in $REPO/campaigns/*.yaml; do svf run "$f"; done'
+
+# YAMCS Runs
+alias regen-xtce='python3 $REPO/tools/generate_xtce.py > $REPO/yamcs/mdb/opensvf.xml && echo "XTCE: $(wc -l < $REPO/yamcs/mdb/opensvf.xml) lines"'
 alias yamcs-start='bash $REPO/scripts/start-yamcs.sh'
 alias yamcs-stop='pkill -f yamcsd && echo "YAMCS stopped" || echo "YAMCS not running"'
 alias yamcs-log='curl -s http://localhost:8090/api/instances | python3 -m json.tool | grep -E "\"name\"|\"state\""'
 alias yamcs-log-follow='tail -f /tmp/yamcs.log'
 alias svf-demo-fg='cd $REPO && .venv/bin/python3 scripts/demo_yamcs.py'
-alias svf-campaign='svf run'
-alias svf-campaign-all='for f in $REPO/campaigns/*.yaml; do svf run "$f"; done'
 alias svf-demo='bash $REPO/scripts/demo.sh'
-alias regen-xtce='python3 $REPO/tools/generate_xtce.py > $REPO/yamcs/mdb/opensvf.xml && echo "XTCE: $(wc -l < $REPO/yamcs/mdb/opensvf.xml) lines"'
 
 echo ""
 echo "=== Setup complete ==="
