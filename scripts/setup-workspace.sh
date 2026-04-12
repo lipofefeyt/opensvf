@@ -86,6 +86,8 @@ alias yamcs-stop='pkill -f yamcsd && echo "YAMCS stopped" || echo "YAMCS not run
 alias yamcs-log='curl -s http://localhost:8090/api/instances | python3 -m json.tool | grep -E "\"name\"|\"state\""'
 alias yamcs-log-follow='tail -f /tmp/yamcs.log'
 alias svf-demo-fg='cd $REPO && .venv/bin/python3 scripts/demo_yamcs.py'
+alias svf-campaign='svf run'
+alias svf-campaign-all='for f in $REPO/campaigns/*.yaml; do svf run "$f"; done'
 alias svf-demo='bash $REPO/scripts/demo.sh'
 alias regen-xtce='python3 $REPO/tools/generate_xtce.py > $REPO/yamcs/mdb/opensvf.xml && echo "XTCE: $(wc -l < $REPO/yamcs/mdb/opensvf.xml) lines"'
 alias omkbuild='cd $REPO/../openobsw && mkdir -p build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc) && cd $REPO'
@@ -100,6 +102,8 @@ echo "  yamcs-start   — start YAMCS ground station"
 echo "  yamcs-stop    — stop YAMCS"
 echo "  yamcs-log     — check YAMCS instance state"
 echo "  svf-demo-fg   — run SVF demo in foreground (needs YAMCS already running)
+  svf-campaign  — run a campaign (e.g. svf-campaign campaigns/eps_validation.yaml)
+  svf-campaign-all — run all campaigns
   svf-demo      — start full SVF + YAMCS demo (tmux)
   regen-xtce    — regenerate XTCE from SRDB"
 echo ""
