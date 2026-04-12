@@ -6,23 +6,6 @@ OpenSVF is a Python-based platform for validating spacecraft software and system
 
 ---
 
-## What is an SVF?
-
-From ECSS-E-TM-10-21A:
-
-> *System modelling and simulation is a support activity to OBSW validation. The ability to inject failures in the models enables the user to trigger the OBSW monitoring processes as well as to exercise the FDIR mechanisms.*
-
-OpenSVF implements this across four validation levels:
-
-| Level | Description | Status |
-|---|---|---|
-| 1 — Model validation | Each subsystem verified in isolation | ✅ Complete |
-| 2 — Interface validation | Bus interfaces + full fault matrix | ✅ Complete |
-| 3 — Integration validation | Models + PUS chain + closed-loop FDIR | ✅ Complete |
-| 4 — System validation | Real OBSW + C++ physics + YAMCS ground station | ✅ Complete |
-
----
-
 ## Design Philosophy
 
 OpenSVF is a **flight software validation platform** — not an AOCS design tool and not a Simulink replacement.
@@ -75,8 +58,8 @@ opensvf-kde (C++ / Eigen3)          openobsw (C11 / bare metal)
          ▼                                    │ 0x02 sensor frames
               opensvf (Python)         ◄──────┘
               SVF tick loop                    │ 0x03 actuator frames
-              Sensor models                    │ dipoles / RW torques
-              MTQ, RW actuators        ────────►
+              Sensor + actuator models         │ dipoles / RW torques
+              Thruster, GPS, thermal   ────────►
                     │
                     │  PUS TM/TC via TCP
                     ▼
@@ -110,17 +93,55 @@ obsw_sim → SVF stdout:
 | Tick Source | Behaviour | Use Case |
 |---|---|---|
 | `SoftwareTickSource` | Fast as possible | CI, batch validation, Monte Carlo |
-| `RealtimeTickSource` | Wall-clock aligned | YAMCS operator demos, HIL preparation |
+| `RealtimeTickSource` | Wall-clock aligned | YAMCS operator demos, HIL |
 
 ```python
-# Fast (default)
-master = SimulationMaster(tick_source=SoftwareTickSource(), ...)
-
-# Real-time (1s sim = 1s wall clock)
 master = SimulationMaster(tick_source=RealtimeTickSource(), ...)
 ```
 
-Overrun warnings logged when a tick exceeds dt by more than 10%.
+---
+
+## Hardware Profiles
+
+Equipment models are parameterised from SRDB hardware YAML profiles:
+
+```python
+# Generic default
+rw = make_reaction_wheel(sync, store)
+
+# Specific hardware
+rw = make_reaction_wheel(sync, store, hardware_profile="rw_sinclair_rw003")
+thr = make_thruster(sync, store, hardware_profile="thr_moog_monarc_1")
+gps = make_gps(sync, store, hardware_profile="gps_novatel_oem7")
+```
+
+Available profiles in `srdb/data/hardware/`:
+
+| Profile | Type | Key Parameters |
+|---|---|---|
+| `rw_default` | reaction_wheel | 6000 rpm, 0.2 Nm |
+| `rw_sinclair_rw003` | reaction_wheel | 5000 rpm, 30 mNm |
+| `mtq_default` | magnetorquer | 10 Am², 5 Ω |
+| `mag_default` | magnetometer | 1×10⁻⁷ T noise |
+| `gyro_default` | gyroscope | ARW 1×10⁻⁴ rad/s/√Hz |
+| `thr_default` | thruster | 1 N, Isp=70s (cold gas) |
+| `thr_moog_monarc_1` | thruster | 1 N, Isp=220s (hydrazine) |
+| `gps_default` | gps | 5 m position noise |
+| `gps_novatel_oem7` | gps | 1.5 m position noise |
+| `thermal_default` | thermal_node | 3-node (panels + internal) |
+
+---
+
+## SRDB Version Handshake
+
+At startup, `OBCEmulatorAdapter` reads the SRDB version from `obsw_sim` stderr and compares against the installed `obsw-srdb` package:
+
+```
+[obsw] [OBSW] SRDB version: 0.1.0
+[obc-emu] SRDB version handshake OK: 0.1.0
+```
+
+Mismatch triggers a WARNING — parameter names may be inconsistent between OBSW and SVF.
 
 ---
 
@@ -134,17 +155,14 @@ yamcs-start && yamcs-log-follow
 svf-campaign campaigns/realtime_detumbling.yaml
 ```
 
-Open `http://localhost:8090` — live TM parameters, TC commanding from YAMCS UI. XTCE MDB (78 parameters, 2 commands) auto-generated from SRDB on every YAMCS start.
+Open `http://localhost:8090` — live TM parameters, TC commanding from YAMCS UI. XTCE MDB (78 parameters, 2 commands) auto-generated from SRDB on every start.
 
 ---
 
 ## Campaigns
 
 ```bash
-# Run a single campaign
 svf-campaign campaigns/eps_validation.yaml
-
-# Run all campaigns
 svf-campaign-all
 ```
 
@@ -159,19 +177,6 @@ svf-campaign-all
 | `contact_pass.yaml` | Ground contact pass | 3/4 |
 | `fdir_chain.yaml` | FDIR chain | 3/4 |
 | `realtime_detumbling.yaml` | Real-time b-dot + YAMCS | 4 |
-
----
-
-## Deterministic Replay
-
-```
-SVF seed: 809481067  (replay with seed=809481067)
-```
-
-```python
-master = SimulationMaster(..., seed=809481067)
-master.run()  # identical noise, identical results
-```
 
 ---
 
@@ -192,9 +197,25 @@ master.run()  # identical noise, identical results
 | `make_gyroscope()` | factory | AOCS | Rate measurement + ARW noise |
 | `make_css()` | factory | AOCS | Sun vector + eclipse detection |
 | `make_bdot_controller()` | factory | AOCS | m = −k·Ḃ reference oracle |
+| `make_thruster()` | factory | AOCS | Thrust, propellant, temperature |
+| `make_gps()` | factory | NAV | Position/velocity + noise, eclipse |
+| `make_thermal()` | factory | THM | N-node radiation/conduction model |
 | `make_sbt()` | factory | TTC | Carrier lock, mode FSM |
 | `make_pcdu()` | factory | EPS | LCL switching, MPPT, UVLO |
 | `EpsFmu` | FmuEquipment | EPS | Solar array, Li-Ion battery |
+
+---
+
+## Deterministic Replay
+
+```
+SVF seed: 809481067  (replay with seed=809481067)
+```
+
+```python
+master = SimulationMaster(..., seed=809481067)
+master.run()  # identical noise, identical results
+```
 
 ---
 
@@ -202,12 +223,13 @@ master.run()  # identical noise, identical results
 
 ```
 src/svf/
-├── models/             Equipment models (OBC, TTC, AOCS, EPS, GND)
+├── models/             Equipment models (flat — M18 refactor planned)
 ├── software_tick.py    SoftwareTickSource + RealtimeTickSource
 ├── yamcs_bridge.py     TCP TM/TC bridge to YAMCS
 ├── replay.py           SeedManager — deterministic replay
 └── simulation.py       SimulationMaster
 
+srdb/data/hardware/     Equipment hardware profiles (YAML)
 campaigns/              YAML campaign definitions
 yamcs/                  YAMCS config + XTCE MDB
 scripts/                setup-workspace.sh, demo.sh, start-yamcs.sh
@@ -234,10 +256,11 @@ Dockerfile              Reproducible container image
 |---|---|
 | M1–M12 — Core platform through ground segment | ✅ Done |
 | M13 — SIL Attitude Loop Closure | ✅ Done |
-| M14 — Real-Time & HIL | 🔄 In progress (#115 Renode) |
+| M14 — Real-Time & HIL | 🔄 In progress |
 | M15 — Extended Bus Protocols (SpaceWire, CAN) | 📋 Planned |
-| M16 — SRDB Maturity (version handshake, CSV export) | 📋 Planned |
-| M17 — Equipment Configurability (hardware profiles, thruster, GPS, thermal) | 📋 Planned |
+| M16 — SRDB Maturity | ✅ Done |
+| M17 — Equipment Configurability | ✅ Done |
+| M18 — Architecture Refactor (subsystem layout, FMU management) | 📋 Planned |
 
 ---
 

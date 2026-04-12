@@ -1,6 +1,6 @@
 # SVF Equipment Library
 
-> **Status:** v0.3
+> **Status:** v0.4
 > **Last updated:** 2026-04
 > **Author:** lipofefeyt
 
@@ -11,6 +11,8 @@
 Every spacecraft model in SVF is an `Equipment` — a Python class with named IN/OUT ports, a `do_step()` physics implementation, and SRDB-canonical parameter names. This document defines the **interface contract** for each reference model.
 
 The contract is stable. If you replace a reference model with a higher-fidelity implementation or a hardware-in-the-loop adapter, only the wiring YAML changes — nothing else.
+
+All `make_*` factories accept an optional `hardware_profile=` parameter to load physics constants from a SRDB hardware YAML profile rather than using built-in defaults.
 
 ---
 
@@ -31,300 +33,248 @@ The contract is stable. If you replace a reference model with a higher-fidelity 
 | B-dot Controller | `make_bdot_controller()` | AOCS | — | M11.5 |
 | Reaction Wheel | `make_reaction_wheel()` | AOCS | 1553 RT | M6/M8 |
 | Star Tracker | `make_star_tracker()` | AOCS | SpW/1553 | M8 |
+| Thruster | `make_thruster()` | AOCS/Prop | discrete | M17 |
+| GPS Receiver | `make_gps()` | NAV | UART/SPI | M17 |
+| Thermal Model | `make_thermal()` | THM | — | M17 |
 | S-Band Transponder | `make_sbt()` | TTC | UART | M8 |
 | PCDU | `make_pcdu()` | EPS | 1553/CAN | M9 |
 | EPS FMU | `FmuEquipment(EpsFmu)` | EPS | FMI 3.0 | M4 |
 
 ---
 
+## Hardware Profile Support
+
+All `make_*` factories accept an optional `hardware_profile=` parameter:
+
+```python
+# Use built-in defaults
+rw = make_reaction_wheel(sync, store, cmd_store)
+
+# Load from SRDB hardware profile
+rw = make_reaction_wheel(sync, store, cmd_store,
+                         hardware_profile="rw_sinclair_rw003")
+```
+
+Profiles live in `srdb/data/hardware/*.yaml`. Falls back to defaults if `obsw-srdb` package not installed.
+
+Available profiles:
+
+| Profile | Type | Key Parameters |
+|---|---|---|
+| `rw_default` | reaction_wheel | 6000 rpm, 0.2 Nm |
+| `rw_sinclair_rw003` | reaction_wheel | 5000 rpm, 30 mNm |
+| `mtq_default` | magnetorquer | 10 Am², 5 Ω |
+| `mag_default` | magnetometer | 1×10⁻⁷ T noise |
+| `gyro_default` | gyroscope | ARW 1×10⁻⁴ rad/s/√Hz |
+| `thr_default` | thruster | 1 N, Isp=70s (cold gas) |
+| `thr_moog_monarc_1` | thruster | 1 N, Isp=220s (hydrazine) |
+| `gps_default` | gps | 5 m position noise |
+| `gps_novatel_oem7` | gps | 1.5 m position noise |
+| `thermal_default` | thermal_node | 3-node (panels + internal) |
+
+---
+
 ## 1. OBC Equipment
 
-**File:** `src/svf/models/obc.py`
-**Class:** `ObcEquipment(Equipment)`
-**Subsystem:** DHS
+**File:** `src/svf/models/obc.py` / `obc_stub.py` / `obc_emulator.py`
 
-### Purpose
-
-Dual role:
-1. **PUS TC Router (M7):** Parses PUS-C TC bytes, routes to equipment via CommandStore, generates TM responses.
-2. **DHS State Machine (M8):** Mode management, OBT, watchdog, mass memory.
-
-### Configuration
+Three drop-in implementations via `ObcInterface`:
 
 ```python
-from svf.models.obc import ObcEquipment, ObcConfig, MODE_SAFE
-
-config = ObcConfig(
-    apid=0x101,
-    param_id_map={
-        0x2021: "aocs.rw1.torque_cmd",
-        0x2022: "aocs.rw1.speed",
-    },
-    watchdog_period_s=30.0,
-    initial_mode=MODE_SAFE,
-)
-obc = ObcEquipment(config, sync, store, cmd_store)
-```
-
-### Three OBC Implementations
-
-```python
-# Level 3 — simulated OBC
+# Simulated OBC
 obc = ObcEquipment(config, sync, store, cmd_store)
 
-# Level 3/4 — rule-based OBSW simulator
-obc = ObcStub(config, sync, store, cmd_store, rules=[
-    Rule(
-        name="low_battery_safe",
-        watch="eps.battery.soc",
-        condition=lambda e: e is not None and e.value < 0.3,
-        action=lambda cs, t: cs.inject("dhs.obc.mode_cmd", 0.0, t=t),
-    ),
-])
+# Rule-based OBSW simulator
+obc = ObcStub(config, sync, store, cmd_store, rules=[...])
 
-# Level 4 — real OBSW binary under test
-obc = OBCEmulatorAdapter(
-    sim_path="obsw_sim",
-    sync_protocol=sync,
-    store=store,
-    command_store=cmd_store,
-)
+# Real OBSW binary under test
+obc = OBCEmulatorAdapter(sim_path="obsw_sim", ...)
 ```
 
-All three satisfy `ObcInterface` and are accepted by `TtcEquipment`.
+SRDB version handshake: `OBCEmulatorAdapter` reads SRDB version from `obsw_sim` stderr at startup and compares against installed `obsw-srdb` package. Logs WARNING on mismatch.
 
 ### Ports
 
 | Port | Direction | Description |
 |---|---|---|
-| `obc.tc_input` | IN | TC arrival signal |
-| `dhs.obc.mode_cmd` | IN | Mode command (0=SAFE, 1=NOMINAL, 2=PAYLOAD) |
-| `dhs.obc.watchdog_kick` | IN | Watchdog kick |
-| `dhs.obc.memory_dump_cmd` | IN | Memory dump trigger |
-| `dhs.obc.mode` | OUT | Current mode |
+| `dhs.obc.mode_cmd` | IN | Mode command (0=SAFE, 1=NOMINAL) |
+| `dhs.obc.mode` | OUT | Current FSM mode |
 | `dhs.obc.obt` | OUT (s) | On-board time |
 | `dhs.obc.watchdog_status` | OUT | 0=nominal, 1=warning, 2=reset |
-| `dhs.obc.memory_used_pct` | OUT (%) | Mass memory fill |
 | `dhs.obc.health` | OUT | 0=nominal, 1=degraded, 2=failed |
-| `dhs.obc.reset_count` | OUT | Reset counter since boot |
-| `dhs.obc.cpu_load` | OUT (%) | CPU load |
-| `obc.tm_output` | OUT | Latest TM sequence count |
-
-### PUS TC Routing
-
-| Service | Action |
-|---|---|
-| S1 | TM(1,1) acceptance + TM(1,7) completion; TM(1,2) on bad CRC |
-| S3 | TM(3,25) HK each tick for enabled reports |
-| S5 | Events on mode transition, watchdog warning/reset |
-| S17 | TC(17,1) → TM(17,2) are-you-alive |
-| S20/1 | param_id → canonical name → CommandStore.inject() |
-| S20/3 | ParameterStore.read() → TM(20,4) |
 
 ---
 
-## 2. TTC Equipment
+## 2. TTC Equipment + YAMCS Bridge
 
-**File:** `src/svf/models/ttc.py`
-**Class:** `TtcEquipment(Equipment)`
-**Subsystem:** TTC
-
-### Purpose
-
-Software bridge between test procedures, OBC, and optionally YAMCS. Forwards PUS TC bytes to OBC and exposes TM for assertions. With a `YamcsBridge`, TM flows to YAMCS each tick and TC from the YAMCS operator is forwarded to the OBC.
-
-### Instantiation
+**File:** `src/svf/models/ttc.py`, `src/svf/yamcs_bridge.py`
 
 ```python
 # Without YAMCS
 ttc = TtcEquipment(obc, sync, store, cmd_store)
 
 # With YAMCS ground station
-bridge = YamcsBridge(store, tm_port=10015, tc_port=10025)
+bridge = YamcsBridge(store)
 bridge.start()
 ttc = TtcEquipment(obc, sync, store, cmd_store, yamcs_bridge=bridge)
 ```
 
-### Ports
+---
+
+## 3. KDE Dynamics
+
+**File:** `src/svf/models/kde_equipment.py`
+
+6-DOF spacecraft physics via FMI 2.0 FMU. Provides truth state to all sensor models.
+
+| Port | Direction | Unit | Description |
+|---|---|---|---|
+| `aocs.mtq.torque_x/y/z` | IN | Nm | MTQ torques |
+| `aocs.truth.rate_x/y/z` | OUT | rad/s | True angular velocity → GYRO |
+| `aocs.mag.true_x/y/z` | OUT | T | True B-field → MAG |
+| `aocs.attitude.quaternion_w/x/y/z` | OUT | — | True attitude → ST |
+
+---
+
+## 4. AOCS Sensor Models
+
+### Magnetometer
+`make_magnetometer(sync, store, cmd_store, seed=None, hardware_profile=None)`
+
+| Port | Direction | Unit |
+|---|---|---|
+| `aocs.mag.true_x/y/z` | IN | T |
+| `aocs.mag.field_x/y/z` | OUT | T |
+| `aocs.mag.status` | OUT | — |
+
+### Gyroscope
+`make_gyroscope(sync, store, cmd_store, seed=None, hardware_profile=None)`
+
+| Port | Direction | Unit |
+|---|---|---|
+| `aocs.truth.rate_x/y/z` | IN | rad/s |
+| `aocs.gyro.rate_x/y/z` | OUT | rad/s |
+| `aocs.gyro.status` | OUT | — |
+
+### CSS
+`make_css(sync, store, cmd_store, seed=None)`
 
 | Port | Direction | Description |
 |---|---|---|
-| `ttc.uplink_active` | OUT | 1 when forwarding TC |
-| `ttc.downlink_active` | OUT | 1 when OBC has TM(3,25) |
+| `aocs.truth.rate_x/y/z` | IN | True rates |
+| `aocs.css.sun_x/y/z` | OUT | Sun vector |
+| `aocs.css.eclipse` | OUT | 1=eclipse |
+
+### B-dot Controller (validation oracle)
+`make_bdot_controller(sync, store, cmd_store)`
+
+**Note:** This is a Python validation oracle — not flight code. The flight b-dot runs in `openobsw`.
+
+| Port | Direction | Unit |
+|---|---|---|
+| `aocs.mag.field_x/y/z` | IN | T |
+| `aocs.mtq.dipole_x/y/z` | OUT | Am² |
 
 ---
 
-## 3. YAMCS Bridge
+## 5. Magnetorquer
 
-**File:** `src/svf/yamcs_bridge.py`
-**Class:** `YamcsBridge`
-**Subsystem:** Ground Segment
-
-### Purpose
-
-TCP bridge between SVF and a YAMCS 5.12.6 ground station. SVF acts as the TCP server; YAMCS connects as a client. Enables an operator to send TC from the YAMCS UI and view live TM parameters.
-
-### Instantiation
-
-```python
-from svf.yamcs_bridge import YamcsBridge
-
-bridge = YamcsBridge(store, tm_port=10015, tc_port=10025)
-bridge.start()   # blocks waiting for YAMCS to connect
-# ... run simulation ...
-bridge.stop()
-```
-
-### Protocol
-
-```
-SVF (TCP server)              YAMCS (TCP client)
-  port 10015  ←connects—  TM data link  (SVF pushes PUS TM bytes)
-  port 10025  ←connects—  TC data link  (YAMCS sends PUS TC bytes)
-```
-
-### API
-
-```python
-bridge.send_tm(raw_bytes)   # push PUS TM packet to YAMCS
-tc = bridge.get_tc()        # get next TC from YAMCS operator (or None)
-```
-
-### XTCE Mission Database
-
-Generated from SRDB automatically on YAMCS start:
-
-```bash
-python3 tools/generate_xtce.py > yamcs/mdb/opensvf.xml
-```
-
-Contents: 78 parameters, 2 TM containers (`TM_17_2`, `TM_3_25`), 2 commands (`TC_17_1_AreYouAlive`, `TC_20_1_SetParameter`).
-
----
-
-## 4. KDE Dynamics
-
-**File:** `src/svf/models/kde_equipment.py`
-**Factory:** `make_kde_equipment()`
-**Subsystem:** Dynamics / AOCS
-
-### Purpose
-
-Wraps the C++ `SpacecraftDynamics` FMU as a `NativeEquipment`. Provides high-fidelity 6-DOF spacecraft dynamics: Euler's equations, quaternion kinematics, Earth B-field model.
-
-### Instantiation
-
-```python
-kde = make_kde_equipment(sync, store, cmd_store)
-```
-
-Requires `models/fmu/SpacecraftDynamics.fmu`.
-
-### Ports
-
-| Port | Direction | Unit | Description |
-|---|---|---|---|
-| `aocs.mtq.torque_x/y/z` | IN | Nm | Mechanical torques from MTQ model |
-| `aocs.truth.rate_x/y/z` | OUT | rad/s | True angular velocity (→ GYRO) |
-| `aocs.mag.true_x/y/z` | OUT | T | True magnetic field (→ MAG) |
-| `aocs.attitude.quaternion_w/x/y/z` | OUT | — | True attitude quaternion (→ ST) |
-
----
-
-## 5. AOCS Sensor Models
-
-### Magnetometer
-
-**Factory:** `make_magnetometer(sync, store, cmd_store, seed=None)`
-
-| Port | Direction | Unit | Description |
-|---|---|---|---|
-| `aocs.mag.true_x/y/z` | IN | T | True B field from KDE |
-| `aocs.mag.field_x/y/z` | OUT | T | Measured B field (with noise) |
-| `aocs.mag.status` | OUT | — | 1=nominal |
-
-Physics: Gaussian noise + bias drift random walk.
-
-### Gyroscope
-
-**Factory:** `make_gyroscope(sync, store, cmd_store, seed=None)`
-
-| Port | Direction | Unit | Description |
-|---|---|---|---|
-| `aocs.truth.rate_x/y/z` | IN | rad/s | True rates from KDE |
-| `aocs.gyro.rate_x/y/z` | OUT | rad/s | Measured rates (with noise) |
-| `aocs.gyro.status` | OUT | — | 1=nominal |
-
-Physics: Angle random walk (ARW) noise + bias drift.
-
-### CSS
-
-**Factory:** `make_css(sync, store, cmd_store, seed=None)`
-
-| Port | Direction | Unit | Description |
-|---|---|---|---|
-| `aocs.truth.rate_x/y/z` | IN | rad/s | True rates |
-| `aocs.css.sun_x/y/z` | OUT | — | Sun vector estimate |
-| `aocs.css.eclipse` | OUT | — | 1=eclipse |
-
-### B-dot Controller
-
-**Factory:** `make_bdot_controller(sync, store, cmd_store)`
-
-| Port | Direction | Unit | Description |
-|---|---|---|---|
-| `aocs.mag.field_x/y/z` | IN | T | MAG measurement |
-| `aocs.mtq.dipole_x/y/z` | OUT | Am² | Dipole commands |
-
-Physics: `m = -k · dB/dt` finite difference.
-
----
-
-## 6. Magnetorquer
-
-**Factory:** `make_magnetorquer(sync, store, cmd_store)`
+`make_magnetorquer(sync, store, cmd_store, hardware_profile=None)`
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
 | `aocs.mtq.dipole_x/y/z` | IN | Am² | Dipole commands |
-| `aocs.mtq.b_field_x/y/z` | IN | T | Local B field |
+| `aocs.mtq.b_field_x/y/z` | IN | T | Local B-field |
 | `aocs.mtq.torque_x/y/z` | OUT | Nm | Torque = m × B |
-
-Physics: Cross product `τ = m × B`. Dipole saturation at ±10 Am².
 
 ---
 
-## 7. Reaction Wheel
+## 6. Reaction Wheel
 
-**Factory:** `make_reaction_wheel()`
-**Bus interface:** MIL-STD-1553 RT
+`make_reaction_wheel(sync, store, cmd_store, hardware_profile=None)`
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
-| `aocs.rw1.torque_cmd` | IN | Nm | Torque command via 1553 SA1 |
+| `aocs.rw1.torque_cmd` | IN | Nm | Torque command |
 | `aocs.rw1.speed` | OUT | rpm | Wheel speed |
 | `aocs.rw1.temperature` | OUT | °C | Bearing temperature |
 | `aocs.rw1.status` | OUT | — | 1=nominal, 0=over-temp |
 
 ---
 
-## 8. Star Tracker
+## 7. Star Tracker
 
-**Factory:** `make_star_tracker()`
+`make_star_tracker(sync, store, cmd_store, seed=None)`
 
-| Port | Direction | Unit | Description |
-|---|---|---|---|
-| `aocs.str1.power_enable` | IN | — | Power on/off |
-| `aocs.str1.sun_angle` | IN | deg | Sun angle for blinding |
-| `aocs.str1.quaternion_w/x/y/z` | OUT | — | Attitude quaternion |
-| `aocs.str1.validity` | OUT | — | 1=valid |
-| `aocs.str1.mode` | OUT | — | 0=off, 1=acquiring, 2=tracking |
+| Port | Direction | Description |
+|---|---|---|
+| `aocs.str1.power_enable` | IN | Power on/off |
+| `aocs.str1.sun_angle` | IN | Sun angle for blinding |
+| `aocs.str1.quaternion_w/x/y/z` | OUT | Attitude quaternion |
+| `aocs.str1.validity` | OUT | 1=valid |
+| `aocs.str1.mode` | OUT | 0=off, 1=acquiring, 2=tracking |
 
 ---
 
-## 9. S-Band Transponder
+## 8. Thruster
 
-**Factory:** `make_sbt()`
+`make_thruster(sync, store, cmd_store, hardware_profile=None)`
+
+Physics: propellant consumption via Tsiolkovsky equation.
+
+| Port | Direction | Unit | Description |
+|---|---|---|---|
+| `aocs.thr1.enable` | IN | — | Fire command |
+| `aocs.thr1.thrust_cmd` | IN | N | Commanded thrust |
+| `aocs.thr1.thrust` | OUT | N | Actual thrust |
+| `aocs.thr1.temperature` | OUT | °C | Thruster temperature |
+| `aocs.thr1.propellant` | OUT | kg | Remaining propellant |
+| `aocs.thr1.status` | OUT | — | 0=off 1=nominal 2=low_prop 3=empty 4=over_temp |
+
+---
+
+## 9. GPS Receiver
+
+`make_gps(sync, store, cmd_store, seed=None, hardware_profile=None)`
+
+Truth state from KDE (position/velocity). Gaussian noise added per axis.
+
+| Port | Direction | Unit | Description |
+|---|---|---|---|
+| `gps.power_enable` | IN | — | Power on/off |
+| `gps.truth.pos_x/y/z` | IN | m | True ECI position from KDE |
+| `gps.truth.vel_x/y/z` | IN | m/s | True ECI velocity from KDE |
+| `gps.eclipse` | IN | — | Eclipse flag from CSS |
+| `gps.position_x/y/z` | OUT | m | Measured ECI position |
+| `gps.velocity_x/y/z` | OUT | m/s | Measured ECI velocity |
+| `gps.fix` | OUT | — | 1=valid fix |
+| `gps.altitude_km` | OUT | km | Altitude above sphere |
+| `gps.status` | OUT | — | 0=off 1=acquiring 2=fix 3=eclipse_outage |
+
+---
+
+## 10. Thermal Model
+
+`make_thermal(sync, store, cmd_store, hardware_profile=None)`
+
+N-node configurable thermal network. Node count and properties from hardware profile.
+
+| Port | Direction | Unit | Description |
+|---|---|---|---|
+| `thermal.solar_illumination` | IN | — | 0=eclipse, 1=sun |
+| `thermal.equipment_power_w` | IN | W | Equipment dissipation |
+| `thermal.{node_id}.temp_degc` | OUT | °C | Per-node temperature |
+| `thermal.cavity.temp_degc` | OUT | °C | Internal cavity temperature |
+| `thermal.min_temp_degc` | OUT | °C | Coldest node |
+| `thermal.max_temp_degc` | OUT | °C | Hottest node |
+
+Default 3 nodes: `panel_plus_x`, `panel_minus_x`, `internal`.
+
+---
+
+## 11. S-Band Transponder
+
+`make_sbt(sync, store, cmd_store)`
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
@@ -335,22 +285,22 @@ Physics: Cross product `τ = m × B`. Dipole saturation at ±10 Am².
 
 ---
 
-## 10. PCDU
+## 12. PCDU
 
-**Factory:** `make_pcdu()`
+`make_pcdu(sync, store, cmd_store)`
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
-| `eps.solar_array.generated_power` | IN | W | Solar power input |
+| `eps.solar_array.generated_power` | IN | W | Solar power |
 | `eps.pcdu.lcl{1-8}.enable` | IN | — | Per-LCL enable |
 | `eps.pcdu.total_load` | OUT | W | Total load |
 | `eps.pcdu.uvlo_active` | OUT | — | 1=UVLO active |
 
 ---
 
-## 11. EPS FMU
+## 13. EPS FMU
 
-**File:** `models/EpsFmu.fmu` — FMI 3.0 FMU
+`FmuEquipment(EpsFmu)` — FMI 3.0 FMU
 
 | Port | Direction | Unit |
 |---|---|---|
@@ -363,30 +313,21 @@ Physics: Cross product `τ = m × B`. Dipole saturation at ±10 Am².
 
 ## Adding a New Equipment Model
 
-### 1. Define SRDB entries
-### 2. Define requirements
-### 3. Implement
-
 ```python
-def make_my_equipment(sync, store, cmd_store):
+def make_my_equipment(sync, store, cmd_store, hardware_profile=None):
     def _step(eq, t, dt):
-        rate = eq.read_port("aocs.myeq.rate_cmd")
-        speed = eq.read_port("aocs.myeq.speed")
-        eq.write_port("aocs.myeq.speed", speed + rate * dt)
+        val = eq.read_port("myeq.input")
+        eq.write_port("myeq.output", val * 2.0)
 
     return NativeEquipment(
         equipment_id="myeq",
         ports=[
-            PortDefinition("aocs.myeq.rate_cmd", PortDirection.IN,  unit="rpm/s"),
-            PortDefinition("aocs.myeq.speed",    PortDirection.OUT, unit="rpm"),
+            PortDefinition("myeq.input",  PortDirection.IN),
+            PortDefinition("myeq.output", PortDirection.OUT),
         ],
         step_fn=_step,
         sync_protocol=sync, store=store, command_store=cmd_store,
     )
 ```
 
-### Scalability contract
-
-- **SRDB canonical names are stable.** Replace the model → only wiring YAML changes.
-- **InterfaceType validates connections.** Type mismatch caught at load time.
-- **Port commands are consumed.** One-shot commands don't persist across ticks.
+Add a hardware profile in `srdb/data/hardware/myeq_default.yaml` and pass `hardware_profile="myeq_default"` to load parameters from it.
