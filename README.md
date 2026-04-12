@@ -21,6 +21,30 @@ OpenSVF implements this across four validation levels:
 | 3 — Integration validation | Models + PUS chain + closed-loop FDIR | ✅ Complete |
 | 4 — System validation | Real OBSW + C++ physics + YAMCS ground station | ✅ Complete |
 
+## Design Philosophy
+
+OpenSVF is a **flight software validation platform** — not an AOCS design tool and not a Simulink replacement.
+
+It answers a specific question: *does my flight C code behave correctly against real physics and a real ground station?*
+
+```
+Hand-coded C algorithm (openobsw)
+    ↓ obsw_sim binary under test
+    ↓ sensor injection via typed pipe protocol
+    ↓ validated against C++ physics (opensvf-kde plant model)
+    ↓ validated against Python reference oracles
+    ↓ ground station commanding via YAMCS
+```
+
+**Key distinctions:**
+
+- `opensvf-kde` is the **spacecraft plant** (physics). It contains no control algorithm.
+- `openobsw` contains the **flight algorithms** (b-dot, ADCS PD, FDIR). These are what's under test.
+- Python reference controllers (e.g. `make_bdot_controller()`) are **validation oracles** — not flight code. They exist to compare against the C implementations.
+- Monte Carlo in OpenSVF varies initial conditions and noise seeds against fixed C code — answering "what is the statistical performance of my actual flight software?" rather than a design model.
+
+See [`docs/design-philosophy.md`](docs/design-philosophy.md) for the full discussion.
+
 ---
 
 ## Quick Start
