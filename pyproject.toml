@@ -44,6 +44,10 @@ exclude = ["examples/", "setup_issues.py"]
 module = ["fmpy", "fmpy.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["obsw_srdb", "obsw_srdb.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 timeout = 30
 log_cli = false
