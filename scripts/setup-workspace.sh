@@ -90,7 +90,6 @@ alias svf-campaign='svf run'
 alias svf-campaign-all='for f in $REPO/campaigns/*.yaml; do svf run "$f"; done'
 alias svf-demo='bash $REPO/scripts/demo.sh'
 alias regen-xtce='python3 $REPO/tools/generate_xtce.py > $REPO/yamcs/mdb/opensvf.xml && echo "XTCE: $(wc -l < $REPO/yamcs/mdb/opensvf.xml) lines"'
-alias omkbuild='cd $REPO/../openobsw && mkdir -p build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc) && cd $REPO'
 
 echo ""
 echo "=== Setup complete ==="
