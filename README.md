@@ -21,27 +21,18 @@ OpenSVF implements this across four validation levels:
 | 3 — Integration validation | Models + PUS chain + closed-loop FDIR | ✅ Complete |
 | 4 — System validation | Real OBSW + C++ physics + YAMCS ground station | ✅ Complete |
 
+---
+
 ## Design Philosophy
 
 OpenSVF is a **flight software validation platform** — not an AOCS design tool and not a Simulink replacement.
 
 It answers a specific question: *does my flight C code behave correctly against real physics and a real ground station?*
 
-```
-Hand-coded C algorithm (openobsw)
-    ↓ obsw_sim binary under test
-    ↓ sensor injection via typed pipe protocol
-    ↓ validated against C++ physics (opensvf-kde plant model)
-    ↓ validated against Python reference oracles
-    ↓ ground station commanding via YAMCS
-```
-
-**Key distinctions:**
-
 - `opensvf-kde` is the **spacecraft plant** (physics). It contains no control algorithm.
 - `openobsw` contains the **flight algorithms** (b-dot, ADCS PD, FDIR). These are what's under test.
-- Python reference controllers (e.g. `make_bdot_controller()`) are **validation oracles** — not flight code. They exist to compare against the C implementations.
-- Monte Carlo in OpenSVF varies initial conditions and noise seeds against fixed C code — answering "what is the statistical performance of my actual flight software?" rather than a design model.
+- Python reference controllers (e.g. `make_bdot_controller()`) are **validation oracles** — not flight code.
+- Monte Carlo in OpenSVF varies seeds and initial conditions against fixed C code — testing the actual flight software, not a design model.
 
 See [`docs/design-philosophy.md`](docs/design-philosophy.md) for the full discussion.
 
@@ -57,6 +48,9 @@ source scripts/setup-workspace.sh
 
 # Run all tests
 testosvf
+
+# Run a campaign
+svf-campaign campaigns/realtime_detumbling.yaml
 
 # Full demo: SVF + YAMCS ground station
 bash scripts/demo.sh
@@ -111,17 +105,60 @@ obsw_sim → SVF stdout:
 
 ---
 
+## Tick Sources
+
+| Tick Source | Behaviour | Use Case |
+|---|---|---|
+| `SoftwareTickSource` | Fast as possible | CI, batch validation, Monte Carlo |
+| `RealtimeTickSource` | Wall-clock aligned | YAMCS operator demos, HIL preparation |
+
+```python
+# Fast (default)
+master = SimulationMaster(tick_source=SoftwareTickSource(), ...)
+
+# Real-time (1s sim = 1s wall clock)
+master = SimulationMaster(tick_source=RealtimeTickSource(), ...)
+```
+
+Overrun warnings logged when a tick exceeds dt by more than 10%.
+
+---
+
 ## Ground Segment (YAMCS)
 
 ```bash
 # Terminal 1
 yamcs-start && yamcs-log-follow
 
-# Terminal 2
-svf-demo-fg
+# Terminal 2 — real-time detumbling observable in YAMCS TM
+svf-campaign campaigns/realtime_detumbling.yaml
 ```
 
-Open `http://localhost:8090` — live TM parameters, TC commanding from YAMCS UI.
+Open `http://localhost:8090` — live TM parameters, TC commanding from YAMCS UI. XTCE MDB (78 parameters, 2 commands) auto-generated from SRDB on every YAMCS start.
+
+---
+
+## Campaigns
+
+```bash
+# Run a single campaign
+svf-campaign campaigns/eps_validation.yaml
+
+# Run all campaigns
+svf-campaign-all
+```
+
+| Campaign | Scenario | Level |
+|---|---|---|
+| `eps_validation.yaml` | EPS power system | 1 |
+| `mil1553_validation.yaml` | 1553 bus + FDIR | 2 |
+| `pus_validation.yaml` | PUS commanding chain | 3 |
+| `platform_validation.yaml` | Full platform | 3 |
+| `safe_mode_recovery.yaml` | Closed-loop FDIR | 3/4 |
+| `nominal_ops.yaml` | Nominal operations | 3/4 |
+| `contact_pass.yaml` | Ground contact pass | 3/4 |
+| `fdir_chain.yaml` | FDIR chain | 3/4 |
+| `realtime_detumbling.yaml` | Real-time b-dot + YAMCS | 4 |
 
 ---
 
@@ -154,7 +191,7 @@ master.run()  # identical noise, identical results
 | `make_magnetorquer()` | factory | AOCS | Torque = m × B |
 | `make_gyroscope()` | factory | AOCS | Rate measurement + ARW noise |
 | `make_css()` | factory | AOCS | Sun vector + eclipse detection |
-| `make_bdot_controller()` | factory | AOCS | m = −k·Ḃ reference controller |
+| `make_bdot_controller()` | factory | AOCS | m = −k·Ḃ reference oracle |
 | `make_sbt()` | factory | TTC | Carrier lock, mode FSM |
 | `make_pcdu()` | factory | EPS | LCL switching, MPPT, UVLO |
 | `EpsFmu` | FmuEquipment | EPS | Solar array, Li-Ion battery |
@@ -165,23 +202,19 @@ master.run()  # identical noise, identical results
 
 ```
 src/svf/
-├── models/
-│   ├── kde_equipment.py    KDE FMU wrapper
-│   ├── obc.py / obc_stub.py / obc_emulator.py
-│   ├── ttc.py              TtcEquipment + YamcsBridge
-│   ├── magnetometer.py / magnetorquer.py
-│   ├── gyroscope.py / css.py / bdot_controller.py
-│   └── reaction_wheel.py / star_tracker.py
-├── yamcs_bridge.py         TCP TM/TC bridge to YAMCS
-├── replay.py               SeedManager — deterministic replay
-└── simulation.py           SimulationMaster
+├── models/             Equipment models (OBC, TTC, AOCS, EPS, GND)
+├── software_tick.py    SoftwareTickSource + RealtimeTickSource
+├── yamcs_bridge.py     TCP TM/TC bridge to YAMCS
+├── replay.py           SeedManager — deterministic replay
+└── simulation.py       SimulationMaster
 
-yamcs/etc/                  YAMCS server + instance config
-yamcs/mdb/                  XTCE mission database (from SRDB)
-scripts/                    setup-workspace.sh, demo.sh, start-yamcs.sh
-tools/generate_xtce.py      XTCE generator from SRDB
-docs/                       Architecture, equipment library, plugin, validation guides
-Dockerfile                  Reproducible container image
+campaigns/              YAML campaign definitions
+yamcs/                  YAMCS config + XTCE MDB
+scripts/                setup-workspace.sh, demo.sh, start-yamcs.sh
+tools/                  generate_xtce.py
+docs/                   Architecture, equipment library, plugin,
+                        design philosophy, validation guides
+Dockerfile              Reproducible container image
 ```
 
 ---
@@ -201,9 +234,10 @@ Dockerfile                  Reproducible container image
 |---|---|
 | M1–M12 — Core platform through ground segment | ✅ Done |
 | M13 — SIL Attitude Loop Closure | ✅ Done |
-| M14 — Real-Time & HIL (Renode, real-time tick, variable timestep) | Planned |
-| M15 — Extended Bus Protocols (SpaceWire, CAN) | Planned |
-| M16 — SRDB Maturity (version handshake, CSV export) | Planned |
+| M14 — Real-Time & HIL | 🔄 In progress (#115 Renode) |
+| M15 — Extended Bus Protocols (SpaceWire, CAN) | 📋 Planned |
+| M16 — SRDB Maturity (version handshake, CSV export) | 📋 Planned |
+| M17 — Equipment Configurability (hardware profiles, thruster, GPS, thermal) | 📋 Planned |
 
 ---
 

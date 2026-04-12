@@ -169,4 +169,7 @@ Level 4 — System Validation        (M11–M13) ✅
 | M11.5 — KDE Co-Simulation Integration | ✅ Done |
 | M12 — Ground Segment (YAMCS) | ✅ Done |
 | M13 — SIL Attitude Loop Closure (ADCS closed loop) | ✅ Done |
-| M14 — Real-Time & HIL (Renode, real-time tick, Dockerfile) | Planned |
+| M14 — Real-Time & HIL | 🔄 In progress (RealtimeTickSource ✅, Dockerfile ✅, Renode pending) |
+| M15 — Extended Bus Protocols (SpaceWire, CAN) | 📋 Planned |
+| M16 — SRDB Maturity (version handshake, CSV export) | 📋 Planned |
+| M17 — Equipment Configurability (hardware profiles, new models) | 📋 Planned |
