@@ -46,6 +46,10 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 timeout = 30
+log_cli = true
+log_cli_level = "INFO"
+log_format = "%(asctime)s %(name)s %(levelname)s %(message)s"
+log_date_format = "%H:%M:%S"
 python_classes = ["*Suite", "*Tests"]
 testpaths = ["tests"]
 norecursedirs = ["tests/hardware"]
