@@ -26,6 +26,12 @@ from svf.command_store import CommandStore
 
 logger = logging.getLogger(__name__)
 
+try:
+    import importlib.util as _importlib_util
+    _HW_AVAILABLE = _importlib_util.find_spec("obsw_srdb") is not None
+except Exception:
+    _HW_AVAILABLE = False
+
 MAX_DIPOLE_AM2  = 10.0    # Am² saturation limit
 TEMP_RISE_COEFF = 0.005   # degC per Am²² per second
 COOLING_RATE    = 0.02    # degC/s towards ambient
@@ -36,6 +42,8 @@ def make_magnetorquer(
     sync_protocol: SyncProtocol,
     store: ParameterStore,
     command_store: Optional[CommandStore] = None,
+    hardware_profile: Optional[str] = None,
+    hardware_dir: str = "srdb/data/hardware",
 ) -> NativeEquipment:
     """
     Create a Magnetorquer NativeEquipment.

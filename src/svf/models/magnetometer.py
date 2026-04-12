@@ -27,6 +27,12 @@ from svf.command_store import CommandStore
 
 logger = logging.getLogger(__name__)
 
+try:
+    import importlib.util as _importlib_util
+    _HW_AVAILABLE = _importlib_util.find_spec("obsw_srdb") is not None
+except Exception:
+    _HW_AVAILABLE = False
+
 # Noise parameters
 BASE_NOISE_STD   = 1e-7    # T — baseline white noise std dev
 TEMP_NOISE_COEFF = 5e-9    # T/degC additional noise above nominal
@@ -43,6 +49,8 @@ def make_magnetometer(
     store: ParameterStore,
     command_store: Optional[CommandStore] = None,
     seed: Optional[int] = None,
+    hardware_profile: Optional[str] = None,
+    hardware_dir: str = "srdb/data/hardware",
 ) -> NativeEquipment:
     """
     Create a Magnetometer NativeEquipment.
@@ -108,6 +116,15 @@ def make_magnetometer(
                       true_z + rng.gauss(0, noise_std) + state["bias_z"])
         eq.write_port("aocs.mag.status", 1.0)
 
+
+    global BIAS_DRIFT_RATE
+    if hardware_profile is not None and _HW_AVAILABLE:
+        from obsw_srdb.hardware import load_profile as _load_hw  # noqa: PLC0415
+        profile = _load_hw(hardware_profile, hardware_dir)
+        BIAS_DRIFT_RATE = profile.get("bias_drift_rate_tesla_s", BIAS_DRIFT_RATE)
+        logger.info(f"[mag] Loaded hardware profile: {hardware_profile}")
+    elif hardware_profile is not None:
+        logger.warning("[mag] obsw-srdb not installed — hardware profile ignored")
     eq = NativeEquipment(
         equipment_id="mag",
         ports=[

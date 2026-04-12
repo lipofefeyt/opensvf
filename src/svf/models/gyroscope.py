@@ -27,6 +27,12 @@ from svf.command_store import CommandStore
 
 logger = logging.getLogger(__name__)
 
+try:
+    import importlib.util as _importlib_util
+    _HW_AVAILABLE = _importlib_util.find_spec("obsw_srdb") is not None
+except Exception:
+    _HW_AVAILABLE = False
+
 # Noise parameters
 ARW_STD          = 1e-4    # rad/s/√Hz angle random walk
 BIAS_INSTABILITY = 1e-5    # rad/s bias instability
@@ -44,6 +50,8 @@ def make_gyroscope(
     store: ParameterStore,
     command_store: Optional[CommandStore] = None,
     seed: Optional[int] = None,
+    hardware_profile: Optional[str] = None,
+    hardware_dir: str = "srdb/data/hardware",
 ) -> NativeEquipment:
     """
     Create a Gyroscope NativeEquipment.
@@ -112,6 +120,15 @@ def make_gyroscope(
         eq.write_port("aocs.gyro.temperature", state["temperature"])
         eq.write_port("aocs.gyro.status", 1.0)
 
+
+    global BIAS_INSTABILITY
+    if hardware_profile is not None and _HW_AVAILABLE:
+        from obsw_srdb.hardware import load_profile as _load_hw  # noqa: PLC0415
+        profile = _load_hw(hardware_profile, hardware_dir)
+        BIAS_INSTABILITY = profile.get("bias_instability_rad_s", BIAS_INSTABILITY)
+        logger.info(f"[gyro] Loaded hardware profile: {hardware_profile}")
+    elif hardware_profile is not None:
+        logger.warning("[gyro] obsw-srdb not installed — hardware profile ignored")
     eq = NativeEquipment(
         equipment_id="gyro",
         ports=[
