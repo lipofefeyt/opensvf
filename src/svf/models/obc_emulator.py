@@ -40,6 +40,48 @@ from svf.pus.tm import PusTmPacket
 logger = logging.getLogger(__name__)
 
 SYNC_BYTE       = 0xFF
+def _detect_qemu_prefix(sim_path: Path) -> list[str]:
+    """
+    Auto-detect if sim_path needs QEMU to run on this host.
+    Returns [] for native binaries, ['qemu-aarch64', '-L', glibc] for aarch64.
+    """
+    import shutil
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["file", str(sim_path)],
+            capture_output=True, text=True, timeout=5
+        )
+        output = result.stdout
+    except Exception:
+        return []
+
+    if "ARM aarch64" in output:
+        qemu = shutil.which("qemu-aarch64")
+        if not qemu:
+            raise RuntimeError(
+                f"aarch64 binary detected but qemu-aarch64 not found. "
+                f"Install with: nix-env -iA nixpkgs.qemu"
+            )
+        # Find glibc from environment or search
+        import os
+        glibc = os.environ.get("AARCH64_GLIBC", "")
+        if not glibc:
+            import re
+            match = re.search(r"interpreter (/nix/store/[^/]+)", output)
+            if match:
+                glibc = str(Path(match.group(1)).parent.parent)
+        if not glibc:
+            raise RuntimeError(
+                "aarch64 glibc not found. Set AARCH64_GLIBC environment variable."
+            )
+        logger.info(f"[obc-emu] aarch64 binary detected — using QEMU: {qemu}")
+        return [qemu, "-L", glibc]
+
+    return []
+
+
 FRAME_TC        = 0x01
 FRAME_SENSOR    = 0x02
 FRAME_ACTUATOR  = 0x03
@@ -72,9 +114,11 @@ class OBCEmulatorAdapter(Equipment):
         store: ParameterStore,
         command_store: Optional[CommandStore] = None,
         sync_timeout: float = 5.0,
+        qemu_prefix: Optional[list[str]] = None,
         apid: int = 0x010,
     ) -> None:
         self._sim_path     = Path(sim_path)
+        self._qemu_prefix  = qemu_prefix or []
         self._sync_timeout = sync_timeout
         self._apid         = apid
 
@@ -154,12 +198,16 @@ class OBCEmulatorAdapter(Equipment):
                 self._check_srdb_version(srdb_version)
 
     def initialise(self, start_time: float = 0.0) -> None:
+        # Auto-detect QEMU prefix if not explicitly set
+        if not self._qemu_prefix:
+            self._qemu_prefix = _detect_qemu_prefix(self._sim_path)
+
         if not self._sim_path.exists():
             raise FileNotFoundError(
                 f"obsw_sim not found at {self._sim_path}."
             )
         self._proc = subprocess.Popen(
-            [str(self._sim_path)],
+            self._qemu_prefix + [str(self._sim_path)],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

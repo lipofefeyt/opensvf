@@ -4,11 +4,17 @@
 
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)
 
+echo "[1/4] Activating Venv"
+
 # Venv
 [ -f "$REPO/.venv/bin/activate" ] && source "$REPO/.venv/bin/activate"
 
+echo "[2/4] Adding Nix Profile"
+
 # Nix profile (cross compiler)
 [ -d "$HOME/.nix-profile/bin" ] && export PATH="$HOME/.nix-profile/bin:$PATH"
+
+echo "[3/4] Adding Java environment"
 
 # Java
 if ! command -v java &>/dev/null; then
@@ -16,6 +22,8 @@ if ! command -v java &>/dev/null; then
     [ -n "$JAVA" ] && export JAVA_HOME=$(dirname $(dirname "$JAVA")) && \
         export PATH="$JAVA_HOME/bin:$PATH"
 fi
+
+echo "[4/4] Adding aarch64 glibc for QEMU"
 
 # aarch64 glibc for QEMU
 export AARCH64_GLIBC=$(find /nix/store -name "ld-linux-aarch64.so.1" \

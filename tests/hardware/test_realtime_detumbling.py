@@ -30,10 +30,19 @@ from svf.models.gyroscope import make_gyroscope
 from svf.models.star_tracker import make_star_tracker
 
 _root = Path(__file__).parent.parent.parent
-OBSW_SIM = next(
-    (p for p in [_root / "obsw_sim", Path("obsw_sim")] if p.exists()),
-    _root / "obsw_sim"
-)
+# Prefer aarch64 binary if OBSW_ARCH=aarch64, else use native
+import os as _os
+_arch = _os.environ.get("OBSW_ARCH", "x86_64")
+if _arch == "aarch64":
+    OBSW_SIM = next(
+        (p for p in [_root / "obsw_sim_aarch64", Path("obsw_sim_aarch64")] if p.exists()),
+        _root / "obsw_sim_aarch64"
+    )
+else:
+    OBSW_SIM = next(
+        (p for p in [_root / "obsw_sim", Path("obsw_sim")] if p.exists()),
+        _root / "obsw_sim"
+    )
 KDE_FMU = next(
     (p for p in [
         _root / "models/fmu/SpacecraftDynamics.fmu",

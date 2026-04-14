@@ -21,7 +21,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 REPO = Path(__file__).parent.parent
-OBSW_SIM = REPO / "obsw_sim"
+import os as _os
+_arch = _os.environ.get("OBSW_ARCH", "x86_64")
+OBSW_SIM = REPO / ("obsw_sim_aarch64" if _arch == "aarch64" else "obsw_sim")
 KDE_FMU  = REPO / "models/fmu/SpacecraftDynamics.fmu"
 
 
