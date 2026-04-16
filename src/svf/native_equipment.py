@@ -75,6 +75,10 @@ class NativeEquipment(Equipment):
     def initialise(self, start_time: float = 0.0) -> None:
         logger.info(f"[{self._equipment_id}] NativeEquipment initialised")
 
+    def suggested_dt(self) -> Optional[float]:
+        """Default: no preference — use SimulationMaster's fixed dt."""
+        return None
+
     def do_step(self, t: float, dt: float) -> None:
         self._step_fn(self, t, dt)
 

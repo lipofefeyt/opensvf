@@ -166,6 +166,18 @@ class SimulationMaster:
         self._running = False
         self._tick_source.stop()
 
+    def _effective_dt(self) -> float:
+        """
+        Compute effective timestep as min of master dt and any model suggestions.
+        Falls back to self._dt if no model suggests a smaller step.
+        """
+        dt = self._dt
+        for model in self._models:
+            suggested = getattr(model, "suggested_dt", lambda: None)()
+            if suggested is not None and suggested < dt:
+                dt = suggested
+        return dt
+
     def _on_tick(self, t: float) -> None:
         """
         Called by TickSource on each tick.
@@ -180,7 +192,7 @@ class SimulationMaster:
 
         for model in self._models:
             try:
-                model.on_tick(t=t, dt=self._dt)
+                model.on_tick(t=t, dt=self._effective_dt())
             except Exception as e:
                 raise SimulationError(
                     f"Model '{model.model_id}' failed on tick t={t:.3f}: {e}"

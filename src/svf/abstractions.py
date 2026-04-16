@@ -6,6 +6,7 @@ Implements: SVF-DEV-009, SVF-DEV-011, SVF-DEV-013, SVF-DEV-016
 """
 
 from __future__ import annotations
+from typing import Optional
 
 from abc import ABC, abstractmethod
 from typing import Callable
@@ -116,7 +117,14 @@ class ModelAdapter(ABC):
         """
         ...
 
-    @abstractmethod
+    def suggested_dt(self) -> Optional[float]:
+        """
+        Optional suggested timestep for this model.
+        If None, the SimulationMaster's fixed dt is used.
+        If set, the master uses min(dt, suggested_dt) across all models.
+        """
+        return None
+
     def on_tick(self, t: float, dt: float) -> None:
         """
         Advance the model by one timestep.
