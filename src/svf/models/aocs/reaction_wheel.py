@@ -28,16 +28,17 @@ except Exception:
 logger = logging.getLogger(__name__)
 
 # Speed limits
-MAX_SPEED_RPM   = 6000.0
+MAX_SPEED_RPM          = 6000.0
+MOMENT_OF_INERTIA_KGMS = 0.001   # kg·m² — RW rotor inertia
 MIN_SPEED_RPM   = -6000.0
 
 # Friction coefficients
-COULOMB_FRICTION = 0.5    # rpm/s constant drag (direction-opposing)
-VISCOUS_FRICTION = 0.002  # rpm/s per rpm (speed-dependent drag)
+COULOMB_FRICTION = 5.0    # rpm/s constant drag (direction-opposing)
+VISCOUS_FRICTION = 0.01   # rpm/s per rpm (speed-dependent drag, τ=100s)
 
 # Temperature model
 AMBIENT_TEMP_C       = 20.0   # degC ambient
-TEMP_RISE_COEFF      = 0.001  # degC per rpm^2 per second
+TEMP_RISE_COEFF      = 0.1    # degC per Joule of bearing dissipation
 COOLING_RATE         = 0.05   # degC per second towards ambient
 MAX_TEMP_C           = 80.0   # degC over-temperature threshold
 TEMP_DERATING_FACTOR = 0.5    # torque reduction above max temp
@@ -60,8 +61,11 @@ def _rw_step(eq: NativeEquipment, t: float, dt: float) -> None:
             f"torque derated to {effective_torque:.3f} Nm"
         )
 
-    # Torque -> angular acceleration (rpm/s per Nm)
-    acceleration = effective_torque * 100.0
+    # Torque → angular acceleration
+    # α [rad/s²] = τ [Nm] / J [kg·m²]
+    # α [rpm/s]  = α [rad/s²] × 60 / (2π)
+    _RPM_PER_RAD_S = 60.0 / (2.0 * 3.14159265358979)
+    acceleration = (effective_torque / MOMENT_OF_INERTIA_KGMS) * _RPM_PER_RAD_S
 
     # Bearing friction (Coulomb + viscous)
     if abs(speed) > 0.1:
@@ -76,8 +80,12 @@ def _rw_step(eq: NativeEquipment, t: float, dt: float) -> None:
     new_speed = max(MIN_SPEED_RPM, min(MAX_SPEED_RPM, new_speed))
 
     # Temperature model
-    # Rises proportional to speed^2 (bearing losses), cools towards ambient
-    temp_rise   = TEMP_RISE_COEFF * (speed ** 2) * dt
+    # Power dissipated by bearing friction [W] = friction_torque × ω [rad/s]
+    # friction_torque [Nm] = |friction [rpm/s]| × J / (60/2π)
+    _RPM_S_TO_RAD_S2 = (2.0 * 3.14159265358979) / 60.0
+    omega_rad_s = abs(speed) * _RPM_S_TO_RAD_S2
+    friction_power = abs(friction) * MOMENT_OF_INERTIA_KGMS * _RPM_S_TO_RAD_S2 * omega_rad_s
+    temp_rise = TEMP_RISE_COEFF * friction_power * dt
     temp_cool   = COOLING_RATE * (temp - AMBIENT_TEMP_C) * dt
     new_temp    = temp + temp_rise - temp_cool
     new_temp    = max(AMBIENT_TEMP_C, new_temp)
@@ -110,10 +118,12 @@ def make_reaction_wheel(
     """
     global MAX_SPEED_RPM, MIN_SPEED_RPM, COULOMB_FRICTION
     global VISCOUS_FRICTION, TEMP_RISE_COEFF, MAX_TEMP_C, AMBIENT_TEMP_C
+    global MOMENT_OF_INERTIA_KGMS
 
     if hardware_profile is not None and _HW_AVAILABLE:
         from obsw_srdb.hardware import load_profile as _load_hw_profile  # noqa: PLC0415
         profile = _load_hw_profile(hardware_profile, hardware_dir)
+        MOMENT_OF_INERTIA_KGMS = profile.get("moment_of_inertia_kgm2",     MOMENT_OF_INERTIA_KGMS)
         MAX_SPEED_RPM    =  profile.get("max_speed_rpm",                    MAX_SPEED_RPM)
         MIN_SPEED_RPM    = -profile.get("max_speed_rpm",                   -MIN_SPEED_RPM)
         COULOMB_FRICTION =  profile.get("friction_coulomb_rpm_s",           COULOMB_FRICTION)
