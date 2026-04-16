@@ -1,6 +1,6 @@
 # SVF Architecture
 
-> **Status:** v1.5
+> **Status:** v2.0
 > **Last updated:** 2026-04
 > **Author:** lipofefeyt
 
@@ -12,7 +12,7 @@ The Software Validation Facility (SVF) is an open-core platform for the validati
 
 - **opensvf** — Python orchestration layer (this repo)
 - **opensvf-kde** — C++ 6-DOF physics engine, compiled to FMI 2.0 FMU
-- **openobsw** — C11 OBSW: PUS services, b-dot, ADCS PD, FDIR, validated on MSP430
+- **openobsw** — C11 OBSW: PUS services, b-dot, ADCS PD, FDIR
 - **YAMCS 5.12.6** — Ground station: TC uplink, TM display, XTCE MDB
 
 ---
@@ -32,13 +32,18 @@ The Software Validation Facility (SVF) is an open-core platform for the validati
                            │ PUS bytes
 ┌──────────────────────────▼───────────────────────────────────────────┐
 │  OBCEmulatorAdapter                                                  │
+│                                                                      │
+│  PIPE MODE (default):           SOCKET MODE (Renode):               │
+│  obsw_sim (x86_64)              Renode ZynqMP uart0 TCP:3456        │
+│  obsw_sim_aarch64 (QEMU)        obsw_zynqmp bare-metal              │
+│                                                                      │
 │  stdin:  [0x01] TC | [0x02] sensor injection                        │
 │  stdout: [0x04] TM | [0x03] actuator frame | [0xFF] sync            │
 │  stderr: SRDB version handshake                                      │
 └──────────────────────────┬───────────────────────────────────────────┘
-                           │ pipe protocol v3
+                           │ pipe / TCP socket (same protocol)
 ┌──────────────────────────▼───────────────────────────────────────────┐
-│  openobsw obsw_sim (C11)                                             │
+│  openobsw C11 OBSW                                                   │
 │  FSM SAFE    → b-dot  → mtq_dipole[3]  (type-0x03)                 │
 │  FSM NOMINAL → ADCS PD → rw_torque[3] (type-0x03)                  │
 │  PUS S1/3/5/8/17/20                                                 │
@@ -46,9 +51,9 @@ The Software Validation Facility (SVF) is an open-core platform for the validati
 └──────────────────────────┬───────────────────────────────────────────┘
                            │ actuator frame → CommandStore
 ┌──────────────────────────▼───────────────────────────────────────────┐
-│  Actuator Models                                                     │
-│  MTQ: torque = m × B  (b-dot dipoles from obsw_sim)                │
-│  RW:  torque command  (ADCS torques from obsw_sim)                  │
+│  Actuator Models (AOCS)                                              │
+│  MTQ: torque = m × B                                                │
+│  RW:  torque command                                                 │
 │  THR: thrust, propellant tracking (Tsiolkovsky)                     │
 └──────────────────────────┬───────────────────────────────────────────┘
                            │ torques → KDE IN ports
@@ -58,55 +63,105 @@ The Software Validation Facility (SVF) is an open-core platform for the validati
 └──────────────────────────┬───────────────────────────────────────────┘
                            │ true state → sensor models
 ┌──────────────────────────▼───────────────────────────────────────────┐
-│  Sensor Models (MAG, GYRO, ST, CSS, GPS)                            │
-│  Noisy measurements → type-0x02 frame → obsw_sim stdin             │
-│  GPS: ECI position/velocity + altitude                              │
-└──────────────────────────┬───────────────────────────────────────────┘
-                           │
+│  Sensor Models (AOCS)                                                │
+│  MAG, GYRO, ST, CSS, GPS — noisy measurements → 0x02 frames        │
+└────────────────────────────────────────────────────────────────────  │
 ┌──────────────────────────▼───────────────────────────────────────────┐
 │  Thermal Model                                                       │
 │  N-node network: solar input, radiation, conduction, dissipation    │
-│  Outputs: cavity temp → equipment ambient reference                 │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. obsw_sim Wire Protocol (v3)
+## 3. OBSW Transport Modes
+
+### Pipe mode (x86_64 / aarch64 QEMU)
+
+```python
+obc = OBCEmulatorAdapter(
+    sim_path="obsw_sim",          # or "obsw_sim_aarch64" (auto-detects QEMU)
+    sync_protocol=sync,
+    store=store,
+    command_store=cmd_store,
+)
+```
+
+### Socket mode (Renode ZynqMP)
+
+```python
+# Start Renode first: renode renode/zynqmp_obsw.resc
+obc = OBCEmulatorAdapter(
+    sim_path=None,
+    socket_addr=("localhost", 3456),
+    sync_protocol=sync,
+    store=store,
+    command_store=cmd_store,
+)
+```
+
+Both modes use identical wire protocol v3.
+
+---
+
+## 4. Wire Protocol v3
 
 ```
-SVF → obsw_sim stdin:
+SVF → obsw_sim stdin (or Renode socket):
   [0x01][uint16 BE len][TC frame]          TC uplink
   [0x02][uint16 BE len][sensor_frame_t]    MAG/GYRO/ST injection
 
-obsw_sim → SVF stdout:
+obsw_sim → SVF stdout (or Renode socket):
   [0x04][uint16 BE len][TM packet]         PUS TM downlink
   [0x03][uint16 BE len][actuator_frame_t]  Actuator commands
-  [0xFF]                                   End of tick (sync)
+  [0xFF]                                   End of tick
 
-obsw_sim stderr (startup only):
+obsw_sim stderr (startup):
   [OBSW] Host sim started (type-frame protocol v2).
   [OBSW] SRDB version: 0.1.0
 ```
 
 ---
 
-## 4. SRDB Version Handshake
-
-At startup, `OBCEmulatorAdapter` reads SRDB version from `obsw_sim` stderr:
+## 5. Model Organisation
 
 ```
-[obsw] [OBSW] SRDB version: 0.1.0
-[obc-emu] SRDB version handshake OK: 0.1.0
+src/svf/models/
+├── aocs/       reaction_wheel, magnetometer, magnetorquer, gyroscope,
+│               star_tracker, css, bdot_controller, thruster, gps
+├── dynamics/   kde_equipment
+│   └── fmu/    DynamicsFmu
+├── eps/        pcdu
+│   └── fmu/    EpsFmu, BatteryFmu, SolarArrayFmu, PcduFmu
+├── dhs/        obc, obc_stub, obc_emulator
+├── ttc/        ttc, sbt
+└── thermal/    thermal
 ```
-
-If versions differ, a WARNING is logged — parameter names may be inconsistent between OBSW and SVF.
 
 ---
 
-## 5. Hardware Profile System
+## 6. Tick Sources
 
-Equipment models load physics constants from SRDB hardware YAML profiles:
+| Tick Source | Behaviour | Use Case |
+|---|---|---|
+| `SoftwareTickSource` | Fast as possible | CI, Monte Carlo, batch |
+| `RealtimeTickSource` | Wall-clock aligned | YAMCS demos, HIL |
+
+### Variable Timestep
+
+Any model can suggest a smaller step size:
+
+```python
+class MyModel(NativeEquipment):
+    def suggested_dt(self) -> float:
+        return 0.01  # force 10ms steps
+
+# SimulationMaster uses min(fixed_dt, all model suggestions)
+```
+
+---
+
+## 7. Hardware Profile System
 
 ```
 srdb/data/hardware/
@@ -122,22 +177,9 @@ srdb/data/hardware/
 └── thermal_default.yaml     3-node (panels + internal)
 ```
 
-Profile loading is optional — all factories fall back to built-in defaults.
-
 ---
 
-## 6. Tick Sources
-
-| Tick Source | Behaviour | Use Case |
-|---|---|---|
-| `SoftwareTickSource` | Fast as possible | CI, Monte Carlo, batch |
-| `RealtimeTickSource` | Wall-clock aligned | YAMCS demos, HIL |
-
-`RealtimeTickSource` logs overrun warnings when a tick exceeds dt by >10%.
-
----
-
-## 7. Deterministic Replay
+## 8. Deterministic Replay
 
 ```python
 master = SimulationMaster(..., seed=42)
@@ -145,21 +187,17 @@ master.run()
 # SVF seed: 42 → results/seed.json
 ```
 
-Per-model seeds derived via SHA-256:
-```python
-seed_for_model = int.from_bytes(SHA256(f"{master}:{model_id}")[:4], "big")
-```
-
 ---
 
-## 8. Four Validation Levels
+## 9. Four Validation Levels
 
 ```
-Level 1 — Model Validation         (M8/M9) ✅
-Level 2 — Interface Validation     (M6/M9) ✅
-Level 3 — Integration Validation   (M10)   ✅
-Level 4 — System Validation        (M11–M13) ✅
-  Real OBSW (OBCEmulatorAdapter)
+Level 1 — Model Validation         (M8/M9)   ✅
+Level 2 — Interface Validation     (M6/M9)   ✅
+Level 3 — Integration Validation   (M10)     ✅
+Level 4 — System Validation        (M11–M14) ✅
+  Real OBSW via pipe (x86_64/aarch64 QEMU)
+  Real OBSW via socket (Renode ZynqMP)
   Real physics (opensvf-kde FMU)
   Real ground station (YAMCS)
   Mode-aware AOCS (b-dot ↔ ADCS PD)
@@ -168,17 +206,14 @@ Level 4 — System Validation        (M11–M13) ✅
 
 ---
 
-## 9. Milestones
+## 10. Milestones
 
 | Milestone | Status |
 |---|---|
-| M1–M10 — Core platform through closed-loop validation | ✅ Done |
-| M11 — OBC Emulator Integration | ✅ Done |
-| M11.5 — KDE Co-Simulation Integration | ✅ Done |
-| M12 — Ground Segment (YAMCS) | ✅ Done |
-| M13 — SIL Attitude Loop Closure (ADCS closed loop) | ✅ Done |
-| M14 — Real-Time & HIL | 🔄 In progress |
+| M1–M12 — Core platform through ground segment | ✅ Done |
+| M13 — SIL Attitude Loop Closure | ✅ Done |
+| M14 — Real-Time & HIL + Renode socket + variable timestep | ✅ Done |
 | M15 — Extended Bus Protocols (SpaceWire, CAN) | 📋 Planned |
-| M16 — SRDB Maturity (version handshake, CSV export) | ✅ Done |
-| M17 — Equipment Configurability (hardware profiles, thruster, GPS, thermal) | ✅ Done |
-| M18 — Architecture Refactor (subsystem layout, FMU management) | 📋 Planned |
+| M16 — SRDB Maturity | ✅ Done |
+| M17 — Equipment Configurability | ✅ Done |
+| M18 — Architecture Refactor | ✅ Done |

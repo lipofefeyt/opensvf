@@ -2,7 +2,7 @@
 
 **Open-core spacecraft Software Validation Facility**
 
-OpenSVF is a Python-based platform for validating spacecraft software and systems — from individual subsystem models to full closed-loop co-simulation with a C++ physics engine, a real OBSW binary running on x86_64 or aarch64 (ZynqMP), and a YAMCS ground station.
+OpenSVF is a Python-based platform for validating spacecraft software and systems — from individual subsystem models to full closed-loop co-simulation with a C++ physics engine, a real OBSW binary running on x86_64, aarch64 (ZynqMP QEMU), or ZynqMP Renode emulation, and a YAMCS ground station.
 
 ---
 
@@ -26,7 +26,7 @@ git clone https://github.com/lipofefeyt/opensvf
 cd opensvf
 source scripts/setup-workspace.sh   # installs everything
 
-testosvf                             # ~375 tests
+testosvf                             # ~392 tests
 svf-campaign campaigns/realtime_detumbling.yaml
 bash scripts/demo.sh                 # SVF + YAMCS
 
@@ -64,14 +64,57 @@ opensvf-kde (C++ / Eigen3)          openobsw (C11)
 |---|---|---|---|
 | `obsw_sim` | x86_64 | stdin/stdout pipe | ✅ Production |
 | `obsw_sim_aarch64` | aarch64 (ZynqMP PS) | stdin/stdout pipe via QEMU | ✅ Validated |
-| `obsw_zynqmp` | aarch64 (ZynqMP PS) | Cadence UART → Renode socket | 📋 Planned (v0.7) |
+| `obsw_zynqmp` | aarch64 bare-metal | Cadence UART → Renode socket | ✅ Validated |
 
 ```bash
-# Run against x86_64 binary (default)
+# x86_64 (default)
 pytest tests/hardware/ -v
 
-# Run against aarch64 binary (QEMU auto-detected)
+# aarch64 QEMU (auto-detected)
 OBSW_ARCH=aarch64 pytest tests/hardware/ -v
+
+# Renode ZynqMP (start Renode first)
+renode renode/zynqmp_obsw.resc &
+sleep 5
+pytest tests/hardware/test_renode_zynqmp.py -v
+```
+
+---
+
+## OBC Emulator Adapter
+
+SVF connects to OBSW via two transport modes:
+
+```python
+# Pipe mode (x86_64 or aarch64 QEMU)
+obc = OBCEmulatorAdapter(
+    sim_path="obsw_sim",
+    sync_protocol=sync, store=store, command_store=cmd_store,
+)
+
+# Socket mode (Renode ZynqMP)
+obc = OBCEmulatorAdapter(
+    sim_path=None,
+    socket_addr=("localhost", 3456),
+    sync_protocol=sync, store=store, command_store=cmd_store,
+)
+```
+
+Auto-detection: if `obsw_sim_aarch64` is passed, QEMU prefix is added automatically.
+
+---
+
+## Model Organisation
+
+```
+src/svf/models/
+├── aocs/       reaction_wheel, magnetometer, magnetorquer, gyroscope,
+│               star_tracker, css, bdot_controller, thruster, gps
+├── dynamics/   kde_equipment + fmu/DynamicsFmu
+├── eps/        pcdu + fmu/{EpsFmu, BatteryFmu, SolarArrayFmu, PcduFmu}
+├── dhs/        obc, obc_stub, obc_emulator
+├── ttc/        ttc, sbt
+└── thermal/    thermal
 ```
 
 ---
@@ -83,6 +126,8 @@ OBSW_ARCH=aarch64 pytest tests/hardware/ -v
 | `SoftwareTickSource` | Fast as possible | CI, Monte Carlo |
 | `RealtimeTickSource` | Wall-clock aligned | YAMCS demos, HIL |
 
+Variable timestep: models can override `suggested_dt()` to request a smaller step size. `SimulationMaster` uses the minimum across all models.
+
 ---
 
 ## Hardware Profiles
@@ -93,7 +138,7 @@ thr = make_thruster(sync, store, hardware_profile="thr_moog_monarc_1")
 gps = make_gps(sync, store, hardware_profile="gps_novatel_oem7")
 ```
 
-Profiles in `srdb/data/hardware/` — 10 profiles across 6 equipment types.
+10 profiles in `srdb/data/hardware/` across 6 equipment types.
 
 ---
 
@@ -106,41 +151,34 @@ python3 scripts/mc_bdot_detumbling.py --runs 20
 # Initial rates: 0.12–4.63 rad/s, all converge in 60s
 ```
 
-```python
-# Custom Monte Carlo
-from svf.monte_carlo import MonteCarloRunner
-runner = MonteCarloRunner(run_fn, n_runs=100, n_workers=4)
-summary = runner.run(output_path=Path("results/mc/report.txt"))
-```
-
 ---
 
 ## Reference Equipment Library
 
-| Equipment | Subsystem | Milestone |
+| Equipment | Subsystem | Import Path |
 |---|---|---|
-| `ObcEquipment` / `ObcStub` / `OBCEmulatorAdapter` | DHS | M7–M11 |
-| `TtcEquipment` + `YamcsBridge` | TTC/GND | M7/M12 |
-| `make_kde_equipment()` | Dynamics | M11.5 |
-| `make_magnetometer/orquer/gyroscope/css()` | AOCS | M11.5 |
-| `make_reaction_wheel/star_tracker/bdot_controller()` | AOCS | M6–M11.5 |
-| `make_thruster()` | Propulsion | M17 |
-| `make_gps()` | Navigation | M17 |
-| `make_thermal()` | Thermal | M17 |
-| `make_sbt/pcdu()` / `EpsFmu` | TTC/EPS | M8/M4 |
+| `OBCEmulatorAdapter` | DHS | `svf.models.dhs.obc_emulator` |
+| `ObcEquipment` / `ObcStub` | DHS | `svf.models.dhs.obc` / `obc_stub` |
+| `TtcEquipment` + `YamcsBridge` | TTC/GND | `svf.models.ttc.ttc` |
+| `make_kde_equipment()` | Dynamics | `svf.models.dynamics.kde_equipment` |
+| `make_magnetometer/orquer/gyroscope/css()` | AOCS | `svf.models.aocs.*` |
+| `make_reaction_wheel/star_tracker/bdot_controller()` | AOCS | `svf.models.aocs.*` |
+| `make_thruster()` | AOCS/Prop | `svf.models.aocs.thruster` |
+| `make_gps()` | Navigation | `svf.models.aocs.gps` |
+| `make_thermal()` | Thermal | `svf.models.thermal.thermal` |
+| `make_pcdu()` / `EpsFmu` | EPS | `svf.models.eps.*` |
+| `make_sbt()` | TTC | `svf.models.ttc.sbt` |
 
 ---
 
-## Campaigns
+## SRDB
 
-| Campaign | Scenario | Level |
-|---|---|---|
-| `eps_validation.yaml` | EPS power system | 1 |
-| `mil1553_validation.yaml` | 1553 bus + FDIR | 2 |
-| `pus_validation.yaml` | PUS commanding | 3 |
-| `safe_mode_recovery.yaml` | Closed-loop FDIR | 3/4 |
-| `fdir_chain.yaml` | FDIR chain | 3/4 |
-| `realtime_detumbling.yaml` | Real-time b-dot + YAMCS | 4 |
+```bash
+obsw-srdb-export --data-dir srdb/data --output-dir srdb/export
+obsw-srdb-codegen --data-dir srdb/data --output include/obsw/srdb_generated.h
+```
+
+Hardware profiles in `srdb/data/hardware/`. SRDB version handshake validated at startup.
 
 ---
 
@@ -159,15 +197,11 @@ summary = runner.run(output_path=Path("results/mc/report.txt"))
 |---|---|
 | M1–M12 — Core platform through ground segment | ✅ Done |
 | M13 — SIL Attitude Loop Closure | ✅ Done |
-| M14 — Real-Time & HIL | 🔄 In progress |
+| M14 — Real-Time & HIL + variable timestep + Renode socket | ✅ Done |
 | M15 — Extended Bus Protocols (SpW, CAN) | 📋 Planned |
 | M16 — SRDB Maturity | ✅ Done |
 | M17 — Equipment Configurability | ✅ Done |
-| M18 — Architecture Refactor | 📋 Planned |
-
-### M14 Open
-- #125 Socket adapter for OBCEmulatorAdapter (Renode integration)
-- #115 Renode MSP430 (blocked — no MSP430 in Renode mainline)
+| M18 — Architecture Refactor | ✅ Done |
 
 ---
 
