@@ -22,7 +22,7 @@ ENV PYTHONUNBUFFERED=1
 # ------------------------------------------------------------------ #
 # 1. System dependencies                                              #
 # ------------------------------------------------------------------ #
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends \
     # Python
     python3 \
     python3-venv \
