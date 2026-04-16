@@ -17,12 +17,12 @@ from svf.software_tick import SoftwareTickSource
 from svf.dds_sync import DdsSyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
-from svf.models.obc_emulator import OBCEmulatorAdapter
-from svf.models.ttc import TtcEquipment
-from svf.models.reaction_wheel import make_reaction_wheel
+from svf.models.dhs.obc_emulator import OBCEmulatorAdapter
+from svf.models.ttc.ttc import TtcEquipment
+from svf.models.aocs.reaction_wheel import make_reaction_wheel
 from svf.mil1553 import Mil1553Bus, SubaddressMapping
 from svf.pus.tc import PusTcPacket, PusTcBuilder
-from svf.models.obc import MODE_SAFE, MODE_NOMINAL
+from svf.models.dhs.obc import MODE_SAFE, MODE_NOMINAL
 
 _root = Path(__file__).parent.parent.parent
 OBSW_SIM = next(

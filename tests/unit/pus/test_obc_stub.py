@@ -7,8 +7,8 @@ import pytest
 from svf.abstractions import SyncProtocol
 from svf.parameter_store import ParameterStore, ParameterEntry
 from svf.command_store import CommandStore
-from svf.models.obc import ObcConfig, MODE_SAFE, MODE_NOMINAL
-from svf.models.obc_stub import ObcStub, Rule
+from svf.models.dhs.obc import ObcConfig, MODE_SAFE, MODE_NOMINAL
+from svf.models.dhs.obc_stub import ObcStub, Rule
 
 
 class _NoSync(SyncProtocol):

@@ -33,7 +33,7 @@ from typing import Optional
 from svf.abstractions import SyncProtocol
 from svf.command_store import CommandStore
 from svf.equipment import Equipment, PortDefinition, PortDirection
-from svf.models.obc import MODE_NOMINAL, MODE_SAFE
+from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE
 from svf.parameter_store import ParameterStore
 from svf.pus.tm import PusTmPacket
 

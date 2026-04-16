@@ -4,7 +4,7 @@ import pytest
 from svf.abstractions import SyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
-from svf.models.thermal import make_thermal
+from svf.models.thermal.thermal import make_thermal
 from svf.native_equipment import NativeEquipment
 
 

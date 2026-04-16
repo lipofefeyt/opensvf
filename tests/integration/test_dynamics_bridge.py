@@ -5,7 +5,7 @@ Implements: KDE-001, KDE-002, KDE-003, SVF-DEV-061
 """
 
 import pytest
-from svf.models.fmu.DynamicsFmu import DynamicsFmu
+from svf.models.dynamics.fmu.DynamicsFmu import DynamicsFmu
 
 @pytest.mark.requirement("KDE-001", "KDE-002", "KDE-003", "KDE-004", "SVF-DEV-061")
 def test_physics_bridge() -> None:

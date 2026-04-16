@@ -4,7 +4,7 @@ import pytest
 from svf.abstractions import SyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
-from svf.models.gps import (
+from svf.models.aocs.gps import (
     make_gps, STATUS_OFF, STATUS_ACQUIRING, STATUS_FIX,
     STATUS_ECLIPSE_OUTAGE, ACQUISITION_TIME_S
 )

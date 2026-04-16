@@ -22,7 +22,7 @@ from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
 from svf.mil1553 import Mil1553Bus, SubaddressMapping, BROADCAST_RT
 from svf.bus import BusFault, FaultType
-from svf.models.reaction_wheel import make_reaction_wheel
+from svf.models.aocs.reaction_wheel import make_reaction_wheel
 
 
 def make_1553_system(

@@ -8,7 +8,7 @@ import pytest
 from svf.abstractions import SyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
-from svf.models.obc import ObcEquipment, ObcConfig, MODE_SAFE, MODE_NOMINAL, MODE_PAYLOAD, WDG_WARNING, WDG_RESET
+from svf.models.dhs.obc import ObcEquipment, ObcConfig, MODE_SAFE, MODE_NOMINAL, MODE_PAYLOAD, WDG_WARNING, WDG_RESET
 
 
 class _NoSync(SyncProtocol):

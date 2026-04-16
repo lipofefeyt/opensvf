@@ -45,7 +45,7 @@ def make_kde_equipment(
         aocs.mag.true_x/y/z             — true magnetic field (T)
         aocs.attitude.quaternion_w/x/y/z — true attitude quaternion
     """
-    from svf.models.fmu.DynamicsFmu import DynamicsFmu
+    from svf.models.dynamics.fmu.DynamicsFmu import DynamicsFmu
 
     dynamics: Optional[DynamicsFmu] = None
     sim_time: list[float] = [0.0]

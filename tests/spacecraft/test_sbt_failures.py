@@ -16,7 +16,7 @@ import pytest
 from svf.abstractions import SyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
-from svf.models.sbt import (
+from svf.models.ttc.sbt import (
     make_sbt, LOCK_THRESHOLD_DBM, LOCK_TIME_S,
     TC_BITRATE_BPS, TM_BITRATE_BPS,
     MODE_IDLE, MODE_TC_RX, MODE_TM_TX,

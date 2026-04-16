@@ -18,7 +18,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from svf.models.obc_emulator import OBCEmulatorAdapter
+from svf.models.dhs.obc_emulator import OBCEmulatorAdapter
 
 # Resolve obsw_sim path: env var > repo root > sibling repo
 _env = os.environ.get("OBSW_SIM")

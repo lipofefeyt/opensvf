@@ -4,7 +4,7 @@ import pytest
 from svf.abstractions import SyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
-from svf.models.thruster import (
+from svf.models.aocs.thruster import (
     make_thruster, STATUS_NOMINAL, STATUS_OFF,
     STATUS_EMPTY, INITIAL_PROPELLANT_KG, AMBIENT_TEMP_C
 )

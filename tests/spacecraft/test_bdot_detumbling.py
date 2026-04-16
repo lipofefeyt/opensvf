@@ -15,10 +15,10 @@ from svf.dds_sync import DdsSyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
 from svf.wiring import WiringLoader
-from svf.models.magnetometer import make_magnetometer
-from svf.models.magnetorquer import make_magnetorquer
-from svf.models.bdot_controller import make_bdot_controller
-from svf.models.gyroscope import make_gyroscope
+from svf.models.aocs.magnetometer import make_magnetometer
+from svf.models.aocs.magnetorquer import make_magnetorquer
+from svf.models.aocs.bdot_controller import make_bdot_controller
+from svf.models.aocs.gyroscope import make_gyroscope
 
 
 def make_bdot_system(

@@ -16,7 +16,7 @@ import pytest
 from svf.abstractions import SyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
-from svf.models.reaction_wheel import (
+from svf.models.aocs.reaction_wheel import (
     make_reaction_wheel, MAX_SPEED_RPM, MAX_TEMP_C, AMBIENT_TEMP_C,
 )
 from svf.native_equipment import NativeEquipment

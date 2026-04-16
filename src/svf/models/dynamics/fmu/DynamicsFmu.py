@@ -18,7 +18,7 @@ class DynamicsFmu:
     def __init__(self, initial_omega: list[float] | None = None) -> None:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.fmu_path = os.path.join(
-            current_dir, "..", "..", "..", "..", "models", "fmu",
+            current_dir, "..", "..", "..", "..", "..", "models", "fmu",
             "SpacecraftDynamics.fmu"
         )
         self.unzipdir = fmpy.extract(self.fmu_path)

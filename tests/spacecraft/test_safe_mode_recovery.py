@@ -24,13 +24,13 @@ from svf.software_tick import SoftwareTickSource
 from svf.dds_sync import DdsSyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
-from svf.models.obc import ObcConfig, MODE_SAFE, MODE_NOMINAL
-from svf.models.obc_stub import ObcStub, Rule
-from svf.models.ttc import TtcEquipment
-from svf.models.reaction_wheel import make_reaction_wheel
-from svf.models.star_tracker import make_star_tracker, ACQUISITION_TIME_S
-from svf.models.sbt import make_sbt
-from svf.models.pcdu import make_pcdu
+from svf.models.dhs.obc import ObcConfig, MODE_SAFE, MODE_NOMINAL
+from svf.models.dhs.obc_stub import ObcStub, Rule
+from svf.models.ttc.ttc import TtcEquipment
+from svf.models.aocs.reaction_wheel import make_reaction_wheel
+from svf.models.aocs.star_tracker import make_star_tracker, ACQUISITION_TIME_S
+from svf.models.ttc.sbt import make_sbt
+from svf.models.eps.pcdu import make_pcdu
 from svf.mil1553 import Mil1553Bus, SubaddressMapping
 from svf.pus.services import HkReportDefinition
 from svf.fmu_equipment import FmuEquipment

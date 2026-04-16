@@ -39,13 +39,13 @@ def run_bdot(seed: int) -> dict:
     from svf.parameter_store import ParameterStore
     from svf.command_store import CommandStore
     from svf.wiring import WiringLoader
-    from svf.models.obc_emulator import OBCEmulatorAdapter
-    from svf.models.ttc import TtcEquipment
-    from svf.models.kde_equipment import make_kde_equipment
-    from svf.models.magnetometer import make_magnetometer
-    from svf.models.magnetorquer import make_magnetorquer
-    from svf.models.gyroscope import make_gyroscope
-    from svf.models.star_tracker import make_star_tracker
+    from svf.models.dhs.obc_emulator import OBCEmulatorAdapter
+    from svf.models.ttc.ttc import TtcEquipment
+    from svf.models.dynamics.kde_equipment import make_kde_equipment
+    from svf.models.aocs.magnetometer import make_magnetometer
+    from svf.models.aocs.magnetorquer import make_magnetorquer
+    from svf.models.aocs.gyroscope import make_gyroscope
+    from svf.models.aocs.star_tracker import make_star_tracker
 
     participant = DomainParticipant()
     store       = ParameterStore()

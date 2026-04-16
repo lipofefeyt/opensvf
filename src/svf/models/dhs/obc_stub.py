@@ -23,7 +23,7 @@ from typing import Callable, Optional
 
 from svf.abstractions import SyncProtocol
 from svf.command_store import CommandStore
-from svf.models.obc import ObcEquipment, ObcConfig
+from svf.models.dhs.obc import ObcEquipment, ObcConfig
 from svf.parameter_store import ParameterStore, ParameterEntry
 
 logger = logging.getLogger(__name__)
@@ -95,8 +95,8 @@ class ObcStub(ObcEquipment):
     at the composition root. Nothing else changes.
 
     Usage:
-        from svf.models.obc import MODE_SAFE, MODE_NOMINAL
-        from svf.models.obc_stub import ObcStub, Rule
+        from svf.models.dhs.obc import MODE_SAFE, MODE_NOMINAL
+        from svf.models.dhs.obc_stub import ObcStub, Rule
 
         stub = ObcStub(
             config=ObcConfig(apid=0x101, ...),

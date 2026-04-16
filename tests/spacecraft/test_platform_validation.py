@@ -22,11 +22,11 @@ from svf.software_tick import SoftwareTickSource
 from svf.dds_sync import DdsSyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
-from svf.models.obc import ObcEquipment, ObcConfig, MODE_SAFE, MODE_NOMINAL
-from svf.models.ttc import TtcEquipment
-from svf.models.reaction_wheel import make_reaction_wheel
-from svf.models.star_tracker import make_star_tracker, ACQUISITION_TIME_S
-from svf.models.sbt import make_sbt, LOCK_THRESHOLD_DBM, LOCK_TIME_S, MODE_TC_RX
+from svf.models.dhs.obc import ObcEquipment, ObcConfig, MODE_SAFE, MODE_NOMINAL
+from svf.models.ttc.ttc import TtcEquipment
+from svf.models.aocs.reaction_wheel import make_reaction_wheel
+from svf.models.aocs.star_tracker import make_star_tracker, ACQUISITION_TIME_S
+from svf.models.ttc.sbt import make_sbt, LOCK_THRESHOLD_DBM, LOCK_TIME_S, MODE_TC_RX
 from svf.bus import BusFault, FaultType
 from svf.mil1553 import Mil1553Bus, SubaddressMapping
 from svf.pus.tc import PusTcPacket
@@ -265,7 +265,7 @@ def test_tc_plat_008_st_blinding_during_platform_ops() -> None:
     master.run()
 
     # Now blind the ST
-    from svf.models.star_tracker import SUN_EXCLUSION_DEG
+    from svf.models.aocs.star_tracker import SUN_EXCLUSION_DEG
     st._port_values["aocs.str1.sun_angle"] = SUN_EXCLUSION_DEG - 1.0
     st.do_step(t=ACQUISITION_TIME_S + 5.0, dt=1.0)
 

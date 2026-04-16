@@ -16,7 +16,7 @@ import math
 from svf.abstractions import SyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
-from svf.models.star_tracker import (
+from svf.models.aocs.star_tracker import (
     make_star_tracker, SUN_EXCLUSION_DEG, ACQUISITION_TIME_S,
     AMBIENT_TEMP_C, MODE_OFF, MODE_ACQUIRING, MODE_TRACKING,
 )

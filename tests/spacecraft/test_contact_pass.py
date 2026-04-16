@@ -25,10 +25,10 @@ from svf.software_tick import SoftwareTickSource
 from svf.dds_sync import DdsSyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
-from svf.models.obc import ObcConfig, MODE_NOMINAL, MODE_SAFE
-from svf.models.obc_stub import ObcStub, Rule
-from svf.models.ttc import TtcEquipment
-from svf.models.sbt import make_sbt, LOCK_THRESHOLD_DBM, LOCK_TIME_S, MODE_TC_RX, MODE_TM_TX
+from svf.models.dhs.obc import ObcConfig, MODE_NOMINAL, MODE_SAFE
+from svf.models.dhs.obc_stub import ObcStub, Rule
+from svf.models.ttc.ttc import TtcEquipment
+from svf.models.ttc.sbt import make_sbt, LOCK_THRESHOLD_DBM, LOCK_TIME_S, MODE_TC_RX, MODE_TM_TX
 from svf.pus.services import HkReportDefinition
 from svf.pus.tc import PusTcPacket, PusTcBuilder
 
@@ -173,7 +173,7 @@ def test_contact_pass_lock_lost_at_end() -> None:
     assert lock.value == pytest.approx(1.0)
 
     # Ground station sets — signal drops
-    from svf.models.sbt import make_sbt as _
+    from svf.models.ttc.sbt import make_sbt as _
     # Access sbt directly via store — signal drop
     cmd_store.inject(
         "ttc.sbt.uplink_signal_level",

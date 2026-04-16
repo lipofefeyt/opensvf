@@ -35,9 +35,9 @@ from svf.software_tick import SoftwareTickSource
 from svf.dds_sync import DdsSyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
-from svf.models.obc_stub import ObcStub, Rule
-from svf.models.obc import ObcConfig
-from svf.models.ttc import TtcEquipment
+from svf.models.dhs.obc_stub import ObcStub, Rule
+from svf.models.dhs.obc import ObcConfig
+from svf.models.ttc.ttc import TtcEquipment
 from svf.yamcs_bridge import YamcsBridge
 
 

@@ -8,8 +8,8 @@ import struct
 from svf.abstractions import SyncProtocol
 from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
-from svf.models.obc import ObcEquipment, ObcConfig
-from svf.models.ttc import TtcEquipment
+from svf.models.dhs.obc import ObcEquipment, ObcConfig
+from svf.models.ttc.ttc import TtcEquipment
 from svf.pus.tc import PusTcPacket, PusTcBuilder
 from svf.pus.services import HkReportDefinition
 
