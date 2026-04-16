@@ -109,16 +109,19 @@ class OBCEmulatorAdapter(Equipment):
 
     def __init__(
         self,
-        sim_path: str | Path,
+        sim_path: Optional[str | Path],
         sync_protocol: SyncProtocol,
         store: ParameterStore,
         command_store: Optional[CommandStore] = None,
         sync_timeout: float = 5.0,
         qemu_prefix: Optional[list[str]] = None,
+        socket_addr: Optional[tuple[str, int]] = None,
         apid: int = 0x010,
     ) -> None:
-        self._sim_path     = Path(sim_path)
+        self._sim_path     = Path(sim_path) if sim_path is not None else None
         self._qemu_prefix  = qemu_prefix or []
+        self._socket_addr  = socket_addr
+        self._sock: Optional[object] = None
         self._sync_timeout = sync_timeout
         self._apid         = apid
 
@@ -198,11 +201,25 @@ class OBCEmulatorAdapter(Equipment):
                 self._check_srdb_version(srdb_version)
 
     def initialise(self, start_time: float = 0.0) -> None:
+        if self._socket_addr is not None:
+            # Socket mode — connect to Renode UART TCP terminal
+            import socket as _socket_mod
+            self._sock = _socket_mod.create_connection(
+                self._socket_addr, timeout=self._sync_timeout
+            )
+            self._sock.settimeout(None)
+            logger.info(
+                f"[obc-emu] Socket mode: connected to "
+                f"{self._socket_addr[0]}:{self._socket_addr[1]}"
+            )
+            self._start_socket_reader()  # type: ignore[attr-defined]
+            return
+
         # Auto-detect QEMU prefix if not explicitly set
-        if not self._qemu_prefix:
+        if not self._qemu_prefix and self._sim_path is not None:
             self._qemu_prefix = _detect_qemu_prefix(self._sim_path)
 
-        if not self._sim_path.exists():
+        if self._sim_path is None or not self._sim_path.exists():
             raise FileNotFoundError(
                 f"obsw_sim not found at {self._sim_path}."
             )
