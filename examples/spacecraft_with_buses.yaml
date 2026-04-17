@@ -1,0 +1,38 @@
+spacecraft: MySat-1-with-buses
+
+obsw:
+  type: stub
+
+equipment:
+  - id: kde
+    model: dynamics
+  - id: mag1
+    model: magnetometer
+    hardware_profile: mag_default
+  - id: rw1
+    model: reaction_wheel
+    hardware_profile: rw_default
+  - id: mtq1
+    model: magnetorquer
+
+buses:
+  - id: aocs_bus
+    type: mil1553
+    rt_count: 8
+    mappings:
+      - rt: 5
+        sa: 1
+        parameter: aocs.rw1.torque_cmd
+        direction: BC_to_RT
+      - rt: 5
+        sa: 2
+        parameter: aocs.rw1.speed
+        direction: RT_to_BC
+
+wiring:
+  auto: true
+
+simulation:
+  dt: 0.1
+  stop_time: 5.0
+  seed: 42

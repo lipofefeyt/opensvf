@@ -47,6 +47,15 @@ class TestSpacecraftLoaderSuite:
             SpacecraftLoader.load("nonexistent.yaml")
 
     @pytest.mark.requirement("SVF-DEV-110")
+    def test_bus_configuration_loaded(self, tmp_path: Path) -> None:
+        """Bus adapters are instantiated from YAML buses section."""
+        master = SpacecraftLoader.load(
+            EXAMPLES_DIR / "spacecraft_with_buses.yaml"
+        )
+        model_ids = [m.equipment_id for m in master._models]
+        assert "bus.aocs_bus" in model_ids
+
+    @pytest.mark.requirement("SVF-DEV-110")
     def test_unknown_model_raises(self, tmp_path: Path) -> None:
         """Unknown model name raises SpacecraftConfigError."""
         cfg = tmp_path / "bad.yaml"
