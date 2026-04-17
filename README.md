@@ -2,7 +2,7 @@
 
 **Open-core spacecraft Software Validation Facility**
 
-OpenSVF is a Python-based platform for validating spacecraft software and systems — from individual subsystem models to full closed-loop co-simulation with a C++ physics engine, a real OBSW binary running on x86_64, aarch64 (ZynqMP QEMU), or ZynqMP Renode emulation, and a YAMCS ground station.
+OpenSVF is a Python-based platform for validating spacecraft software and systems. From a single YAML file, configure your spacecraft, load your OBSW binary, run test campaigns, and get results — without writing boilerplate Python.
 
 ---
 
@@ -24,10 +24,9 @@ See [`docs/design-philosophy.md`](docs/design-philosophy.md).
 ```bash
 git clone https://github.com/lipofefeyt/opensvf
 cd opensvf
-source scripts/setup-workspace.sh   # installs everything
+source scripts/setup-workspace.sh
 
-testosvf                             # ~392 tests
-svf-campaign campaigns/realtime_detumbling.yaml
+testosvf                             # ~400 tests
 bash scripts/demo.sh                 # SVF + YAMCS
 
 docker build -t opensvf .
@@ -36,24 +35,104 @@ docker run --rm opensvf testosvf
 
 ---
 
+## Zero-Python Entry Point
+
+Configure your spacecraft in YAML and run:
+
+```yaml
+# spacecraft.yaml
+spacecraft: MySat-1
+
+obsw:
+  type: pipe
+  binary: ./obsw_sim       # your OBSW binary
+
+equipment:
+  - id: kde
+    model: dynamics
+  - id: mag1
+    model: magnetometer
+    hardware_profile: mag_default
+  - id: gyro1
+    model: gyroscope
+    hardware_profile: gyro_default
+  - id: mtq1
+    model: magnetorquer
+  - id: rw1
+    model: reaction_wheel
+    hardware_profile: rw_sinclair_rw003
+
+buses:
+  - id: aocs_bus
+    type: mil1553
+    rt_count: 8
+    mappings:
+      - rt: 5  sa: 1  parameter: aocs.rw1.torque_cmd  direction: BC_to_RT
+      - rt: 5  sa: 2  parameter: aocs.rw1.speed        direction: RT_to_BC
+
+wiring:
+  auto: true   # auto-connects matching port names
+
+simulation:
+  dt: 0.1
+  stop_time: 300.0
+  seed: 42
+```
+
+```python
+from svf.spacecraft import SpacecraftLoader
+master = SpacecraftLoader.load("spacecraft.yaml")
+master.run()
+```
+
+---
+
 ## The Closed Loop
 
 ```
-opensvf-kde (C++ / Eigen3)          openobsw (C11)
-  6-DOF physics engine                 Real OBSW binary
+opensvf-kde (C++ / Eigen3)          Your OBSW (C11)
+  6-DOF physics engine                 Real flight algorithms
   Euler's equations                    FSM: SAFE → b-dot
   Quaternion kinematics                FSM: NOMINAL → ADCS PD
-  Earth B-field model                  PUS S1/3/5/8/17/20
-         │                             FDIR state machine
-         │  true ω, B  via FMI 2.0           │
-         ▼                                    │ 0x02 sensor frames
-              opensvf (Python)         ◄──────┘
-              SVF tick loop                    │ 0x03 actuator frames
-              Sensor + actuator models ────────►
+  Earth B-field model                  PUS service stack
+         │                                    │
+         │  true ω, B  via FMI 2.0           │ 0x02 sensor frames
+         ▼                                    │ 0x03 actuator frames
+              opensvf (Python)        ◄───────►
+              SVF tick loop
+              Sensor + actuator models
                     │
                     │  PUS TM/TC via TCP
                     ▼
                YAMCS 5.12.6
+               Ground station UI
+```
+
+---
+
+## OBSW Transport Modes
+
+| Mode | Description | Use Case |
+|---|---|---|
+| `pipe` | stdin/stdout, x86_64 or aarch64 QEMU | Development, CI |
+| `socket` | TCP to Renode ZynqMP uart0 | Peripheral-level SIL |
+| `stub` | Rule-based ObcStub | Unit testing without binary |
+
+```yaml
+# Pipe mode (default)
+obsw:
+  type: pipe
+  binary: ./obsw_sim
+
+# Socket mode (Renode)
+obsw:
+  type: socket
+  host: localhost
+  port: 3456
+
+# Stub mode (no binary needed)
+obsw:
+  type: stub
 ```
 
 ---
@@ -66,41 +145,43 @@ opensvf-kde (C++ / Eigen3)          openobsw (C11)
 | `obsw_sim_aarch64` | aarch64 (ZynqMP PS) | stdin/stdout pipe via QEMU | ✅ Validated |
 | `obsw_zynqmp` | aarch64 bare-metal | Cadence UART → Renode socket | ✅ Validated |
 
-```bash
-# x86_64 (default)
-pytest tests/hardware/ -v
+---
 
-# aarch64 QEMU (auto-detected)
-OBSW_ARCH=aarch64 pytest tests/hardware/ -v
+## Bus Adapters
 
-# Renode ZynqMP (start Renode first)
-renode renode/zynqmp_obsw.resc &
-sleep 5
-pytest tests/hardware/test_renode_zynqmp.py -v
-```
+Three bus protocols supported, all configurable from YAML:
+
+| Bus | Type | Fault Injection |
+|---|---|---|
+| MIL-STD-1553B | `mil1553` | BUS_ERROR, NO_RESPONSE, BAD_PARITY |
+| SpaceWire + RMAP | `spacewire` | Link error, invalid address |
+| CAN 2.0B (ECSS) | `can` | Bus-off, node error, bad parity |
 
 ---
 
-## OBC Emulator Adapter
+## Hardware Profiles
 
-SVF connects to OBSW via two transport modes:
+Equipment physics constants loaded from YAML profiles:
 
-```python
-# Pipe mode (x86_64 or aarch64 QEMU)
-obc = OBCEmulatorAdapter(
-    sim_path="obsw_sim",
-    sync_protocol=sync, store=store, command_store=cmd_store,
-)
-
-# Socket mode (Renode ZynqMP)
-obc = OBCEmulatorAdapter(
-    sim_path=None,
-    socket_addr=("localhost", 3456),
-    sync_protocol=sync, store=store, command_store=cmd_store,
-)
+```yaml
+equipment:
+  - id: rw1
+    model: reaction_wheel
+    hardware_profile: rw_sinclair_rw003   # 5000 rpm, 30 mNm, J=0.00011 kg·m²
 ```
 
-Auto-detection: if `obsw_sim_aarch64` is passed, QEMU prefix is added automatically.
+10 profiles across 6 equipment types in `srdb/data/hardware/`.
+
+---
+
+## Monte Carlo
+
+```bash
+python3 scripts/mc_bdot_detumbling.py --runs 20
+
+# Result: 100% convergence, final rate 0.0001 rad/s
+# Initial rates: 0.12–4.63 rad/s, all converge in 60s
+```
 
 ---
 
@@ -119,55 +200,14 @@ src/svf/models/
 
 ---
 
-## Tick Sources
-
-| Source | Behaviour | Use Case |
-|---|---|---|
-| `SoftwareTickSource` | Fast as possible | CI, Monte Carlo |
-| `RealtimeTickSource` | Wall-clock aligned | YAMCS demos, HIL |
-
-Variable timestep: models can override `suggested_dt()` to request a smaller step size. `SimulationMaster` uses the minimum across all models.
-
----
-
-## Hardware Profiles
-
-```python
-rw  = make_reaction_wheel(sync, store, hardware_profile="rw_sinclair_rw003")
-thr = make_thruster(sync, store, hardware_profile="thr_moog_monarc_1")
-gps = make_gps(sync, store, hardware_profile="gps_novatel_oem7")
-```
-
-10 profiles in `srdb/data/hardware/` across 6 equipment types.
-
----
-
-## Monte Carlo
+## YAMCS Ground Station
 
 ```bash
-python3 scripts/mc_bdot_detumbling.py --runs 20
-
-# Result: 100% convergence, final rate 0.0001 rad/s
-# Initial rates: 0.12–4.63 rad/s, all converge in 60s
+yamcs-start && yamcs-log-follow
+svf-campaign campaigns/realtime_detumbling.yaml
 ```
 
----
-
-## Reference Equipment Library
-
-| Equipment | Subsystem | Import Path |
-|---|---|---|
-| `OBCEmulatorAdapter` | DHS | `svf.models.dhs.obc_emulator` |
-| `ObcEquipment` / `ObcStub` | DHS | `svf.models.dhs.obc` / `obc_stub` |
-| `TtcEquipment` + `YamcsBridge` | TTC/GND | `svf.models.ttc.ttc` |
-| `make_kde_equipment()` | Dynamics | `svf.models.dynamics.kde_equipment` |
-| `make_magnetometer/orquer/gyroscope/css()` | AOCS | `svf.models.aocs.*` |
-| `make_reaction_wheel/star_tracker/bdot_controller()` | AOCS | `svf.models.aocs.*` |
-| `make_thruster()` | AOCS/Prop | `svf.models.aocs.thruster` |
-| `make_gps()` | Navigation | `svf.models.aocs.gps` |
-| `make_thermal()` | Thermal | `svf.models.thermal.thermal` |
-| `make_pcdu()` / `EpsFmu` | EPS | `svf.models.eps.*` |
-| `make_sbt()` | TTC | `svf.models.ttc.sbt` |
+Open `http://localhost:8090` — live TM parameters, TC commanding.
 
 ---
 
@@ -175,10 +215,9 @@ python3 scripts/mc_bdot_detumbling.py --runs 20
 
 ```bash
 obsw-srdb-export --data-dir srdb/data --output-dir srdb/export
-obsw-srdb-codegen --data-dir srdb/data --output include/obsw/srdb_generated.h
 ```
 
-Hardware profiles in `srdb/data/hardware/`. SRDB version handshake validated at startup.
+Hardware profiles in `srdb/data/hardware/`. SRDB version handshake at startup.
 
 ---
 
@@ -197,11 +236,15 @@ Hardware profiles in `srdb/data/hardware/`. SRDB version handshake validated at 
 |---|---|
 | M1–M12 — Core platform through ground segment | ✅ Done |
 | M13 — SIL Attitude Loop Closure | ✅ Done |
-| M14 — Real-Time & HIL + variable timestep + Renode socket | ✅ Done |
-| M15 — Extended Bus Protocols (SpW, CAN) | 📋 Planned |
+| M14 — Real-Time & HIL + Renode socket + variable timestep | ✅ Done |
+| M15 — Extended Bus Protocols (SpW, CAN) | ✅ Done |
 | M16 — SRDB Maturity | ✅ Done |
 | M17 — Equipment Configurability | ✅ Done |
 | M18 — Architecture Refactor | ✅ Done |
+| M19 — Spacecraft Configuration DSL | ✅ Done |
+| M20 — Structured Test Procedure API | 🔄 In progress |
+| M21 — Mission-Level Results Reporting | 📋 Planned |
+| M22 — OBSW Integration Guide | 📋 Planned |
 
 ---
 

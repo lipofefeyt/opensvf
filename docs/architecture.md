@@ -1,6 +1,6 @@
 # SVF Architecture
 
-> **Status:** v2.0
+> **Status:** v2.1
 > **Last updated:** 2026-04
 > **Author:** lipofefeyt
 
@@ -17,122 +17,149 @@ The Software Validation Facility (SVF) is an open-core platform for the validati
 
 ---
 
-## 2. Full System Architecture
+## 2. Entry Points
 
+### Zero-Python (M19)
+
+```bash
+python3 -c "
+from svf.spacecraft import SpacecraftLoader
+SpacecraftLoader.load('spacecraft.yaml').run()
+"
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│  YAMCS 5.12.6 (Ground Station)                                       │
-│  http://localhost:8090                                               │
-│  XTCE MDB: 78 parameters, 2 containers, 2 commands                  │
-└──────────────────────────┬───────────────────────────────────────────┘
-                           │ PUS TM/TC via TCP (10015/10025)
-┌──────────────────────────▼───────────────────────────────────────────┐
-│  YamcsBridge + TtcEquipment                                          │
-└──────────────────────────┬───────────────────────────────────────────┘
-                           │ PUS bytes
-┌──────────────────────────▼───────────────────────────────────────────┐
-│  OBCEmulatorAdapter                                                  │
-│                                                                      │
-│  PIPE MODE (default):           SOCKET MODE (Renode):               │
-│  obsw_sim (x86_64)              Renode ZynqMP uart0 TCP:3456        │
-│  obsw_sim_aarch64 (QEMU)        obsw_zynqmp bare-metal              │
-│                                                                      │
-│  stdin:  [0x01] TC | [0x02] sensor injection                        │
-│  stdout: [0x04] TM | [0x03] actuator frame | [0xFF] sync            │
-│  stderr: SRDB version handshake                                      │
-└──────────────────────────┬───────────────────────────────────────────┘
-                           │ pipe / TCP socket (same protocol)
-┌──────────────────────────▼───────────────────────────────────────────┐
-│  openobsw C11 OBSW                                                   │
-│  FSM SAFE    → b-dot  → mtq_dipole[3]  (type-0x03)                 │
-│  FSM NOMINAL → ADCS PD → rw_torque[3] (type-0x03)                  │
-│  PUS S1/3/5/8/17/20                                                 │
-│  SRDB_VERSION embedded at build time                                 │
-└──────────────────────────┬───────────────────────────────────────────┘
-                           │ actuator frame → CommandStore
-┌──────────────────────────▼───────────────────────────────────────────┐
-│  Actuator Models (AOCS)                                              │
-│  MTQ: torque = m × B                                                │
-│  RW:  torque command                                                 │
-│  THR: thrust, propellant tracking (Tsiolkovsky)                     │
-└──────────────────────────┬───────────────────────────────────────────┘
-                           │ torques → KDE IN ports
-┌──────────────────────────▼───────────────────────────────────────────┐
-│  opensvf-kde FMU (C++ physics)                                      │
-│  OUT: true ω (rad/s) | true B (T) | true q (quaternion)            │
-└──────────────────────────┬───────────────────────────────────────────┘
-                           │ true state → sensor models
-┌──────────────────────────▼───────────────────────────────────────────┐
-│  Sensor Models (AOCS)                                                │
-│  MAG, GYRO, ST, CSS, GPS — noisy measurements → 0x02 frames        │
-└────────────────────────────────────────────────────────────────────  │
-┌──────────────────────────▼───────────────────────────────────────────┐
-│  Thermal Model                                                       │
-│  N-node network: solar input, radiation, conduction, dissipation    │
-└──────────────────────────────────────────────────────────────────────┘
+
+### Python API
+
+```python
+from svf.spacecraft import SpacecraftLoader
+master = SpacecraftLoader.load("spacecraft.yaml")
+master.run()
+```
+
+### Low-level (full control)
+
+```python
+participant = DomainParticipant()
+sync      = DdsSyncProtocol(participant)
+store     = ParameterStore()
+cmd_store = CommandStore()
+# ... instantiate equipment manually ...
+master = SimulationMaster(...)
+master.run()
 ```
 
 ---
 
-## 3. OBSW Transport Modes
+## 3. Spacecraft Configuration (M19)
 
-### Pipe mode (x86_64 / aarch64 QEMU)
+```yaml
+spacecraft: MySat-1
 
-```python
-obc = OBCEmulatorAdapter(
-    sim_path="obsw_sim",          # or "obsw_sim_aarch64" (auto-detects QEMU)
-    sync_protocol=sync,
-    store=store,
-    command_store=cmd_store,
-)
+obsw:
+  type: pipe | socket | stub
+  binary: ./obsw_sim        # pipe mode
+  host: localhost            # socket mode
+  port: 3456                 # socket mode
+
+equipment:
+  - id: mag1
+    model: magnetometer
+    hardware_profile: mag_default
+    seed: 42
+
+buses:
+  - id: aocs_bus
+    type: mil1553 | spacewire | can
+    ...
+
+wiring:
+  auto: true
+  overrides:
+    - from: mag1.aocs.mag.field_x
+      to:   obc.aocs.mag1.field_x
+
+simulation:
+  dt: 0.1
+  stop_time: 300.0
+  seed: 42
+  realtime: false
 ```
 
-### Socket mode (Renode ZynqMP)
-
-```python
-# Start Renode first: renode renode/zynqmp_obsw.resc
-obc = OBCEmulatorAdapter(
-    sim_path=None,
-    socket_addr=("localhost", 3456),
-    sync_protocol=sync,
-    store=store,
-    command_store=cmd_store,
-)
-```
-
-Both modes use identical wire protocol v3.
+**Auto-wiring:** SVF connects OUT→IN port pairs automatically when they share the same canonical name. Explicit overrides handle non-standard connections.
 
 ---
 
-## 4. Wire Protocol v3
+## 4. Full System Architecture
 
 ```
-SVF → obsw_sim stdin (or Renode socket):
+┌──────────────────────────────────────────────────────────┐
+│  YAMCS 5.12.6  http://localhost:8090                     │
+│  XTCE MDB: parameters, containers, commands              │
+└──────────────────────┬───────────────────────────────────┘
+                       │ PUS TM/TC via TCP
+┌──────────────────────▼───────────────────────────────────┐
+│  YamcsBridge + TtcEquipment                              │
+└──────────────────────┬───────────────────────────────────┘
+                       │ PUS bytes
+┌──────────────────────▼───────────────────────────────────┐
+│  OBCEmulatorAdapter                                      │
+│  PIPE:   obsw_sim (x86_64) or obsw_sim_aarch64 (QEMU)   │
+│  SOCKET: Renode ZynqMP uart0 TCP:3456                    │
+│  STUB:   ObcStub rule engine                             │
+└──────────────────────┬───────────────────────────────────┘
+                       │ wire protocol v3
+┌──────────────────────▼───────────────────────────────────┐
+│  openobsw C11 OBSW                                       │
+│  b-dot → MTQ dipoles | ADCS PD → RW torques             │
+│  PUS S1/3/5/8/17/20  FDIR FSM                           │
+└──────────────────────┬───────────────────────────────────┘
+                       │ actuator frame → CommandStore
+┌──────────────────────▼───────────────────────────────────┐
+│  Bus Adapters (optional)                                 │
+│  MIL-STD-1553B | SpaceWire+RMAP | CAN 2.0B (ECSS)      │
+│  Fault injection: BUS_ERROR, NO_RESPONSE, BAD_PARITY    │
+└──────────────────────┬───────────────────────────────────┘
+                       │ torques → KDE
+┌──────────────────────▼───────────────────────────────────┐
+│  opensvf-kde FMU (C++ / Eigen3)                         │
+│  6-DOF physics, Euler equations, B-field model          │
+│  OUT: true ω, true B, true q                            │
+└──────────────────────┬───────────────────────────────────┘
+                       │ true state → sensor models
+┌──────────────────────▼───────────────────────────────────┐
+│  Sensor Models: MAG GYRO ST CSS GPS                     │
+│  Noisy measurements → type-0x02 frames → OBSW           │
+└──────────────────────┬───────────────────────────────────┘
+┌──────────────────────▼───────────────────────────────────┐
+│  Thermal Model: N-node radiation/conduction network      │
+└──────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 5. Wire Protocol v3
+
+```
+SVF → OBSW (stdin or TCP):
   [0x01][uint16 BE len][TC frame]          TC uplink
-  [0x02][uint16 BE len][sensor_frame_t]    MAG/GYRO/ST injection
+  [0x02][uint16 BE len][sensor_frame_t]    Sensor injection
 
-obsw_sim → SVF stdout (or Renode socket):
-  [0x04][uint16 BE len][TM packet]         PUS TM downlink
+OBSW → SVF (stdout or TCP):
+  [0x04][uint16 BE len][TM packet]         PUS TM
   [0x03][uint16 BE len][actuator_frame_t]  Actuator commands
   [0xFF]                                   End of tick
-
-obsw_sim stderr (startup):
-  [OBSW] Host sim started (type-frame protocol v2).
-  [OBSW] SRDB version: 0.1.0
 ```
 
 ---
 
-## 5. Model Organisation
+## 6. Model Organisation
 
 ```
 src/svf/models/
 ├── aocs/       reaction_wheel, magnetometer, magnetorquer, gyroscope,
 │               star_tracker, css, bdot_controller, thruster, gps
-├── dynamics/   kde_equipment
-│   └── fmu/    DynamicsFmu
-├── eps/        pcdu
-│   └── fmu/    EpsFmu, BatteryFmu, SolarArrayFmu, PcduFmu
+├── dynamics/   kde_equipment + fmu/DynamicsFmu
+├── eps/        pcdu + fmu/{EpsFmu,BatteryFmu,SolarArrayFmu,PcduFmu}
 ├── dhs/        obc, obc_stub, obc_emulator
 ├── ttc/        ttc, sbt
 └── thermal/    thermal
@@ -140,80 +167,43 @@ src/svf/models/
 
 ---
 
-## 6. Tick Sources
+## 7. Tick Sources
 
 | Tick Source | Behaviour | Use Case |
 |---|---|---|
-| `SoftwareTickSource` | Fast as possible | CI, Monte Carlo, batch |
+| `SoftwareTickSource` | Fast as possible | CI, Monte Carlo |
 | `RealtimeTickSource` | Wall-clock aligned | YAMCS demos, HIL |
 
-### Variable Timestep
-
-Any model can suggest a smaller step size:
-
-```python
-class MyModel(NativeEquipment):
-    def suggested_dt(self) -> float:
-        return 0.01  # force 10ms steps
-
-# SimulationMaster uses min(fixed_dt, all model suggestions)
-```
+Variable timestep: `Equipment.suggested_dt()` → `SimulationMaster` uses minimum.
 
 ---
 
-## 7. Hardware Profile System
+## 8. Hardware Profile System
 
 ```
 srdb/data/hardware/
-├── rw_default.yaml          Generic RW (6000 rpm, 0.2 Nm)
-├── rw_sinclair_rw003.yaml   Sinclair RW-0.03 (5000 rpm, 30 mNm)
-├── mtq_default.yaml         Generic MTQ (10 Am²)
-├── mag_default.yaml         Generic MAG (1e-7 T noise)
-├── gyro_default.yaml        Generic GYRO (ARW 1e-4)
-├── thr_default.yaml         Cold gas (1 N, Isp=70s)
-├── thr_moog_monarc_1.yaml   Hydrazine (1 N, Isp=220s)
-├── gps_default.yaml         Generic GPS (5 m noise)
-├── gps_novatel_oem7.yaml    NovAtel OEM7 (1.5 m noise)
-└── thermal_default.yaml     3-node (panels + internal)
+├── rw_default.yaml / rw_sinclair_rw003.yaml
+├── mtq_default.yaml
+├── mag_default.yaml / gyro_default.yaml
+├── thr_default.yaml / thr_moog_monarc_1.yaml
+├── gps_default.yaml / gps_novatel_oem7.yaml
+└── thermal_default.yaml
 ```
 
 ---
 
-## 8. Deterministic Replay
-
-```python
-master = SimulationMaster(..., seed=42)
-master.run()
-# SVF seed: 42 → results/seed.json
-```
-
----
-
-## 9. Four Validation Levels
-
-```
-Level 1 — Model Validation         (M8/M9)   ✅
-Level 2 — Interface Validation     (M6/M9)   ✅
-Level 3 — Integration Validation   (M10)     ✅
-Level 4 — System Validation        (M11–M14) ✅
-  Real OBSW via pipe (x86_64/aarch64 QEMU)
-  Real OBSW via socket (Renode ZynqMP)
-  Real physics (opensvf-kde FMU)
-  Real ground station (YAMCS)
-  Mode-aware AOCS (b-dot ↔ ADCS PD)
-  Hardware-profiled equipment models
-```
-
----
-
-## 10. Milestones
+## 9. Milestones
 
 | Milestone | Status |
 |---|---|
-| M1–M12 — Core platform through ground segment | ✅ Done |
-| M13 — SIL Attitude Loop Closure | ✅ Done |
-| M14 — Real-Time & HIL + Renode socket + variable timestep | ✅ Done |
-| M15 — Extended Bus Protocols (SpaceWire, CAN) | 📋 Planned |
-| M16 — SRDB Maturity | ✅ Done |
-| M17 — Equipment Configurability | ✅ Done |
-| M18 — Architecture Refactor | ✅ Done |
+| M1–M12 — Core platform | ✅ |
+| M13 — SIL Attitude Loop | ✅ |
+| M14 — Real-Time & HIL | ✅ |
+| M15 — SpW + CAN | ✅ |
+| M16 — SRDB Maturity | ✅ |
+| M17 — Equipment Configurability | ✅ |
+| M18 — Architecture Refactor | ✅ |
+| M19 — Spacecraft Configuration DSL | ✅ |
+| M20 — Test Procedure API | 🔄 |
+| M21 — Mission Results Reporting | 📋 |
+| M22 — OBSW Integration Guide | 📋 |
