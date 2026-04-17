@@ -101,6 +101,14 @@ class WiringLoader:
     def __init__(self, equipment: Mapping[str, Equipment]) -> None:
         self._equipment = equipment
 
+    @staticmethod
+    def _connections_to_wiring(
+        connections: list[Connection],
+        equipment: Mapping[str, Any],
+    ) -> "WiringMap":
+        """Build a WiringMap directly from Connection objects."""
+        return WiringMap(connections=connections)
+
     def load(self, path: Path) -> WiringMap:
         """
         Load and validate a wiring YAML file.
