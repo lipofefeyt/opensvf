@@ -390,6 +390,112 @@ class ProcedureContext:
         )
         return mon
 
+    def inject_equipment_fault(
+        self,
+        equipment_id: str,
+        port:         str,
+        fault_type:   str,
+        value:        float = 0.0,
+        duration_s:   float = 0.0,
+        seed:         Optional[int] = None,
+    ) -> None:
+        """
+        Inject a fault on a specific equipment port.
+
+        Args:
+            equipment_id: Equipment ID as defined in spacecraft.yaml
+            port:         SRDB canonical port name
+            fault_type:   "stuck" | "noise" | "bias" | "scale" | "fail"
+            value:        Fault value (std_dev for noise, offset for bias,
+                          factor for scale, fixed value for stuck)
+            duration_s:   Fault duration in seconds (0.0 = permanent)
+            seed:         Optional seed for reproducible noise faults
+
+        Example:
+            ctx.inject_equipment_fault(
+                "str1", "aocs.str1.quaternion_w",
+                fault_type="stuck", value=0.0, duration_s=10.0
+            )
+        """
+        from svf.equipment_fault import EquipmentFaultEngine, EquipmentFault, FaultMode
+
+        sim_time = self._store.read("svf.sim_time")
+        t = sim_time.value if sim_time is not None else 0.0
+
+        # Store fault spec in CommandStore for the equipment to pick up
+        # via a special fault namespace
+        fault_key = f"svf.fault.{equipment_id}.{port}"
+        self._cmd_store.inject(
+            name=fault_key,
+            value=value,
+            source_id="procedure.fault_engine",
+        )
+        # Also store metadata
+        self._cmd_store.inject(
+            name=f"{fault_key}.type",
+            value=float(list(FaultMode).index(FaultMode(fault_type))),
+            source_id="procedure.fault_engine",
+        )
+        self._cmd_store.inject(
+            name=f"{fault_key}.duration",
+            value=duration_s,
+            source_id="procedure.fault_engine",
+        )
+
+        # Direct injection via master models if available
+        if self._master is not None:
+            from svf.equipment_fault import EquipmentFaultEngine, EquipmentFault, FaultMode
+            for model in self._master._models:
+                if not hasattr(model, "equipment_id"):
+                    continue
+                if model.equipment_id != equipment_id:
+                    continue
+                if not hasattr(model, "_fault_engine"):
+                    continue
+                if model._fault_engine is None:
+                    model._fault_engine = EquipmentFaultEngine(
+                        equipment_id, seed=seed
+                    )
+                model._fault_engine.inject(EquipmentFault(
+                    port=port,
+                    fault_type=FaultMode(fault_type),
+                    value=value,
+                    duration_s=duration_s,
+                    injected_at=t,
+                    seed=seed,
+                ))
+                logger.info(
+                    f"[ctx] fault injected: {equipment_id}.{port} "
+                    f"type={fault_type} value={value} duration={duration_s}s"
+                )
+                return
+        logger.warning(
+            f"[ctx] inject_equipment_fault: equipment '{equipment_id}' "
+            f"not found in master models"
+        )
+
+    def clear_equipment_faults(self, equipment_id: str) -> None:
+        """
+        Clear all active faults on a given equipment.
+
+        Args:
+            equipment_id: Equipment ID as defined in spacecraft.yaml
+        """
+        if self._master is not None:
+            for model in self._master._models:
+                if not hasattr(model, "equipment_id"):
+                    continue
+                if model.equipment_id != equipment_id:
+                    continue
+                if hasattr(model, "_fault_engine") and model._fault_engine is not None:
+                    model._fault_engine.clear()
+                logger.info(f"[ctx] faults cleared: {equipment_id}")
+                return
+        logger.warning(
+            f"[ctx] clear_equipment_faults: equipment '{equipment_id}' "
+            f"not found"
+        )
+
     def assert_parameter(
         self,
         parameter:   str,

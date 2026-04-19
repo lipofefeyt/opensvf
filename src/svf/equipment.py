@@ -8,6 +8,9 @@ Implements: SVF-DEV-004, SVF-DEV-013, SVF-DEV-038
 """
 
 from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from svf.equipment_fault import EquipmentFaultEngine
 
 import enum
 import logging
@@ -97,6 +100,8 @@ class Equipment(ModelAdapter):
         self._command_store = command_store
         self._ports: dict[str, PortDefinition] = {}
         self._port_values: dict[str, float] = {}
+        self._fault_engine: Optional["EquipmentFaultEngine"] = None
+        self._fault_t: float = 0.0
 
         for port in self._declare_ports():
             if port.name in self._ports:
@@ -202,7 +207,13 @@ class Equipment(ModelAdapter):
             raise ValueError(
                 f"[{self._equipment_id}] Cannot write to IN port '{name}'"
             )
+        if self._fault_engine is not None:
+            value = self._fault_engine.apply_write(name, value, self._fault_t)
         self._port_values[name] = value
+
+    def attach_fault_engine(self, engine: "EquipmentFaultEngine") -> None:
+        """Attach a fault engine to intercept read/write port calls."""
+        self._fault_engine = engine
 
     def read_port(self, name: str) -> float:
         """Read the current value of any port."""
@@ -210,7 +221,10 @@ class Equipment(ModelAdapter):
             raise ValueError(
                 f"[{self._equipment_id}] Unknown port '{name}'"
             )
-        return self._port_values[name]
+        raw = self._port_values[name]
+        if self._fault_engine is not None:
+            return self._fault_engine.apply_read(name, raw, self._fault_t)
+        return raw
 
     def receive(self, port_name: str, value: float) -> None:
         """
