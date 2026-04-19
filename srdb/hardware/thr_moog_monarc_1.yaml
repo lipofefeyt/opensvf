@@ -1,0 +1,13 @@
+hardware_id: thr_moog_monarc_1
+type: thruster
+description: "Moog Monarc-1 monopropellant hydrazine thruster — 1 N"
+vendor: moog
+params:
+  max_thrust_n: 1.0
+  min_thrust_n: 0.1
+  isp_s: 220.0
+  initial_propellant_kg: 1.0
+  temp_rise_coeff: 3.0
+  temp_ambient_degc: 20.0
+  temp_max_degc: 150.0
+  min_on_time_s: 0.02

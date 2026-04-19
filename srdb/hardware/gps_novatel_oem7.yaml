@@ -1,0 +1,11 @@
+hardware_id: gps_novatel_oem7
+type: gps
+description: "NovAtel OEM7 GNSS receiver — high accuracy"
+vendor: novatel
+params:
+  position_noise_m: 1.5
+  velocity_noise_m_s: 0.01
+  acquisition_time_s: 20.0
+  update_rate_hz: 5.0
+  eclipse_outage: false
+  min_satellites: 4

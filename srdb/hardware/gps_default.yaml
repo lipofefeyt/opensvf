@@ -1,0 +1,11 @@
+hardware_id: gps_default
+type: gps
+description: "Generic spaceborne GPS receiver — representative smallsat parameters"
+vendor: generic
+params:
+  position_noise_m: 5.0
+  velocity_noise_m_s: 0.05
+  acquisition_time_s: 30.0
+  update_rate_hz: 1.0
+  eclipse_outage: true
+  min_satellites: 4

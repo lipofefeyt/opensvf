@@ -53,7 +53,6 @@ STATUS_ECLIPSE_OUTAGE  = 3.0
 
 try:
     import importlib.util as _importlib_util
-    _HW_AVAILABLE = _importlib_util.find_spec("obsw_srdb") is not None
 except Exception:
     _HW_AVAILABLE = False
 
@@ -132,17 +131,9 @@ def make_gps(
     global POSITION_NOISE_M, VELOCITY_NOISE_M_S
     global ACQUISITION_TIME_S, UPDATE_RATE_HZ, ECLIPSE_OUTAGE
 
-    if hardware_profile is not None and _HW_AVAILABLE:
-        from obsw_srdb.hardware import load_profile as _load_hw  # noqa: PLC0415
-        profile = _load_hw(hardware_profile, hardware_dir)
-        POSITION_NOISE_M   = profile.get("position_noise_m",   POSITION_NOISE_M)
-        VELOCITY_NOISE_M_S = profile.get("velocity_noise_m_s", VELOCITY_NOISE_M_S)
-        ACQUISITION_TIME_S = profile.get("acquisition_time_s", ACQUISITION_TIME_S)
-        UPDATE_RATE_HZ     = profile.get("update_rate_hz",     UPDATE_RATE_HZ)
-        ECLIPSE_OUTAGE     = bool(profile.get("eclipse_outage", ECLIPSE_OUTAGE))
-        logger.info(f"[gps] Loaded hardware profile: {hardware_profile}")
-    elif hardware_profile is not None:
-        logger.warning("[gps] obsw-srdb not installed — hardware profile ignored")
+    if hardware_profile is not None:
+        from svf.hardware_profile import load_hardware_profile
+        profile = load_hardware_profile(hardware_profile)
 
     rng = random.Random(seed)
 

@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 
 try:
     import importlib.util as _importlib_util
-    _HW_AVAILABLE = _importlib_util.find_spec("obsw_srdb") is not None
 except Exception:
     _HW_AVAILABLE = False
 

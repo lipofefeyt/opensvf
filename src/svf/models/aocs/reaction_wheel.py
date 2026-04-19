@@ -21,7 +21,6 @@ from svf.parameter_store import ParameterStore
 from svf.command_store import CommandStore
 try:
     import importlib.util as _importlib_util
-    _HW_AVAILABLE = _importlib_util.find_spec("obsw_srdb") is not None
 except Exception:
     _HW_AVAILABLE = False
 
@@ -120,20 +119,9 @@ def make_reaction_wheel(
     global VISCOUS_FRICTION, TEMP_RISE_COEFF, MAX_TEMP_C, AMBIENT_TEMP_C
     global MOMENT_OF_INERTIA_KGMS
 
-    if hardware_profile is not None and _HW_AVAILABLE:
-        from obsw_srdb.hardware import load_profile as _load_hw_profile  # noqa: PLC0415
-        profile = _load_hw_profile(hardware_profile, hardware_dir)
-        MOMENT_OF_INERTIA_KGMS = profile.get("moment_of_inertia_kgm2",     MOMENT_OF_INERTIA_KGMS)
-        MAX_SPEED_RPM    =  profile.get("max_speed_rpm",                    MAX_SPEED_RPM)
-        MIN_SPEED_RPM    = -profile.get("max_speed_rpm",                   -MIN_SPEED_RPM)
-        COULOMB_FRICTION =  profile.get("friction_coulomb_rpm_s",           COULOMB_FRICTION)
-        VISCOUS_FRICTION =  profile.get("friction_viscous_rpm_s_per_rpm",   VISCOUS_FRICTION)
-        TEMP_RISE_COEFF  =  profile.get("temp_rise_coeff",                  TEMP_RISE_COEFF)
-        MAX_TEMP_C       =  profile.get("temp_max_degc",                    MAX_TEMP_C)
-        AMBIENT_TEMP_C   =  profile.get("temp_ambient_degc",                AMBIENT_TEMP_C)
-        logger.info(f"[rw1] Loaded hardware profile: {hardware_profile}")
-    elif hardware_profile is not None:
-        logger.warning("[rw1] obsw-srdb not installed — hardware profile ignored")
+    if hardware_profile is not None:
+        from svf.hardware_profile import load_hardware_profile
+        profile = load_hardware_profile(hardware_profile)
     eq = NativeEquipment(
         equipment_id="rw1",
         ports=[

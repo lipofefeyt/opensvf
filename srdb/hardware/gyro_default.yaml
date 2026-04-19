@@ -1,0 +1,8 @@
+hardware_id: gyro_default
+type: gyroscope
+description: "Generic MEMS gyroscope — representative smallsat parameters"
+vendor: generic
+params:
+  arw_rad_s_sqrthz: 1.0e-4
+  bias_drift_rate_rad_s2: 1.0e-6
+  update_rate_hz: 100.0

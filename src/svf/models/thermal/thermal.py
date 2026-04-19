@@ -36,7 +36,6 @@ SOLAR_FLUX       = 1361.0   # W/m²
 
 try:
     import importlib.util as _importlib_util
-    _HW_AVAILABLE = _importlib_util.find_spec("obsw_srdb") is not None
 except Exception:
     _HW_AVAILABLE = False
 
@@ -168,14 +167,9 @@ def make_thermal(
     nodes       = _DEFAULT_NODES
     conductances = _DEFAULT_CONDUCTANCES
 
-    if hardware_profile is not None and _HW_AVAILABLE:
-        from obsw_srdb.hardware import load_profile as _load_hw  # noqa: PLC0415
-        profile = _load_hw(hardware_profile, hardware_dir)
-        nodes        = profile.get("nodes",           nodes)
-        conductances = profile.get("conductance_w_k", conductances)
-        logger.info(f"[thermal] Loaded hardware profile: {hardware_profile}")
-    elif hardware_profile is not None:
-        logger.warning("[thermal] obsw-srdb not installed — hardware profile ignored")
+    if hardware_profile is not None:
+        from svf.hardware_profile import load_hardware_profile
+        profile = load_hardware_profile(hardware_profile)
 
     node_ids = [n["id"] for n in nodes]
 

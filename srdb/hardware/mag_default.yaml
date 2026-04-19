@@ -1,0 +1,8 @@
+hardware_id: mag_default
+type: magnetometer
+description: "Generic magnetometer — representative smallsat parameters"
+vendor: generic
+params:
+  noise_std_tesla: 1.0e-7
+  bias_drift_rate_tesla_s: 1.0e-9
+  update_rate_hz: 10.0

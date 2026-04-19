@@ -1,0 +1,13 @@
+hardware_id: thr_default
+type: thruster
+description: "Generic cold gas thruster — representative smallsat parameters"
+vendor: generic
+params:
+  max_thrust_n: 1.0
+  min_thrust_n: 0.01
+  isp_s: 70.0
+  initial_propellant_kg: 0.5
+  temp_rise_coeff: 2.0
+  temp_ambient_degc: 20.0
+  temp_max_degc: 120.0
+  min_on_time_s: 0.01
