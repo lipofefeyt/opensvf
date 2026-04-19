@@ -99,6 +99,141 @@ class ProcedureError(Exception):
     """Raised when a procedure assertion fails."""
 
 
+
+
+@dataclass
+class MonitorViolation:
+    """A single violation recorded by a ParameterMonitor."""
+    sim_time: float
+    value:    float
+    limit:    float
+    condition: str  # "less_than" | "greater_than"
+
+
+@dataclass
+class MonitorResult:
+    """Result from a completed ParameterMonitor run."""
+    parameter:   str
+    requirement: str
+    compliant:   bool
+    violations:  list[MonitorViolation]
+    max_value:   Optional[float]
+    min_value:   Optional[float]
+    samples:     int
+
+    def summary_str(self) -> str:
+        status = "COMPLIANT" if self.compliant else f"VIOLATED ({len(self.violations)} times)"
+        return (
+            f"Monitor({self.parameter}): {status} "
+            f"over {self.samples} samples"
+        )
+
+
+class ParameterMonitor:
+    """
+    Background monitor that continuously checks a parameter condition.
+
+    Started by ctx.monitor() and runs until stop() is called
+    or assert_no_violations() / summary() is called.
+
+    Usage:
+        monitor = ctx.monitor("aocs.truth.rate_magnitude", less_than=0.1)
+        ctx.wait(60.0)
+        monitor.assert_no_violations()
+    """
+
+    def __init__(
+        self,
+        store:        "ParameterStore",
+        parameter:    str,
+        less_than:    Optional[float] = None,
+        greater_than: Optional[float] = None,
+        requirement:  str = "",
+        poll_interval: float = 0.05,
+    ) -> None:
+        import threading
+        self._store        = store
+        self._parameter    = parameter
+        self._less_than    = less_than
+        self._greater_than = greater_than
+        self._requirement  = requirement
+        self._poll_interval = poll_interval
+        self._violations:  list[MonitorViolation] = []
+        self._samples      = 0
+        self._max_value:   Optional[float] = None
+        self._min_value:   Optional[float] = None
+        self._running      = True
+        self._thread       = threading.Thread(
+            target=self._run, daemon=True
+        )
+        self._thread.start()
+
+    def _run(self) -> None:
+        import time
+        while self._running:
+            entry = self._store.read(self._parameter)
+            if entry is not None:
+                v = entry.value
+                self._samples += 1
+                if self._max_value is None or v > self._max_value:
+                    self._max_value = v
+                if self._min_value is None or v < self._min_value:
+                    self._min_value = v
+                if self._less_than is not None and v >= self._less_than:
+                    self._violations.append(MonitorViolation(
+                        sim_time=entry.t,
+                        value=v,
+                        limit=self._less_than,
+                        condition="less_than",
+                    ))
+                elif self._greater_than is not None and v <= self._greater_than:
+                    self._violations.append(MonitorViolation(
+                        sim_time=entry.t,
+                        value=v,
+                        limit=self._greater_than,
+                        condition="greater_than",
+                    ))
+            time.sleep(self._poll_interval)
+
+    def stop(self) -> None:
+        """Stop the background monitoring thread."""
+        self._running = False
+        self._thread.join(timeout=1.0)
+
+    def assert_no_violations(self) -> None:
+        """
+        Stop monitor and assert no violations occurred.
+        Raises ProcedureError with first violation detail.
+        """
+        self.stop()
+        if self._violations:
+            v = self._violations[0]
+            cond = f"< {v.limit}" if v.condition == "less_than" else f"> {v.limit}"
+            raise ProcedureError(
+                f"Monitor violation: {self._parameter} = {v.value:.6f} "
+                f"(required {cond}) at t={v.sim_time:.2f}s. "
+                f"{len(self._violations)} total violations over "
+                f"{self._samples} samples."
+            )
+        logger.info(
+            f"[monitor] {self._parameter}: COMPLIANT "
+            f"({self._samples} samples, "
+            f"max={self._max_value:.6f})"
+        )
+
+    def summary(self) -> MonitorResult:
+        """Stop monitor and return full result."""
+        self.stop()
+        return MonitorResult(
+            parameter=self._parameter,
+            requirement=self._requirement,
+            compliant=len(self._violations) == 0,
+            violations=list(self._violations),
+            max_value=self._max_value,
+            min_value=self._min_value,
+            samples=self._samples,
+        )
+
 class ProcedureContext:
     """
     Runtime context passed to Procedure.run().
@@ -210,6 +345,50 @@ class ProcedureContext:
         """Read a parameter value from the ParameterStore."""
         entry = self._store.read(parameter)
         return entry.value if entry is not None else None
+
+    def monitor(
+        self,
+        parameter:    str,
+        less_than:    Optional[float] = None,
+        greater_than: Optional[float] = None,
+        requirement:  str = "",
+        poll_interval: float = 0.05,
+    ) -> "ParameterMonitor":
+        """
+        Start a continuous background monitor on a parameter.
+
+        The monitor polls the ParameterStore at poll_interval and records
+        any violations of the given condition.
+
+        Args:
+            parameter:    SRDB canonical parameter name
+            less_than:    Violation if value >= this threshold
+            greater_than: Violation if value <= this threshold
+            requirement:  Requirement ID for traceability
+            poll_interval: Polling interval in seconds (default 0.05)
+
+        Returns:
+            ParameterMonitor — call assert_no_violations() or summary()
+
+        Example:
+            monitor = ctx.monitor("aocs.truth.rate_magnitude", less_than=0.1)
+            ctx.wait(60.0)
+            monitor.assert_no_violations()
+        """
+        mon = ParameterMonitor(
+            store=self._store,
+            parameter=parameter,
+            less_than=less_than,
+            greater_than=greater_than,
+            requirement=requirement,
+            poll_interval=poll_interval,
+        )
+        logger.info(
+            f"[ctx] monitor started: {parameter} "
+            f"{'< ' + str(less_than) if less_than is not None else ''}"
+            f"{'> ' + str(greater_than) if greater_than is not None else ''}"
+        )
+        return mon
 
     def assert_parameter(
         self,
