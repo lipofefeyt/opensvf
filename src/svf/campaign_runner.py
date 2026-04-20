@@ -27,6 +27,7 @@ import importlib.util
 import inspect
 import logging
 import time
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Type
@@ -35,7 +36,7 @@ import yaml
 
 from svf.command_store import CommandStore
 from svf.parameter_store import ParameterStore
-from svf.procedure import Procedure, ProcedureResult, Verdict
+from svf.procedure import Procedure, ProcedureResult, Verdict, StepResult
 from svf.spacecraft import SpacecraftLoader
 
 logger = logging.getLogger(__name__)
@@ -130,6 +131,16 @@ class CampaignRunner:
         with open(path) as f:
             cfg = yaml.safe_load(f)
 
+        # Detect old pre-M20 campaign format
+        if "campaign_id" in cfg or "test_cases" in cfg:
+            raise ValueError(
+                f"{path.name} uses the old pytest-based campaign format "
+                f"(campaign_id/test_cases). "
+                f"Run these with: pytest tests/spacecraft/ -v\n"
+                f"For svf campaign, use the M20 format with 'campaign:' "
+                f"and 'procedures:' fields pointing to Python Procedure files."
+            )
+
         campaign_name  = cfg.get("campaign", "Unnamed Campaign")
         spacecraft_cfg = cfg.get("spacecraft", "spacecraft.yaml")
         procedure_files = cfg.get("procedures", [])
@@ -159,6 +170,8 @@ class CampaignRunner:
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load {path}")
         module = importlib.util.module_from_spec(spec)
+        import sys
+        sys.modules[path.stem] = module
         spec.loader.exec_module(module)
 
         procedures = []
@@ -166,14 +179,10 @@ class CampaignRunner:
         for name, obj in inspect.getmembers(module, inspect.isclass):
             if not (issubclass(obj, Procedure) and obj is not Procedure):
                 continue
-            # Only include classes physically defined in this file
-            try:
-                source_file = inspect.getfile(obj)
-            except (TypeError, OSError):
+            # Only include classes defined in this module
+            if obj.__module__ != path.stem:
                 continue
-            if Path(source_file).resolve() != path.resolve():
-                continue
-            # Avoid duplicates (same class found via multiple names)
+            # Avoid duplicates
             class_key = f"{obj.__module__}.{obj.__qualname__}"
             if class_key in seen:
                 continue
@@ -199,20 +208,86 @@ class CampaignRunner:
         # Load spacecraft — creates master, store, cmd_store
         master = SpacecraftLoader.load(self._spacecraft_cfg)
 
-        # Extract store and cmd_store from master
-        store     = master._param_store or ParameterStore()
-        cmd_store = master._command_store or CommandStore()
+        # Extract store and cmd_store from master — same objects used by models
+        store     = master._param_store
+        cmd_store = master._command_store
+        if store is None:
+            store = ParameterStore()
+        if cmd_store is None:
+            cmd_store = CommandStore()
 
         results: list[ProcedureResult] = []
         t_start = time.monotonic()
 
         for proc_cls in self._procedures:
+            # Reload spacecraft for each procedure — fresh simulation state
+            fresh_master = SpacecraftLoader.load(self._spacecraft_cfg)
+            fresh_store     = fresh_master._param_store
+            fresh_cmd_store = fresh_master._command_store
+            if fresh_store is None:
+                fresh_store = ParameterStore()
+            if fresh_cmd_store is None:
+                fresh_cmd_store = CommandStore()
+
             proc = proc_cls()
             logger.info(
                 f"[campaign] Running: {proc.id or proc_cls.__name__}"
             )
-            result = proc.execute(master, store, cmd_store)
+
+            # Run simulation in background thread
+            sim_error: list[Exception] = []
+
+            def _run_sim() -> None:
+                try:
+                    fresh_master.run()
+                except Exception as e:
+                    sim_error.append(e)
+
+            sim_thread = threading.Thread(target=_run_sim, daemon=True)
+            sim_thread.start()
+
+            # Wait for simulation to start and stabilise
+            import time as _time
+            deadline = _time.monotonic() + 10.0
+            last_t = -1.0
+            stable_count = 0
+            while _time.monotonic() < deadline:
+                if sim_error:
+                    break
+                entry = fresh_store.read("svf.sim_time")
+                cur_t = entry.value if entry is not None else -1.0
+                if cur_t > 0.0:
+                    if cur_t == last_t:
+                        stable_count += 1
+                        if stable_count >= 3:
+                            # Sim has stopped — it ran to completion
+                            break
+                    else:
+                        stable_count = 0
+                    last_t = cur_t
+                _time.sleep(0.05)
+
+            if sim_error:
+                results.append(ProcedureResult(
+                    procedure_id=proc.id or proc_cls.__name__,
+                    title=proc.title or proc_cls.__name__,
+                    requirement=proc.requirement,
+                    verdict=Verdict.ERROR,
+                    duration_s=0.0,
+                    error=f"Simulation failed to start: {sim_error[0]}",
+                ))
+                logger.error(
+                    f"[campaign] {proc.id}: simulation error: {sim_error[0]}"
+                )
+                continue
+
+            result = proc.execute(fresh_master, fresh_store, fresh_cmd_store)
             results.append(result)
+
+            # Stop simulation after procedure completes
+            fresh_master.stop()
+            sim_thread.join(timeout=2.0)
+
             logger.info(
                 f"[campaign] {proc.id}: {result.verdict.value} "
                 f"({result.duration_s:.1f}s)"

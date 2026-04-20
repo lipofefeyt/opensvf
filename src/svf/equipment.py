@@ -210,6 +210,14 @@ class Equipment(ModelAdapter):
         if self._fault_engine is not None:
             value = self._fault_engine.apply_write(name, value, self._fault_t)
         self._port_values[name] = value
+        # Mirror OUT port values to ParameterStore for procedure assertions
+        if self._store is not None:
+            self._store.write(
+                name=name,
+                value=value,
+                t=self._fault_t,
+                model_id=self._equipment_id,
+            )
 
     def attach_fault_engine(self, engine: "EquipmentFaultEngine") -> None:
         """Attach a fault engine to intercept read/write port calls."""

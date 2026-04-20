@@ -1,0 +1,4 @@
+campaign: MySat-1 Example Campaign
+spacecraft: spacecraft.yaml
+procedures:
+  - procedures/example_procedures.py

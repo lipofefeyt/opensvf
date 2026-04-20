@@ -1,30 +1,23 @@
 version: 1
-# MySat-1 — example spacecraft configuration
-# Run with: python3 -c "from svf.spacecraft import SpacecraftLoader; SpacecraftLoader.load('examples/spacecraft.yaml').run()"
-
 spacecraft: MySat-1
 
 obsw:
   type: stub
 
 equipment:
-  - id: kde
-    model: dynamics
-
   - id: mag1
     model: magnetometer
     hardware_profile: mag_default
     seed: 42
-
   - id: gyro1
     model: gyroscope
     hardware_profile: gyro_default
     seed: 43
-
   - id: mtq1
     model: magnetorquer
-    hardware_profile: mtq_default
-
+  - id: rw1
+    model: reaction_wheel
+    hardware_profile: rw_default
   - id: css1
     model: css
     seed: 44
@@ -34,5 +27,6 @@ wiring:
 
 simulation:
   dt: 0.1
-  stop_time: 10.0
+  stop_time: 3600.0
   seed: 42
+  realtime: true
