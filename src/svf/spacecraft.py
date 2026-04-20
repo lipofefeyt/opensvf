@@ -132,6 +132,7 @@ class SpacecraftLoader:
         with open(path) as f:
             cfg = yaml.safe_load(f)
 
+        cls._validate_config(cfg, path.parent)
         spacecraft_name = cfg.get("spacecraft", "Unknown")
         logger.info(f"[spacecraft] Loading: {spacecraft_name}")
 
@@ -219,6 +220,113 @@ class SpacecraftLoader:
         )
         return master
 
+
+    @classmethod
+    def _validate_config(cls, cfg: dict[str, Any], base_dir: Path) -> None:
+        """
+        Validate spacecraft YAML config upfront.
+        Raises SpacecraftConfigError with clear message on any issue.
+        """
+        # Required top-level key
+        if "spacecraft" not in cfg:
+            raise SpacecraftConfigError(
+                "Missing required field: 'spacecraft' (spacecraft name)"
+            )
+
+        # Validate obsw section
+        obsw = cfg.get("obsw", {})
+        if obsw:
+            transport = obsw.get("type", "pipe")
+            if transport not in ("pipe", "socket", "stub"):
+                raise SpacecraftConfigError(
+                    f"obsw.type must be pipe | socket | stub, got '{transport}'"
+                )
+            if transport == "pipe":
+                binary = obsw.get("binary")
+                if binary is None:
+                    raise SpacecraftConfigError(
+                        "obsw.binary is required when obsw.type is 'pipe'"
+                    )
+            if transport == "socket":
+                if "port" not in obsw:
+                    raise SpacecraftConfigError(
+                        "obsw.port is required when obsw.type is 'socket'"
+                    )
+
+        # Validate equipment section
+        for i, eq in enumerate(cfg.get("equipment", [])):
+            if "id" not in eq:
+                raise SpacecraftConfigError(
+                    f"equipment[{i}] missing required field 'id'"
+                )
+            if "model" not in eq:
+                raise SpacecraftConfigError(
+                    f"equipment[{i}] (id='{eq.get('id')}') "
+                    f"missing required field 'model'"
+                )
+            model = eq["model"]
+            if model not in _MODEL_REGISTRY:
+                raise SpacecraftConfigError(
+                    f"equipment[{i}] (id='{eq.get('id')}'): "
+                    f"unknown model '{model}'. "
+                    f"Known models: {sorted(_MODEL_REGISTRY.keys())}"
+                )
+            # Validate hardware profile exists
+            profile = eq.get("hardware_profile")
+            if profile is not None:
+                from svf.hardware_profile import (
+                    load_hardware_profile, _BUNDLED_PROFILES_DIR
+                )
+                try:
+                    load_hardware_profile(profile)
+                except FileNotFoundError:
+                    raise SpacecraftConfigError(
+                        f"equipment '{eq['id']}': hardware profile "
+                        f"'{profile}' not found. "
+                        f"Available: {sorted(p.stem for p in _BUNDLED_PROFILES_DIR.glob('*.yaml'))}"
+                    )
+
+        # Validate bus section
+        for i, bus in enumerate(cfg.get("buses", [])):
+            if "type" not in bus:
+                raise SpacecraftConfigError(
+                    f"buses[{i}] missing required field 'type'"
+                )
+            if "id" not in bus:
+                raise SpacecraftConfigError(
+                    f"buses[{i}] missing required field 'id'"
+                )
+            bus_type = bus["type"]
+            if bus_type not in _BUS_REGISTRY:
+                raise SpacecraftConfigError(
+                    f"buses[{i}] (id='{bus.get('id')}'): "
+                    f"unknown bus type '{bus_type}'. "
+                    f"Known: {sorted(_BUS_REGISTRY.keys())}"
+                )
+
+        # Must have at least one model (equipment or obsw)
+        has_obsw = bool(cfg.get("obsw"))
+        has_equipment = bool(cfg.get("equipment"))
+        if not has_obsw and not has_equipment:
+            raise SpacecraftConfigError(
+                "spacecraft must define at least one of: 'obsw' or 'equipment'"
+            )
+
+        # Validate simulation section
+        sim = cfg.get("simulation", {})
+        dt = sim.get("dt", 0.1)
+        if float(dt) <= 0:
+            raise SpacecraftConfigError(
+                f"simulation.dt must be positive, got {dt}"
+            )
+        stop_time = sim.get("stop_time", 60.0)
+        if float(stop_time) <= 0:
+            raise SpacecraftConfigError(
+                f"simulation.stop_time must be positive, got {stop_time}"
+            )
+
+
+    @classmethod
     @classmethod
     def _build_obc(
         cls,

@@ -16,6 +16,7 @@ Implements: SVF-DEV-038
 from __future__ import annotations
 
 import logging
+import math
 from typing import Optional
 
 from svf.abstractions import SyncProtocol
@@ -33,6 +34,8 @@ except Exception:
 
 MAX_DIPOLE_AM2  = 10.0    # Am² saturation limit
 TEMP_RISE_COEFF = 0.005   # degC per Am²² per second
+RESISTANCE_OHM  = 5.0     # Ohm coil resistance
+RATED_VOLTAGE_V = 5.0     # V rated supply voltage
 COOLING_RATE    = 0.02    # degC/s towards ambient
 AMBIENT_TEMP_C  = 20.0
 
@@ -70,6 +73,7 @@ def make_magnetorquer(
             eq.write_port("aocs.mtq.torque_y", 0.0)
             eq.write_port("aocs.mtq.torque_z", 0.0)
             eq.write_port("aocs.mtq.status", 0.0)
+            eq.write_port("aocs.mtq.power_w", 0.0)
             return
 
         # Read and saturate dipole commands
@@ -101,6 +105,10 @@ def make_magnetorquer(
         eq.write_port("aocs.mtq.torque_y", ty)
         eq.write_port("aocs.mtq.torque_z", tz)
         eq.write_port("aocs.mtq.status", 1.0)
+        # Power consumption: P = V²/R * (dipole/max_dipole)²
+        duty = min(1.0, math.sqrt(mx**2 + my**2 + mz**2) / MAX_DIPOLE_AM2)
+        power_w = (RATED_VOLTAGE_V ** 2 / RESISTANCE_OHM) * duty
+        eq.write_port("aocs.mtq.power_w", power_w)
 
     return NativeEquipment(
         equipment_id="mtq",
@@ -127,6 +135,8 @@ def make_magnetorquer(
                            unit="Nm", description="Generated torque Z"),
             PortDefinition("aocs.mtq.status", PortDirection.OUT,
                            description="Status (0=off, 1=nominal)"),
+            PortDefinition("aocs.mtq.power_w", PortDirection.OUT,
+                           unit="W", description="Power consumption"),
         ],
         step_fn=_mtq_step,
         sync_protocol=sync_protocol,

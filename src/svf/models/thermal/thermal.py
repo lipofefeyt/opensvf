@@ -85,7 +85,16 @@ def _make_step_fn(
 
     def _thermal_step(eq: NativeEquipment, t: float, dt: float) -> None:
         illumination  = eq.read_port("thermal.solar_illumination")
-        equip_power_w = eq.read_port("thermal.equipment_power_w")
+        # Auto-aggregate: sum all *.power_w parameters from ParameterStore
+        # Falls back to port value if nothing is in the store
+        auto_power = 0.0
+        if eq._store is not None:
+            snapshot = eq._store.snapshot()
+            for key, entry in snapshot.items():
+                if key.endswith(".power_w") and not key.startswith("thermal."):
+                    auto_power += max(0.0, entry.value)
+        port_power = eq.read_port("thermal.equipment_power_w")
+        equip_power_w = auto_power if auto_power > 0.0 else port_power
 
         # Read current node temperatures
         temps_k = {}
