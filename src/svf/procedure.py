@@ -285,19 +285,26 @@ class ProcedureContext:
         )
         tc_bytes = header + secondary
 
-        # Inject via CommandStore — OBCEmulatorAdapter picks it up
+        # Find OBC emulator in master models and send directly
+        if self._master is not None:
+            for model in self._master._models:
+                if hasattr(model, "receive_tc"):
+                    model.receive_tc(tc_bytes)
+                    eq_id = model.equipment_id if hasattr(model, "equipment_id") else "obc"
+                    logger.info(
+                        f"[ctx] TC({service},{subservice}) sent via {eq_id}"
+                    )
+                    return
+        # Fallback: inject via CommandStore
         self._cmd_store.inject(
             name=f"svf.tc.{service}.{subservice}",
             value=float(len(tc_bytes)),
             source_id="procedure",
         )
-        # Store raw bytes for direct adapter use
-        self._cmd_store.inject(
-            name="svf.tc.raw",
-            value=float(len(tc_bytes)),
-            source_id="procedure",
+        logger.warning(
+            f"[ctx] TC({service},{subservice}): no OBC emulator found, "
+            f"injected via CommandStore only"
         )
-        logger.info(f"[ctx] TC({service},{subservice}) sent")
 
     def expect_tm(
         self,

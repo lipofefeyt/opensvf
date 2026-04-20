@@ -522,6 +522,14 @@ class OBCEmulatorAdapter(Equipment):
         svc    = pkt[7]
         subsvc = pkt[8]
         self._tm_seq += 1
+        # Write receipt confirmation for ProcedureContext.expect_tm()
+        if self._store is not None:
+            self._store.write(
+                name=f"svf.tm.{svc}.{subsvc}.received",
+                value=float(self._tm_seq),
+                t=t,
+                model_id=self.equipment_id,
+            )
         if svc == 1:
             self._on_s1(subsvc, pkt, t)
         elif svc == 5:
