@@ -126,6 +126,14 @@ def make_thruster(
     if hardware_profile is not None:
         from svf.hardware_profile import load_hardware_profile
         profile = load_hardware_profile(hardware_profile)
+        MAX_THRUST_N        = profile.get("max_thrust_n",         MAX_THRUST_N)
+        MIN_THRUST_N        = profile.get("min_thrust_n",         MIN_THRUST_N)
+        ISP_S               = profile.get("isp_s",                ISP_S)
+        INITIAL_PROPELLANT_KG = profile.get("initial_propellant_kg", INITIAL_PROPELLANT_KG)
+        TEMP_RISE_COEFF     = profile.get("temp_rise_coeff",      TEMP_RISE_COEFF)
+        AMBIENT_TEMP_C      = profile.get("temp_ambient_degc",    AMBIENT_TEMP_C)
+        MAX_TEMP_C          = profile.get("temp_max_degc",        MAX_TEMP_C)
+        MIN_ON_TIME_S       = profile.get("min_on_time_s",        MIN_ON_TIME_S)
 
     eq = NativeEquipment(
         equipment_id="thr1",

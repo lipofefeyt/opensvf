@@ -134,6 +134,11 @@ def make_gps(
     if hardware_profile is not None:
         from svf.hardware_profile import load_hardware_profile
         profile = load_hardware_profile(hardware_profile)
+        POSITION_NOISE_M    = profile.get("position_noise_m",     POSITION_NOISE_M)
+        VELOCITY_NOISE_M_S  = profile.get("velocity_noise_m_s",   VELOCITY_NOISE_M_S)
+        ACQUISITION_TIME_S  = profile.get("acquisition_time_s",   ACQUISITION_TIME_S)
+        UPDATE_RATE_HZ      = profile.get("update_rate_hz",       UPDATE_RATE_HZ)
+        ECLIPSE_OUTAGE      = profile.get("eclipse_outage",       ECLIPSE_OUTAGE)
 
     rng = random.Random(seed)
 

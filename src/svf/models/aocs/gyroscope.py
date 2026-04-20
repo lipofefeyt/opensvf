@@ -120,10 +120,12 @@ def make_gyroscope(
         eq.write_port("aocs.gyro.status", 1.0)
 
 
-    global BIAS_INSTABILITY
+    global BIAS_INSTABILITY, ARW_STD
     if hardware_profile is not None:
         from svf.hardware_profile import load_hardware_profile
         profile = load_hardware_profile(hardware_profile)
+        ARW_STD          = profile.get("arw_rad_s_sqrthz",        ARW_STD)
+        BIAS_INSTABILITY = profile.get("bias_drift_rate_rad_s2",   BIAS_INSTABILITY)
     eq = NativeEquipment(
         equipment_id="gyro",
         ports=[

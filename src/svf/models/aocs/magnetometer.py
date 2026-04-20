@@ -116,10 +116,12 @@ def make_magnetometer(
         eq.write_port("aocs.mag.status", 1.0)
 
 
-    global BIAS_DRIFT_RATE
+    global BIAS_DRIFT_RATE, BASE_NOISE_STD
     if hardware_profile is not None:
         from svf.hardware_profile import load_hardware_profile
         profile = load_hardware_profile(hardware_profile)
+        BASE_NOISE_STD  = profile.get("noise_std_tesla",          BASE_NOISE_STD)
+        BIAS_DRIFT_RATE = profile.get("bias_drift_rate_tesla_s",   BIAS_DRIFT_RATE)
     eq = NativeEquipment(
         equipment_id="mag",
         ports=[
