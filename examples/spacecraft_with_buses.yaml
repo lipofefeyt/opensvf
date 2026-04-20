@@ -1,3 +1,4 @@
+version: 1
 spacecraft: MySat-1-with-buses
 
 obsw:

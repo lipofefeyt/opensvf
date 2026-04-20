@@ -1,3 +1,4 @@
+version: 1
 # MySat-1 — example spacecraft configuration
 # Run with: python3 -c "from svf.spacecraft import SpacecraftLoader; SpacecraftLoader.load('examples/spacecraft.yaml').run()"
 

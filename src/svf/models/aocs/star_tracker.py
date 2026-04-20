@@ -32,7 +32,8 @@ from svf.command_store import CommandStore
 logger = logging.getLogger(__name__)
 
 # Sun exclusion angle — below this the ST is blinded
-SUN_EXCLUSION_DEG   = 30.0
+SUN_EXCLUSION_DEG   = 30.0   # degrees — hard exclusion cone
+SUN_DEGRADED_DEG    = 45.0   # degrees — accuracy degradation begins
 
 # Acquisition time from cold start
 ACQUISITION_TIME_S  = 10.0
@@ -148,11 +149,21 @@ def make_star_tracker(
                 dt,
             )
 
+        # Variable acquisition time — faster if spacecraft is slow
+        # Safe read — default 0.0 if gyro not connected
+        gx = eq._port_values.get("aocs.gyro.rate_x", 0.0)
+        gy = eq._port_values.get("aocs.gyro.rate_y", 0.0)
+        gz = eq._port_values.get("aocs.gyro.rate_z", 0.0)
+        gyro_rate = math.sqrt(gx**2 + gy**2 + gz**2)
+        # At 0 rate: nominal ACQ_TIME. At >0.5 rad/s: up to 3x longer
+        rate_factor = 1.0 + min(2.0, gyro_rate / 0.5)
+        effective_acq_time = ACQUISITION_TIME_S * rate_factor
+
         # Acquisition progress
         if state["mode"] == MODE_ACQUIRING:
             state["acq_elapsed"] += dt
-            progress = min(1.0, state["acq_elapsed"] / ACQUISITION_TIME_S)
-            if state["acq_elapsed"] >= ACQUISITION_TIME_S:
+            progress = min(1.0, state["acq_elapsed"] / effective_acq_time)
+            if state["acq_elapsed"] >= effective_acq_time:
                 state["mode"] = MODE_TRACKING
                 logger.info(f"[str1] Acquisition complete at t={t:.1f}s")
         elif state["mode"] == MODE_TRACKING:
@@ -177,15 +188,35 @@ def make_star_tracker(
             and not blinded
         )
 
-        # Add measurement noise
-        noise_std = BASE_NOISE_STD + TEMP_NOISE_COEFF * (
+        # Measurement noise — increases near sun exclusion cone
+        base_noise = BASE_NOISE_STD + TEMP_NOISE_COEFF * (
             state["temperature"] - NOMINAL_TEMP_C
         )
+        # Degrade accuracy near sun exclusion boundary
+        sun_proximity_factor = 1.0
+        if powered and SUN_EXCLUSION_DEG < sun_angle < SUN_DEGRADED_DEG:
+            # Linearly degrade from 1x to 10x noise as sun approaches
+            proximity = 1.0 - (sun_angle - SUN_EXCLUSION_DEG) / (
+                SUN_DEGRADED_DEG - SUN_EXCLUSION_DEG
+            )
+            sun_proximity_factor = 1.0 + 9.0 * proximity
+
+        # During acquisition: output degraded quaternion (not zero)
+        # Noise reduces as acquisition progresses
         if valid:
+            noise_std = base_noise * sun_proximity_factor
             q_w = state["q_w"] + rng.gauss(0, noise_std)
             q_x = state["q_x"] + rng.gauss(0, noise_std)
             q_y = state["q_y"] + rng.gauss(0, noise_std)
             q_z = state["q_z"] + rng.gauss(0, noise_std)
+            q_w, q_x, q_y, q_z = _normalise_quaternion(q_w, q_x, q_y, q_z)
+        elif powered and state["mode"] == MODE_ACQUIRING and progress > 0.5:
+            # Half-acquired: output very noisy estimate
+            acq_noise = base_noise * 100.0 * (1.0 - progress)
+            q_w = state["q_w"] + rng.gauss(0, acq_noise)
+            q_x = state["q_x"] + rng.gauss(0, acq_noise)
+            q_y = state["q_y"] + rng.gauss(0, acq_noise)
+            q_z = state["q_z"] + rng.gauss(0, acq_noise)
             q_w, q_x, q_y, q_z = _normalise_quaternion(q_w, q_x, q_y, q_z)
         else:
             q_w, q_x, q_y, q_z = 0.0, 0.0, 0.0, 0.0

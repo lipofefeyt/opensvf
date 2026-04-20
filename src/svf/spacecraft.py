@@ -227,6 +227,16 @@ class SpacecraftLoader:
         Validate spacecraft YAML config upfront.
         Raises SpacecraftConfigError with clear message on any issue.
         """
+        # Schema version check
+        CURRENT_VERSION = 1
+        version = cfg.get("version", 1)
+        if not isinstance(version, int) or version > CURRENT_VERSION:
+            raise SpacecraftConfigError(
+                f"spacecraft.yaml version {version} is not supported. "
+                f"This SVF installation supports version <= {CURRENT_VERSION}. "
+                f"Upgrade opensvf or downgrade your spacecraft.yaml."
+            )
+
         # Required top-level key
         if "spacecraft" not in cfg:
             raise SpacecraftConfigError(
