@@ -162,13 +162,23 @@ class CampaignRunner:
         spec.loader.exec_module(module)
 
         procedures = []
+        seen: set[str] = set()
         for name, obj in inspect.getmembers(module, inspect.isclass):
-            if (
-                issubclass(obj, Procedure)
-                and obj is not Procedure
-                and obj.__module__ == module.__name__
-            ):
-                procedures.append(obj)
+            if not (issubclass(obj, Procedure) and obj is not Procedure):
+                continue
+            # Only include classes physically defined in this file
+            try:
+                source_file = inspect.getfile(obj)
+            except (TypeError, OSError):
+                continue
+            if Path(source_file).resolve() != path.resolve():
+                continue
+            # Avoid duplicates (same class found via multiple names)
+            class_key = f"{obj.__module__}.{obj.__qualname__}"
+            if class_key in seen:
+                continue
+            seen.add(class_key)
+            procedures.append(obj)
         return procedures
 
     def run(
