@@ -29,7 +29,7 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run mypy
-        run: MYPYPATH=src mypy src/svf/
+        run: cd src && mypy svf/
 
       - name: Run pytest
         run: pytest tests/ --junitxml=results/junit.xml -v
@@ -53,7 +53,7 @@ jobs:
 
       - name: Smoke test in container
         run: |
-          docker run --rm opensvf python3 -c "
+          docker run --rm opensvf /opensvf/.venv/bin/python3 -c "
           import svf
           from svf.sim.simulation import SimulationMaster
           from svf.stores.parameter_store import ParameterStore
