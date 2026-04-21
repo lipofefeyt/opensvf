@@ -33,6 +33,9 @@ svf = "svf.campaign.cli:main"
 [project.entry-points."pytest11"]
 svf = "svf.plugin"
 
+[tool.setuptools.package-dir]
+"" = "src"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
