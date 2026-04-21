@@ -32,8 +32,6 @@ jobs:
 
 
       - name: Run pytest
-        env:
-          PYTHONPATH: src
         run: pytest tests/ --junitxml=results/junit.xml -v
 
       - name: Upload test results
