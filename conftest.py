@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+
 """
 Root conftest — global session teardown.
 DDS participants are now explicitly closed via DdsSyncProtocol.close()
