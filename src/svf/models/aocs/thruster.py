@@ -24,11 +24,11 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from svf.abstractions import SyncProtocol
-from svf.native_equipment import NativeEquipment
-from svf.equipment import PortDefinition, PortDirection
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.core.abstractions import SyncProtocol
+from svf.core.native_equipment import NativeEquipment
+from svf.core.equipment import PortDefinition, PortDirection
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +124,7 @@ def make_thruster(
     global TEMP_RISE_COEFF, AMBIENT_TEMP_C, MAX_TEMP_C, MIN_ON_TIME_S
 
     if hardware_profile is not None:
-        from svf.hardware_profile import load_hardware_profile
+        from svf.config.hardware_profile import load_hardware_profile
         profile = load_hardware_profile(hardware_profile)
         MAX_THRUST_N        = profile.get("max_thrust_n",         MAX_THRUST_N)
         MIN_THRUST_N        = profile.get("min_thrust_n",         MIN_THRUST_N)

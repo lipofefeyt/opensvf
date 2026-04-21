@@ -20,7 +20,7 @@ from pathlib import Path
 
 def cmd_run(args: argparse.Namespace) -> int:
     """Run a spacecraft simulation from a YAML config."""
-    from svf.spacecraft import SpacecraftLoader, SpacecraftConfigError
+    from svf.config.spacecraft import SpacecraftLoader, SpacecraftConfigError
     try:
         master = SpacecraftLoader.load(args.config)
         print(f"[svf] Running {args.config} ...")
@@ -37,8 +37,8 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 def cmd_campaign(args: argparse.Namespace) -> int:
     """Run a test campaign and optionally generate HTML report."""
-    from svf.campaign_runner import CampaignRunner
-    from svf.report import generate_html_report
+    from svf.test.campaign_runner import CampaignRunner
+    from svf.test.report import generate_html_report
 
     path = Path(args.config)
     if not path.exists():
@@ -74,7 +74,7 @@ def cmd_campaign(args: argparse.Namespace) -> int:
 
 def cmd_profiles(args: argparse.Namespace) -> int:
     """List available hardware profiles."""
-    from svf.hardware_profile import _BUNDLED_PROFILES_DIR
+    from svf.config.hardware_profile import _BUNDLED_PROFILES_DIR
 
     profiles = sorted(_BUNDLED_PROFILES_DIR.glob("*.yaml"))
     if not profiles:
@@ -103,7 +103,7 @@ def cmd_profiles(args: argparse.Namespace) -> int:
 
 def cmd_check(args: argparse.Namespace) -> int:
     """Validate a spacecraft YAML config without running."""
-    from svf.spacecraft import SpacecraftLoader, SpacecraftConfigError
+    from svf.config.spacecraft import SpacecraftLoader, SpacecraftConfigError
     try:
         master = SpacecraftLoader.load(args.config)
         models = master._models

@@ -5,8 +5,8 @@ Runs a collection of Procedure instances against a spacecraft
 configuration and collects results with requirement traceability.
 
 Usage:
-    from svf.campaign_runner import CampaignRunner
-    from svf.spacecraft import SpacecraftLoader
+    from svf.test.campaign_runner import CampaignRunner
+    from svf.config.spacecraft import SpacecraftLoader
 
     runner = CampaignRunner.from_yaml("campaign.yaml")
     report = runner.run()
@@ -34,10 +34,10 @@ from typing import Optional, Type
 
 import yaml
 
-from svf.command_store import CommandStore
-from svf.parameter_store import ParameterStore
-from svf.procedure import Procedure, ProcedureResult, Verdict, StepResult
-from svf.spacecraft import SpacecraftLoader
+from svf.stores.command_store import CommandStore
+from svf.stores.parameter_store import ParameterStore
+from svf.test.procedure import Procedure, ProcedureResult, Verdict, StepResult
+from svf.config.spacecraft import SpacecraftLoader
 
 logger = logging.getLogger(__name__)
 

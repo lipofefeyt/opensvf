@@ -5,7 +5,7 @@ Provides a Python base class that makes test procedures read like
 structured validation procedures while remaining plain Python.
 
 Usage:
-    from svf.procedure import Procedure, ProcedureContext
+    from svf.test.procedure import Procedure, ProcedureContext
 
     class BdotConvergence(Procedure):
         id          = "TC-AOCS-001"
@@ -42,9 +42,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Optional
 
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
-from svf.simulation import SimulationMaster
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
+from svf.sim.simulation import SimulationMaster
 
 logger = logging.getLogger(__name__)
 
@@ -424,7 +424,7 @@ class ProcedureContext:
                 fault_type="stuck", value=0.0, duration_s=10.0
             )
         """
-        from svf.equipment_fault import EquipmentFaultEngine, EquipmentFault, FaultMode
+        from svf.core.equipment_fault import EquipmentFaultEngine, EquipmentFault, FaultMode
 
         sim_time = self._store.read("svf.sim_time")
         t = sim_time.value if sim_time is not None else 0.0
@@ -451,7 +451,7 @@ class ProcedureContext:
 
         # Direct injection via master models if available
         if self._master is not None:
-            from svf.equipment_fault import EquipmentFaultEngine, EquipmentFault, FaultMode
+            from svf.core.equipment_fault import EquipmentFaultEngine, EquipmentFault, FaultMode
             for model in self._master._models:
                 if not hasattr(model, "equipment_id"):
                     continue

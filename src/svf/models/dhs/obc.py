@@ -17,10 +17,10 @@ import threading
 from dataclasses import dataclass, field
 from typing import Optional
 
-from svf.abstractions import SyncProtocol
-from svf.command_store import CommandStore
-from svf.equipment import Equipment, PortDefinition, PortDirection
-from svf.parameter_store import ParameterStore
+from svf.core.abstractions import SyncProtocol
+from svf.stores.command_store import CommandStore
+from svf.core.equipment import Equipment, PortDefinition, PortDirection
+from svf.stores.parameter_store import ParameterStore
 from svf.pus.tc import PusTcPacket, PusTcParser, PusTcError
 from svf.pus.tm import PusTmPacket, PusTmBuilder
 from svf.pus.services import (

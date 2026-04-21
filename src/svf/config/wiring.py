@@ -13,7 +13,7 @@ from typing import Any, Mapping
 
 import yaml
 
-from svf.equipment import Equipment
+from svf.core.equipment import Equipment
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +194,7 @@ class WiringLoader:
                 f"{source}: connection {index}: "
                 f"unknown port '{from_port}' on equipment '{from_eq}'"
             )
-        from svf.equipment import PortDirection
+        from svf.core.equipment import PortDirection
         if eq.ports[from_port].direction != PortDirection.OUT:
             raise WiringLoadError(
                 f"{source}: connection {index}: "

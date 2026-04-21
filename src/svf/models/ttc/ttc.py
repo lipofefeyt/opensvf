@@ -10,13 +10,13 @@ from __future__ import annotations
 import logging
 from typing import Optional, Protocol, runtime_checkable
 
-from svf.abstractions import SyncProtocol
-from svf.equipment import Equipment, PortDefinition, PortDirection
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.core.abstractions import SyncProtocol
+from svf.core.equipment import Equipment, PortDefinition, PortDirection
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 from svf.pus.tc import PusTcBuilder, PusTcPacket
 from svf.pus.tm import PusTmPacket
-from svf.yamcs_bridge import YamcsBridge
+from svf.ground.yamcs_bridge import YamcsBridge
 
 logger = logging.getLogger(__name__)
 

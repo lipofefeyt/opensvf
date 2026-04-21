@@ -11,11 +11,11 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from svf.abstractions import TickSource, SyncProtocol, ModelAdapter
-from svf.wiring import WiringMap
-from svf.replay import SeedManager
-from svf.command_store import CommandStore
-from svf.parameter_store import ParameterStore
+from svf.core.abstractions import TickSource, SyncProtocol, ModelAdapter
+from svf.config.wiring import WiringMap
+from svf.sim.replay import SeedManager
+from svf.stores.command_store import CommandStore
+from svf.stores.parameter_store import ParameterStore
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,7 @@ class SimulationMaster:
 
         # Validate wiring against registered equipment
         if self._wiring is not None:
-            from svf.equipment import Equipment
+            from svf.core.equipment import Equipment
             equipment_map = {
                 m.model_id: m for m in self._models
                 if isinstance(m, Equipment)
@@ -211,7 +211,7 @@ class SimulationMaster:
             
         # Apply wiring — copy OUT port values to connected IN ports
         if self._wiring is not None and self._command_store is not None:
-            from svf.equipment import Equipment
+            from svf.core.equipment import Equipment
             
             # Grab the equipment map
             equipment_map = getattr(self, "_equipment_map", {})

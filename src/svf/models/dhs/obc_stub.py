@@ -21,10 +21,10 @@ import logging
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from svf.abstractions import SyncProtocol
-from svf.command_store import CommandStore
+from svf.core.abstractions import SyncProtocol
+from svf.stores.command_store import CommandStore
 from svf.models.dhs.obc import ObcEquipment, ObcConfig
-from svf.parameter_store import ParameterStore, ParameterEntry
+from svf.stores.parameter_store import ParameterStore, ParameterEntry
 
 logger = logging.getLogger(__name__)
 

@@ -11,7 +11,7 @@ import time
 
 from typing import Callable, Optional, cast, Any
 
-from svf.parameter_store import ParameterStore
+from svf.stores.parameter_store import ParameterStore
 
 logger = logging.getLogger(__name__)
 

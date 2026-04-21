@@ -25,7 +25,7 @@ import struct
 import threading
 from typing import Optional
 
-from svf.parameter_store import ParameterStore
+from svf.stores.parameter_store import ParameterStore
 from svf.pus.tc import PusTcPacket
 from svf.pus.tm import PusTmPacket
 

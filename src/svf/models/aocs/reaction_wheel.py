@@ -14,11 +14,11 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from svf.abstractions import SyncProtocol
-from svf.equipment import PortDefinition, PortDirection
-from svf.native_equipment import NativeEquipment
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.core.abstractions import SyncProtocol
+from svf.core.equipment import PortDefinition, PortDirection
+from svf.core.native_equipment import NativeEquipment
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 try:
     import importlib.util as _importlib_util
 except Exception:
@@ -120,7 +120,7 @@ def make_reaction_wheel(
     global MOMENT_OF_INERTIA_KGMS
 
     if hardware_profile is not None:
-        from svf.hardware_profile import load_hardware_profile
+        from svf.config.hardware_profile import load_hardware_profile
         profile = load_hardware_profile(hardware_profile)
     eq = NativeEquipment(
         equipment_id="rw1",

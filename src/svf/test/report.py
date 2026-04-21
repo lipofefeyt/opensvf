@@ -5,8 +5,8 @@ Generates a self-contained HTML report from a CampaignReport.
 No internet connection required — all assets inline.
 
 Usage:
-    from svf.report import generate_html_report
-    from svf.campaign_runner import CampaignRunner
+    from svf.test.report import generate_html_report
+    from svf.test.campaign_runner import CampaignRunner
 
     runner = CampaignRunner.from_yaml("campaign.yaml")
     report = runner.run()
@@ -19,8 +19,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from datetime import datetime
-from svf.campaign_runner import CampaignReport
-from svf.procedure import Verdict
+from svf.test.campaign_runner import CampaignReport
+from svf.test.procedure import Verdict
 
 
 VERDICT_COLOR = {

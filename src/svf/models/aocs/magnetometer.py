@@ -19,11 +19,11 @@ import math
 import random
 from typing import Any, Optional
 
-from svf.abstractions import SyncProtocol
-from svf.equipment import PortDefinition, PortDirection
-from svf.native_equipment import NativeEquipment
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.core.abstractions import SyncProtocol
+from svf.core.equipment import PortDefinition, PortDirection
+from svf.core.native_equipment import NativeEquipment
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,7 @@ def make_magnetometer(
 
     global BIAS_DRIFT_RATE, BASE_NOISE_STD
     if hardware_profile is not None:
-        from svf.hardware_profile import load_hardware_profile
+        from svf.config.hardware_profile import load_hardware_profile
         profile = load_hardware_profile(hardware_profile)
         BASE_NOISE_STD  = profile.get("noise_std_tesla",          BASE_NOISE_STD)
         BIAS_DRIFT_RATE = profile.get("bias_drift_rate_tesla_s",   BIAS_DRIFT_RATE)

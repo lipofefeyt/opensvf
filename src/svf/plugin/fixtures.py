@@ -17,13 +17,13 @@ from typing import Generator, Optional, List
 import pytest
 from cyclonedds.domain import DomainParticipant
 
-from svf.simulation import SimulationMaster, SimulationError
-from svf.abstractions import ModelAdapter
-from svf.software_tick import SoftwareTickSource
-from svf.dds_sync import DdsSyncProtocol
-from svf.fmu_equipment import FmuEquipment
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.sim.simulation import SimulationMaster, SimulationError
+from svf.core.abstractions import ModelAdapter
+from svf.sim.software_tick import SoftwareTickSource
+from svf.ground.dds_sync import DdsSyncProtocol
+from svf.core.fmu_equipment import FmuEquipment
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 from svf.plugin.observable import ObservableFactory
 from svf.plugin.verdict import Verdict, VerdictRecorder
 

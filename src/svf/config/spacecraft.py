@@ -5,7 +5,7 @@ Loads a complete spacecraft simulation from a YAML definition file.
 Zero Python required for standard configurations.
 
 Usage:
-    from svf.spacecraft import SpacecraftLoader
+    from svf.config.spacecraft import SpacecraftLoader
 
     master = SpacecraftLoader.load("spacecraft.yaml")
     master.run()
@@ -65,12 +65,12 @@ from typing import Any, Optional
 import yaml
 from cyclonedds.domain import DomainParticipant
 
-from svf.command_store import CommandStore
-from svf.dds_sync import DdsSyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.simulation import SimulationMaster
-from svf.software_tick import RealtimeTickSource, SoftwareTickSource
-from svf.wiring import WiringLoader
+from svf.stores.command_store import CommandStore
+from svf.ground.dds_sync import DdsSyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.sim.simulation import SimulationMaster
+from svf.sim.software_tick import RealtimeTickSource, SoftwareTickSource
+from svf.config.wiring import WiringLoader
 
 logger = logging.getLogger(__name__)
 
@@ -94,9 +94,9 @@ _MODEL_REGISTRY: dict[str, tuple[str, str]] = {
 }
 
 _BUS_REGISTRY: dict[str, tuple[str, str]] = {
-    "mil1553":    ("svf.mil1553", "Mil1553Bus"),
-    "spacewire":  ("svf.spw",    "SpwBus"),
-    "can":        ("svf.can",    "CanBus"),
+    "mil1553":    ("svf.bus.mil1553", "Mil1553Bus"),
+    "spacewire":  ("svf.bus.spw",    "SpwBus"),
+    "can":        ("svf.bus.can",    "CanBus"),
 }
 
 
@@ -284,7 +284,7 @@ class SpacecraftLoader:
             # Validate hardware profile exists
             profile = eq.get("hardware_profile")
             if profile is not None:
-                from svf.hardware_profile import (
+                from svf.config.hardware_profile import (
                     load_hardware_profile, _BUNDLED_PROFILES_DIR
                 )
                 try:
@@ -459,7 +459,7 @@ class SpacecraftLoader:
         bus_cls  = getattr(module, class_name)
 
         if bus_type == "mil1553":
-            from svf.mil1553 import SubaddressMapping
+            from svf.bus.mil1553 import SubaddressMapping
             rt_count = int(bus_cfg.get("rt_count", 8))
             mappings_1553 = []
             for m in bus_cfg.get("mappings", []):
@@ -479,7 +479,7 @@ class SpacecraftLoader:
             )
 
         elif bus_type == "spacewire":
-            from svf.spw import SpwNode, RmapMapping
+            from svf.bus.spw import SpwNode, RmapMapping
             nodes = [
                 SpwNode(
                     logical_address=int(n["logical_address"], 0),
@@ -507,7 +507,7 @@ class SpacecraftLoader:
             )
 
         elif bus_type == "can":
-            from svf.can import CanMessage
+            from svf.bus.can import CanMessage
             messages = [
                 CanMessage(
                     can_id=int(m["can_id"], 0),
@@ -553,7 +553,7 @@ class SpacecraftLoader:
             from_parts = override["from"].split(".", 1)
             to_parts   = override["to"].split(".", 1)
             if len(from_parts) == 2 and len(to_parts) == 2:
-                from svf.wiring import Connection
+                from svf.config.wiring import Connection
                 connections.append(Connection(
                     from_equipment=from_parts[0],
                     from_port=from_parts[1],
@@ -562,7 +562,7 @@ class SpacecraftLoader:
                 ))
 
         # Build a minimal wiring object
-        from svf.wiring import WiringLoader
+        from svf.config.wiring import WiringLoader
         return WiringLoader._connections_to_wiring(connections, equipment_map)
 
     @classmethod
@@ -572,7 +572,7 @@ class SpacecraftLoader:
         For each OUT port, find any IN port with the same name
         on a different equipment.
         """
-        from svf.wiring import Connection
+        from svf.config.wiring import Connection
 
         # Collect all ports
         out_ports: dict[str, str] = {}

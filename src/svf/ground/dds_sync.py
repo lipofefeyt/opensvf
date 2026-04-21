@@ -17,7 +17,7 @@ from cyclonedds.core import Qos, Policy
 from cyclonedds.idl import IdlStruct
 from cyclonedds.idl.types import bounded_str
 
-from svf.abstractions import SyncProtocol
+from svf.core.abstractions import SyncProtocol
 
 logger = logging.getLogger(__name__)
 

@@ -27,11 +27,11 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from svf.abstractions import SyncProtocol
-from svf.bus import Bus, BusFault, FaultType
-from svf.equipment import PortDefinition, PortDirection
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.core.abstractions import SyncProtocol
+from svf.bus.bus import Bus, BusFault, FaultType
+from svf.core.equipment import PortDefinition, PortDirection
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 
 logger = logging.getLogger(__name__)
 

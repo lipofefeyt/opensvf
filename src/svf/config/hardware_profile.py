@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 # Path to bundled hardware profiles (relative to this file)
 _BUNDLED_PROFILES_DIR = (
-    Path(__file__).parent.parent.parent / "srdb" / "hardware"
+    Path(__file__).parent.parent.parent.parent / "srdb" / "hardware"
 )
 
 

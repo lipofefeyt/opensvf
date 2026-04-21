@@ -7,7 +7,7 @@ Implements: SVF-DEV-010
 from __future__ import annotations
 
 import logging
-from svf.abstractions import TickSource, TickCallback
+from svf.core.abstractions import TickSource, TickCallback
 
 logger = logging.getLogger(__name__)
 
