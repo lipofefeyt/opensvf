@@ -28,9 +28,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
           pip show opensvf
+          python -c "import svf.core.abstractions; print('svf.core OK')"
 
 
       - name: Run pytest
+        env:
+          PYTHONPATH: src
         run: pytest tests/ --junitxml=results/junit.xml -v
 
       - name: Upload test results
