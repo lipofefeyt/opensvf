@@ -22,6 +22,10 @@ equipment:
     model: css
     seed: 44
 
+  - id: str1
+    model: star_tracker
+    seed: 45
+
 wiring:
   auto: true
 
