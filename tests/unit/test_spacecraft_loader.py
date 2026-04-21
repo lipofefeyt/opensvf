@@ -2,7 +2,7 @@
 from __future__ import annotations
 import pytest
 from pathlib import Path
-from svf.spacecraft import SpacecraftLoader, SpacecraftConfigError
+from svf.config.spacecraft import SpacecraftLoader, SpacecraftConfigError
 
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
@@ -13,7 +13,7 @@ class TestSpacecraftLoaderSuite:
     @pytest.mark.requirement("SVF-DEV-110")
     def test_load_returns_simulation_master(self) -> None:
         """SpacecraftLoader.load() returns a SimulationMaster."""
-        from svf.simulation import SimulationMaster
+        from svf.sim.simulation import SimulationMaster
         master = SpacecraftLoader.load(
             EXAMPLES_DIR / "spacecraft.yaml"
         )

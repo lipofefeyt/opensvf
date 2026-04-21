@@ -5,7 +5,7 @@ Implements: SVF-DEV-031, SVF-DEV-032, SVF-DEV-033
 
 import pytest
 import threading
-from svf.parameter_store import ParameterStore, ParameterEntry
+from svf.stores.parameter_store import ParameterStore, ParameterEntry
 
 
 @pytest.mark.requirement("SVF-DEV-031", "SVF-DEV-032")

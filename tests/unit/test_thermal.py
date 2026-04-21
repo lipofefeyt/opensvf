@@ -1,11 +1,11 @@
 """Tests for Thermal Equipment model."""
 from __future__ import annotations
 import pytest
-from svf.abstractions import SyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.core.abstractions import SyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 from svf.models.thermal.thermal import make_thermal
-from svf.native_equipment import NativeEquipment
+from svf.core.native_equipment import NativeEquipment
 
 
 class _NoSync(SyncProtocol):

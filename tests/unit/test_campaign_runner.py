@@ -2,8 +2,8 @@
 from __future__ import annotations
 import pytest
 from pathlib import Path
-from svf.procedure import Procedure, ProcedureContext, Verdict
-from svf.campaign_runner import CampaignRunner, CampaignReport
+from svf.test.procedure import Procedure, ProcedureContext, Verdict
+from svf.test.campaign_runner import CampaignRunner, CampaignReport
 
 
 class PassProc(Procedure):

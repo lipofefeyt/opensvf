@@ -19,11 +19,11 @@ Implements: SVF-DEV-050, SVF-DEV-051
 import pytest
 from cyclonedds.domain import DomainParticipant
 
-from svf.simulation import SimulationMaster
-from svf.software_tick import SoftwareTickSource
-from svf.dds_sync import DdsSyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.sim.simulation import SimulationMaster
+from svf.sim.software_tick import SoftwareTickSource
+from svf.ground.dds_sync import DdsSyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 from svf.models.dhs.obc import ObcConfig, MODE_SAFE, MODE_NOMINAL
 from svf.models.dhs.obc_stub import ObcStub, Rule
 from svf.models.ttc.ttc import TtcEquipment
@@ -31,9 +31,9 @@ from svf.models.aocs.reaction_wheel import make_reaction_wheel
 from svf.models.aocs.star_tracker import make_star_tracker, ACQUISITION_TIME_S
 from svf.models.ttc.sbt import make_sbt
 from svf.models.eps.pcdu import make_pcdu
-from svf.mil1553 import Mil1553Bus, SubaddressMapping
+from svf.bus.mil1553 import Mil1553Bus, SubaddressMapping
 from svf.pus.services import HkReportDefinition
-from svf.fmu_equipment import FmuEquipment
+from svf.core.fmu_equipment import FmuEquipment
 
 EPS_FMU = "models/fmu/EpsFmu.fmu"
 EPS_MAP = {
@@ -184,7 +184,7 @@ def test_safe_mode_recovery_stub_transitions_to_nominal() -> None:
     cmd_store.inject("eps.solar_array.illumination", 1.0, source_id="test")
 
     # Run another 60s in sunlight
-    from svf.simulation import SimulationMaster as SM
+    from svf.sim.simulation import SimulationMaster as SM
     master2, store2, cmd_store2, obc2 = make_safe_mode_recovery_system(
         stop_time=60.0
     )

@@ -9,9 +9,9 @@ from __future__ import annotations
 import pytest
 import time
 import threading
-from svf.procedure import Procedure, ProcedureContext, ProcedureError
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.test.procedure import Procedure, ProcedureContext, ProcedureError
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 
 
 class TestProcedureTcTmSuite:
@@ -84,7 +84,7 @@ class TestProcedureTcTmSuite:
     def test_obc_emulator_writes_tm_receipt_on_parse(self) -> None:
         """OBCEmulatorAdapter._parse_tm() writes svf.tm.{svc}.{subsvc}.received."""
         from svf.models.dhs.obc_emulator import OBCEmulatorAdapter
-        from svf.abstractions import SyncProtocol
+        from svf.core.abstractions import SyncProtocol
 
         class _NoSync(SyncProtocol):
             def reset(self) -> None: pass

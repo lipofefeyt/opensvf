@@ -3,11 +3,11 @@ from __future__ import annotations
 import time
 import threading
 import pytest
-from svf.procedure import (
+from svf.test.procedure import (
     ParameterMonitor, MonitorResult, ProcedureContext, ProcedureError
 )
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 
 
 def make_store() -> ParameterStore:

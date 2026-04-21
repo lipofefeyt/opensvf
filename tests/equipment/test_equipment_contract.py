@@ -5,12 +5,12 @@ Implements: EQP-001 through EQP-012
 """
 
 import pytest
-from svf.abstractions import SyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
-from svf.equipment import Equipment, PortDefinition, PortDirection
-from svf.fmu_equipment import FmuEquipment
-from svf.native_equipment import NativeEquipment
+from svf.core.abstractions import SyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
+from svf.core.equipment import Equipment, PortDefinition, PortDirection
+from svf.core.fmu_equipment import FmuEquipment
+from svf.core.native_equipment import NativeEquipment
 from pathlib import Path
 
 EPS_FMU = Path(__file__).parent.parent.parent / "models" / "fmu" / "EpsFmu.fmu"

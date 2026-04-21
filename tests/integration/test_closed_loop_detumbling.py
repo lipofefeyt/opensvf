@@ -18,12 +18,12 @@ import math
 from pathlib import Path
 from cyclonedds.domain import DomainParticipant
 
-from svf.simulation import SimulationMaster
-from svf.software_tick import SoftwareTickSource
-from svf.dds_sync import DdsSyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
-from svf.wiring import WiringLoader
+from svf.sim.simulation import SimulationMaster
+from svf.sim.software_tick import SoftwareTickSource
+from svf.ground.dds_sync import DdsSyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
+from svf.config.wiring import WiringLoader
 from svf.models.dynamics.kde_equipment import make_kde_equipment
 from svf.models.aocs.magnetometer import make_magnetometer
 from svf.models.aocs.magnetorquer import make_magnetorquer

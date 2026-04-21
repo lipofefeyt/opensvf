@@ -14,9 +14,9 @@ Implements: OBC-001 through OBC-008
 
 import pytest
 import struct
-from svf.abstractions import SyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.core.abstractions import SyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 from svf.models.dhs.obc import (
     ObcEquipment, ObcConfig,
     MODE_SAFE, MODE_NOMINAL, MODE_PAYLOAD,

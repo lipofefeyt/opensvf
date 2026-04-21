@@ -13,14 +13,14 @@ Implements: ST-001 through ST-008
 
 import pytest
 import math
-from svf.abstractions import SyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.core.abstractions import SyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 from svf.models.aocs.star_tracker import (
     make_star_tracker, SUN_EXCLUSION_DEG, ACQUISITION_TIME_S,
     AMBIENT_TEMP_C, MODE_OFF, MODE_ACQUIRING, MODE_TRACKING,
 )
-from svf.native_equipment import NativeEquipment
+from svf.core.native_equipment import NativeEquipment
 
 
 class _NoSync(SyncProtocol):

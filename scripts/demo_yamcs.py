@@ -30,15 +30,15 @@ logger = logging.getLogger("demo")
 
 from cyclonedds.domain import DomainParticipant
 
-from svf.simulation import SimulationMaster
-from svf.software_tick import SoftwareTickSource
-from svf.dds_sync import DdsSyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.sim.simulation import SimulationMaster
+from svf.sim.software_tick import SoftwareTickSource
+from svf.ground.dds_sync import DdsSyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 from svf.models.dhs.obc_stub import ObcStub, Rule
 from svf.models.dhs.obc import ObcConfig
 from svf.models.ttc.ttc import TtcEquipment
-from svf.yamcs_bridge import YamcsBridge
+from svf.ground.yamcs_bridge import YamcsBridge
 
 
 def main() -> None:

@@ -2,7 +2,7 @@
 from __future__ import annotations
 import time
 import pytest
-from svf.software_tick import RealtimeTickSource, SoftwareTickSource
+from svf.sim.software_tick import RealtimeTickSource, SoftwareTickSource
 
 
 class TestRealtimeTickSourceSuite:

@@ -2,13 +2,13 @@
 from __future__ import annotations
 from typing import Any
 import pytest
-from svf.procedure import (
+from svf.test.procedure import (
     Procedure, ProcedureContext, ProcedureError,
     ProcedureResult, Verdict
 )
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
-from svf.abstractions import SyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
+from svf.core.abstractions import SyncProtocol
 
 
 class _NoSync(SyncProtocol):

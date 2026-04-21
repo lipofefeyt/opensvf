@@ -2,7 +2,7 @@
 Example SVF test procedures for MySat-1.
 Run with: svf campaign campaigns/example_campaign.yaml --report
 """
-from svf.procedure import Procedure, ProcedureContext
+from svf.test.procedure import Procedure, ProcedureContext
 
 
 class SensorPowerOn(Procedure):

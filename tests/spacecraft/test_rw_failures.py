@@ -13,13 +13,13 @@ Implements: RW-001 through RW-006
 """
 
 import pytest
-from svf.abstractions import SyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.core.abstractions import SyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 from svf.models.aocs.reaction_wheel import (
     make_reaction_wheel, MAX_SPEED_RPM, MAX_TEMP_C, AMBIENT_TEMP_C,
 )
-from svf.native_equipment import NativeEquipment
+from svf.core.native_equipment import NativeEquipment
 
 
 class _NoSync(SyncProtocol):

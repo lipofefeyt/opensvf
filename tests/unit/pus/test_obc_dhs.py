@@ -5,9 +5,9 @@ Implements: SVF-DEV-038
 """
 
 import pytest
-from svf.abstractions import SyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.core.abstractions import SyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 from svf.models.dhs.obc import ObcEquipment, ObcConfig, MODE_SAFE, MODE_NOMINAL, MODE_PAYLOAD, WDG_WARNING, WDG_RESET
 
 

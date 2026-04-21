@@ -5,11 +5,11 @@ Implements: SVF-DEV-004
 
 import pytest
 from pathlib import Path
-from svf.equipment import Equipment, PortDefinition, PortDirection, InterfaceType
-from svf.wiring import WiringLoader, WiringMap, WiringLoadError, Connection
-from svf.abstractions import SyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.core.equipment import Equipment, PortDefinition, PortDirection, InterfaceType
+from svf.config.wiring import WiringLoader, WiringMap, WiringLoadError, Connection
+from svf.core.abstractions import SyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 
 class _NoSync(SyncProtocol):
     def reset(self) -> None: pass
@@ -271,7 +271,7 @@ def test_matching_interface_types_accepted(
     sync: _NoSync, store: ParameterStore, tmp_path: Path
 ) -> None:
     """Connecting matching interface types succeeds."""
-    from svf.equipment import InterfaceType
+    from svf.core.equipment import InterfaceType
 
     class _Mil1553MatchSink(Equipment):
         def __init__(self, equipment_id: str, sync_protocol: SyncProtocol,

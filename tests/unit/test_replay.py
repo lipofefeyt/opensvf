@@ -5,7 +5,7 @@ Implements: SVF-DEV-038
 
 import pytest
 from pathlib import Path
-from svf.replay import SeedManager, derive_seed, generate_seed
+from svf.sim.replay import SeedManager, derive_seed, generate_seed
 
 
 @pytest.mark.requirement("SVF-DEV-038")

@@ -1,12 +1,12 @@
 """Tests for universal equipment fault engine."""
 from __future__ import annotations
 import pytest
-from svf.equipment_fault import (
+from svf.core.equipment_fault import (
     EquipmentFaultEngine, EquipmentFault, FaultMode
 )
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
-from svf.abstractions import SyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
+from svf.core.abstractions import SyncProtocol
 from svf.models.aocs.magnetometer import make_magnetometer
 
 

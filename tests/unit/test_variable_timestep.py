@@ -2,13 +2,13 @@
 from __future__ import annotations
 import pytest
 from typing import Optional
-from svf.abstractions import SyncProtocol
-from svf.native_equipment import NativeEquipment
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
-from svf.equipment import PortDefinition, PortDirection
-from svf.simulation import SimulationMaster
-from svf.software_tick import SoftwareTickSource
+from svf.core.abstractions import SyncProtocol
+from svf.core.native_equipment import NativeEquipment
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
+from svf.core.equipment import PortDefinition, PortDirection
+from svf.sim.simulation import SimulationMaster
+from svf.sim.software_tick import SoftwareTickSource
 
 
 class _NoSync(SyncProtocol):

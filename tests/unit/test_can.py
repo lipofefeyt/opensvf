@@ -1,11 +1,11 @@
 """Tests for CAN bus adapter."""
 from __future__ import annotations
 import pytest
-from svf.abstractions import SyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
-from svf.can import CanBus, CanMessage
-from svf.bus import BusFault, FaultType
+from svf.core.abstractions import SyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
+from svf.bus.can import CanBus, CanMessage
+from svf.bus.bus import BusFault, FaultType
 
 
 class _NoSync(SyncProtocol):

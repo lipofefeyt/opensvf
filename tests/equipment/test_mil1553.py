@@ -4,11 +4,11 @@ Implements: SVF-DEV-038
 """
 
 import pytest
-from svf.abstractions import SyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
-from svf.mil1553 import Mil1553Bus, SubaddressMapping, BROADCAST_RT
-from svf.bus import BusFault, FaultType
+from svf.core.abstractions import SyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
+from svf.bus.mil1553 import Mil1553Bus, SubaddressMapping, BROADCAST_RT
+from svf.bus.bus import BusFault, FaultType
 
 
 class _NoSync(SyncProtocol):

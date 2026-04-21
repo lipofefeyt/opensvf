@@ -6,11 +6,11 @@ Implements: EPS-001 through EPS-010
 
 import pytest
 from pathlib import Path
-from svf.abstractions import SyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
-from svf.fmu_equipment import FmuEquipment
-from svf.simulation import SimulationMaster
+from svf.core.abstractions import SyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
+from svf.core.fmu_equipment import FmuEquipment
+from svf.sim.simulation import SimulationMaster
 
 MODELS = Path(__file__).parent.parent.parent / "models" / "fmu"
 
@@ -227,10 +227,10 @@ def test_pcdu_bus_voltage_equals_battery_voltage(pcdu: FmuEquipment) -> None:
 def eps_wired(sync: _NoSync, store: ParameterStore,
               cmd_store: CommandStore) -> tuple[SimulationMaster, ParameterStore, CommandStore]:
     from cyclonedds.domain import DomainParticipant
-    from svf.simulation import SimulationMaster
-    from svf.software_tick import SoftwareTickSource
-    from svf.dds_sync import DdsSyncProtocol
-    from svf.wiring import WiringLoader
+    from svf.sim.simulation import SimulationMaster
+    from svf.sim.software_tick import SoftwareTickSource
+    from svf.ground.dds_sync import DdsSyncProtocol
+    from svf.config.wiring import WiringLoader
 
     WIRING_FILE = Path(__file__).parent.parent.parent / "srdb" / "wiring" / "eps_wiring.yaml"
     participant = DomainParticipant()

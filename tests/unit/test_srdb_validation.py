@@ -7,8 +7,8 @@ import logging
 import pytest
 from pathlib import Path
 
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 from svf.srdb.loader import SrdbLoader
 from svf.srdb.definitions import Classification, Domain, Dtype, ParameterDefinition
 

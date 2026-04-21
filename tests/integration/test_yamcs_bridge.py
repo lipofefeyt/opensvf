@@ -15,8 +15,8 @@ import time
 
 import pytest
 
-from svf.parameter_store import ParameterStore
-from svf.yamcs_bridge import YamcsBridge
+from svf.stores.parameter_store import ParameterStore
+from svf.ground.yamcs_bridge import YamcsBridge
 from svf.pus.tm import PusTmPacket, PusTmBuilder
 
 

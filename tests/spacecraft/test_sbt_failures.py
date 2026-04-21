@@ -13,15 +13,15 @@ Implements: SBT-001 through SBT-006
 """
 
 import pytest
-from svf.abstractions import SyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.core.abstractions import SyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 from svf.models.ttc.sbt import (
     make_sbt, LOCK_THRESHOLD_DBM, LOCK_TIME_S,
     TC_BITRATE_BPS, TM_BITRATE_BPS,
     MODE_IDLE, MODE_TC_RX, MODE_TM_TX,
 )
-from svf.native_equipment import NativeEquipment
+from svf.core.native_equipment import NativeEquipment
 
 
 class _NoSync(SyncProtocol):

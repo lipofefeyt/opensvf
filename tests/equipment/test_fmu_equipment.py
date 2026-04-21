@@ -8,12 +8,12 @@ from pathlib import Path
 
 from cyclonedds.domain import DomainParticipant
 
-from svf.fmu_equipment import FmuEquipment
-from svf.equipment import PortDirection
-from svf.abstractions import SyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
-from svf.dds_sync import DdsSyncProtocol
+from svf.core.fmu_equipment import FmuEquipment
+from svf.core.equipment import PortDirection
+from svf.core.abstractions import SyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
+from svf.ground.dds_sync import DdsSyncProtocol
 
 EPS_FMU = Path(__file__).parent.parent.parent / "models" / "fmu" / "EpsFmu.fmu"
 COUNTER_FMU = Path(__file__).parent.parent.parent / "examples" / "SimpleCounter.fmu"

@@ -15,12 +15,12 @@ from pathlib import Path
 import pytest
 from cyclonedds.domain import DomainParticipant
 
-from svf.simulation import SimulationMaster
-from svf.software_tick import RealtimeTickSource
-from svf.dds_sync import DdsSyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
-from svf.wiring import WiringLoader
+from svf.sim.simulation import SimulationMaster
+from svf.sim.software_tick import RealtimeTickSource
+from svf.ground.dds_sync import DdsSyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
+from svf.config.wiring import WiringLoader
 from svf.models.dhs.obc_emulator import OBCEmulatorAdapter
 from svf.models.ttc.ttc import TtcEquipment
 from svf.models.dynamics.kde_equipment import make_kde_equipment
@@ -161,7 +161,7 @@ def test_realtime_tick_overrun_warning() -> None:
     that takes longer than dt triggers a warning log.
     """
     import time
-    from svf.software_tick import RealtimeTickSource
+    from svf.sim.software_tick import RealtimeTickSource
 
     overruns: list[str] = []
     import logging

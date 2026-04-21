@@ -5,7 +5,7 @@ Implements: SVF-DEV-035, SVF-DEV-036
 
 import pytest
 import threading
-from svf.command_store import CommandStore, CommandEntry
+from svf.stores.command_store import CommandStore, CommandEntry
 
 
 @pytest.mark.requirement("SVF-DEV-035", "SVF-DEV-036")

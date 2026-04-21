@@ -27,9 +27,9 @@ from pathlib import Path
 import pytest
 from cyclonedds.domain import DomainParticipant
 
-from svf.dds_sync import DdsSyncProtocol
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.ground.dds_sync import DdsSyncProtocol
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 from svf.models.dhs.obc_emulator import OBCEmulatorAdapter
 
 RENODE_HOST = "localhost"

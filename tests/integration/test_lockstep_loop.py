@@ -9,15 +9,15 @@ from pathlib import Path
 
 from cyclonedds.domain import DomainParticipant
 
-from svf.simulation import SimulationMaster, SimulationError
-from svf.abstractions import SyncProtocol
-from svf.software_tick import SoftwareTickSource
-from svf.dds_sync import DdsSyncProtocol
-from svf.fmu_equipment import FmuEquipment
-from svf.native_equipment import NativeEquipment
-from svf.equipment import PortDefinition, PortDirection
-from svf.parameter_store import ParameterStore
-from svf.command_store import CommandStore
+from svf.sim.simulation import SimulationMaster, SimulationError
+from svf.core.abstractions import SyncProtocol
+from svf.sim.software_tick import SoftwareTickSource
+from svf.ground.dds_sync import DdsSyncProtocol
+from svf.core.fmu_equipment import FmuEquipment
+from svf.core.native_equipment import NativeEquipment
+from svf.core.equipment import PortDefinition, PortDirection
+from svf.stores.parameter_store import ParameterStore
+from svf.stores.command_store import CommandStore
 
 FMU_PATH = Path(__file__).parent.parent.parent / "examples" / "SimpleCounter.fmu"
 
