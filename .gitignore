@@ -209,7 +209,7 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 src/*.egg-info/
-results/
+
 # Generated artifacts
 results/
 *.fmu
