@@ -39,6 +39,7 @@ where = ["src"]
 [tool.mypy]
 strict = true
 exclude = ["examples/", "setup_issues.py"]
+namespace_packages = true
 
 [[tool.mypy.overrides]]
 module = ["fmpy", "fmpy.*"]

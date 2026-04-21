@@ -55,7 +55,7 @@ jobs:
         run: |
           docker run --rm opensvf python3 -c "
           import svf
-          from svf.simulation import SimulationMaster
-          from svf.parameter_store import ParameterStore
+          from svf.sim.simulation import SimulationMaster
+          from svf.stores.parameter_store import ParameterStore
           print('SVF imports OK')
           "
