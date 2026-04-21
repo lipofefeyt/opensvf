@@ -122,8 +122,8 @@ class ReactionWheelFaultDetection(Procedure):
         if temp is not None and temp > 80.0:
             ctx.assert_parameter("aocs.rw1.status", less_than=0.5)
 
-        self.step("Wait for fault to clear")
-        ctx.wait(5.0)
+        self.step("Wait for fault to clear and RW to recover")
+        ctx.wait(6.0)  # fault duration=5s + margin
 
         self.step("Verify RW status recovers")
         ctx.assert_parameter("aocs.rw1.status", greater_than=0.5)

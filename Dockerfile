@@ -68,6 +68,8 @@ RUN python3 -m venv /opensvf/.venv && \
     /opensvf/.venv/bin/pip install -e ".[dev]"
 
 ENV PATH="/opensvf/.venv/bin:$PATH"
+
+ENV PATH="/opensvf/.venv/bin:$PATH"
 ENV VIRTUAL_ENV="/opensvf/.venv"
 
 # Copy the rest of the repo

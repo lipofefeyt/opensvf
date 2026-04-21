@@ -40,6 +40,7 @@ where = ["src"]
 strict = true
 exclude = ["examples/", "setup_issues.py"]
 mypy_path = "src"
+explicit_package_bases = true
 
 [[tool.mypy.overrides]]
 module = ["fmpy", "fmpy.*"]
