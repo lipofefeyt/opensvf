@@ -1,3 +1,10 @@
+import sys
+import os as _os
+_src = _os.path.join(_os.path.dirname(__file__), "..", "..", "..")
+_src = _os.path.normpath(_src)
+if _src not in sys.path:
+    sys.path.insert(0, _src)
+
 
 """
 SVF pytest Plugin
