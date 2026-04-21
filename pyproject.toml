@@ -51,6 +51,7 @@ module = ["obsw_srdb.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
+pythonpath = ["src"]
 timeout = 30
 log_cli = false
 log_cli_level = "INFO"
