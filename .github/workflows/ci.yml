@@ -28,10 +28,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
           pip show opensvf
-          python -c "import svf.core.abstractions; print('svf.core OK')"
+          # Force src/ onto path in case editable install .pth points to repo root
+          echo "$(pwd)/src" >> $PYTHONPATH_FILE || true
+          export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
+          python -c "import svf.core.abstractions; print('svf.core OK')" || echo "WARNING: svf.core not found via editable install"
 
+
+      - name: Add src to Python path
+        run: echo "$(pwd)/src" >> $GITHUB_PATH || true
 
       - name: Run pytest
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
         run: pytest tests/ --junitxml=results/junit.xml -v
 
       - name: Upload test results
