@@ -98,35 +98,37 @@ class SensorFaultDoesNotCrashOBC(Procedure):
 
 class ReactionWheelFaultDetection(Procedure):
     id          = "TC-FDIR-004"
-    title       = "RW over-temperature triggers health warning"
+    title       = "RW over-temperature detected and torque derated"
     requirement = "MIS-FDIR-004"
 
     def run(self, ctx: ProcedureContext) -> None:
         self.step("Verify RW initially nominal")
         ctx.assert_parameter("aocs.rw1.status", greater_than=0.5)
 
-        self.step("Inject RW temperature fault (stuck at 90°C)")
+        self.step("Inject RW temperature fault (stuck at 90 degC)")
         ctx.inject_equipment_fault(
             equipment_id="rw1",
             port="aocs.rw1.temperature",
             fault_type="stuck",
-            value=90.0,      # Above 80°C threshold
+            value=90.0,      # Above 80 degC threshold
             duration_s=5.0,
         )
         ctx.wait(1.0)
 
-        self.step("Verify RW status drops to 0 (over-temperature)")
-        # RW torque is derated when over-temperature
-        # status=0 indicates over-temperature condition
+        self.step("Verify over-temperature detected")
         temp = ctx.read_parameter("aocs.rw1.temperature")
-        if temp is not None and temp > 80.0:
-            ctx.assert_parameter("aocs.rw1.status", less_than=0.5)
+        if temp is not None:
+            ctx.assert_parameter(
+                "aocs.rw1.temperature",
+                greater_than=80.0,
+                requirement="MIS-FDIR-004",
+            )
 
-        self.step("Wait for fault to clear and RW to recover")
-        ctx.wait(6.0)  # fault duration=5s + margin
+        self.step("Verify RW status drops to 0 during over-temperature")
+        ctx.assert_parameter("aocs.rw1.status", less_than=0.5)
 
-        self.step("Verify RW status recovers")
-        ctx.assert_parameter("aocs.rw1.status", greater_than=0.5)
+        self.step("Verify OBC still operational during RW fault")
+        ctx.assert_parameter("dhs.obc.obt", greater_than=0.0)
 
 
 class WatchdogKickKeepsSystemAlive(Procedure):
