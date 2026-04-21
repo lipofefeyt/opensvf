@@ -1,10 +1,3 @@
-import sys
-import os as _os
-_src = _os.path.join(_os.path.dirname(__file__), "..", "..", "..")
-_src = _os.path.normpath(_src)
-if _src not in sys.path:
-    sys.path.insert(0, _src)
-
 
 """
 SVF pytest Plugin
@@ -13,6 +6,12 @@ Implements: SVF-DEV-040, SVF-DEV-041, SVF-DEV-044
 """
 
 from __future__ import annotations
+import sys as _sys
+import os as _os
+_src = _os.path.normpath(_os.path.join(_os.path.dirname(__file__), "..", "..", ".."))
+if _src not in _sys.path:
+    _sys.path.insert(0, _src)
+
 
 import pytest
 import pluggy
