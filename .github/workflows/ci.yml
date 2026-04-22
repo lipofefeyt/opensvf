@@ -28,7 +28,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
           python -c "
+
 import site, pathlib, os
+
 src = str(pathlib.Path(os.getcwd()) / 'src')
 # Write sitecustomize.py — runs before ANY import including entry points
 sc = pathlib.Path(site.getsitepackages()[0]) / 'sitecustomize.py'
