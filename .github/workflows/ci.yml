@@ -1,5 +1,4 @@
 name: CI
-
 on:
   push:
     branches: ["main", "feature/**"]
@@ -12,7 +11,6 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
@@ -27,20 +25,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-          python -c "
-
-import site, pathlib, os
-
-src = str(pathlib.Path(os.getcwd()) / 'src')
-# Write sitecustomize.py — runs before ANY import including entry points
-sc = pathlib.Path(site.getsitepackages()[0]) / 'sitecustomize.py'
-sc.write_text(f'import sys\nif {src!r} not in sys.path:\n    sys.path.insert(0, {src!r})\n')
-print('sitecustomize.py written to', sc)
-"
-
-
-      - name: Add src to Python path
-        run: echo "$(pwd)/src" >> $GITHUB_PATH || true
+          python scripts/ci_setup_path.py
 
       - name: Run pytest
         env:
