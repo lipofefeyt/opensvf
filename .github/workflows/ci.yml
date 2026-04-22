@@ -24,12 +24,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]" --config-settings editable_mode=compat
-          python scripts/ci_setup_path.py
+          pip install -e ".[dev]"
 
       - name: Run pytest
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src
         run: pytest tests/ --junitxml=results/junit.xml -v
 
       - name: Upload test results
