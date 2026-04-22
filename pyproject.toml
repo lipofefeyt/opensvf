@@ -30,7 +30,8 @@ dev = [
 [project.scripts]
 svf = "svf.campaign.cli:main"
 
-# pytest11 entry point removed — plugin loaded via conftest.py
+[project.entry-points."pytest11"]
+svf = "svf.plugin"
 
 [tool.setuptools.package-dir]
 "" = "src"

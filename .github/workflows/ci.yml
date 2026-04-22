@@ -26,8 +26,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ".[dev]"
-          pip uninstall -y opensvf
+          pip install -e ".[dev]"
+          python -c "import site; import pathlib; pth=pathlib.Path(site.getsitepackages()[0])/'svf_src.pth'; pth.write_text(str(pathlib.Path.cwd()/'src')+'\n'); print('Added src to:', pth)"
 
 
       - name: Add src to Python path
