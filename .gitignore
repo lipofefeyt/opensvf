@@ -219,6 +219,8 @@ __pycache__/
 src/*.egg-info/
 core
 core.*
+!src/svf/core/
+!src/svf/core/**
 
 # The OBSW image
 obsw_sim
