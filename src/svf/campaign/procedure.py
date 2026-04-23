@@ -6,43 +6,26 @@ import time
 import threading
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional, List, Union
+from typing import Any, Callable, Optional, List, Union, TYPE_CHECKING
 
-from svf.stores.parameter_store import ParameterStore
-from svf.stores.command_store import CommandStore
-from svf.sim.simulation import SimulationMaster
+if TYPE_CHECKING:
+    from svf.stores.parameter_store import ParameterStore
+    from svf.stores.command_store import CommandStore
+    from svf.sim.simulation import SimulationMaster
+
 from svf.pus.tc import PusTcBuilder, PusTcPacket
 
 logger = logging.getLogger(__name__)
 
-# ── New M24 Data Structures ─────────────────────────────────────────────────
+# ── Enums and Data Structures ───────────────────────────────────────────────
 
 class EventType(str, Enum):
-    COMMAND   = "TC"      # Telecommand sent
-    TELEMETRY = "TM"      # Telemetry received
-    INJECTION = "INJECT"  # Direct parameter injection
-    MONITOR   = "MONITOR" # Temporal monitor event
-    STEP      = "STEP"    # Formal procedure step
-    INFO      = "INFO"    # General diagnostic info
-
-@dataclass
-class SimEvent:
-    """A granular event captured during a procedure step."""
-    t: float              # Simulation time
-    event_type: EventType
-    description: str
-    details: Optional[str] = None
-
-@dataclass
-class StepResult:
-    """Result of a single procedure step, enriched with events."""
-    step_name:   str
-    verdict:     Verdict
-    detail:      str = ""
-    requirement: str = ""
-    events:      List[SimEvent] = field(default_factory=list)
-
-# ── Core Result Classes ─────────────────────────────────────────────────────
+    COMMAND   = "TC"      
+    TELEMETRY = "TM"      
+    INJECTION = "INJECT"  
+    MONITOR   = "MONITOR" 
+    STEP      = "STEP"    
+    INFO      = "INFO"    
 
 class Verdict(str, Enum):
     PASS          = "PASS"
@@ -51,7 +34,25 @@ class Verdict(str, Enum):
     ERROR         = "ERROR"
 
 @dataclass
+class SimEvent:
+    """A granular event captured during a procedure step."""
+    t: float
+    event_type: EventType
+    description: str
+    details: Optional[str] = None
+
+@dataclass
+class StepResult:
+    """Result of a single procedure step."""
+    step_name:   str
+    verdict:     Verdict
+    detail:      str = ""
+    requirement: str = ""
+    events:      List[SimEvent] = field(default_factory=list)
+
+@dataclass
 class ProcedureResult:
+    """Aggregated result of a complete procedure run."""
     procedure_id:   str
     title:          str
     requirement:    str
@@ -62,17 +63,27 @@ class ProcedureResult:
     seed:           Optional[int] = None
 
     def summary(self) -> str:
-        lines = [
-            f"{'='*60}",
-            f"Procedure: {self.procedure_id} — {self.title}",
-            f"Verdict: {self.verdict.value} | Duration: {self.duration_s:.1f}s",
-            f"{'='*60}",
-        ]
+        lines = [f"Procedure: {self.procedure_id} — {self.title}", f"Verdict: {self.verdict.value}"]
         for step in self.steps:
-            lines.append(f"[{step.verdict.value:<4}] {step.step_name}")
-            for ev in step.events:
-                lines.append(f"      t={ev.t:>6.1f}s | {ev.event_type:<6} | {ev.description}")
+            lines.append(f"  [{step.verdict.value}] {step.step_name}")
         return "\n".join(lines)
+
+@dataclass
+class MonitorViolation:
+    sim_time: float
+    value:    float
+    limit:    float
+    condition: str
+
+@dataclass
+class MonitorResult:
+    parameter:   str
+    requirement: str
+    compliant:   bool
+    violations:  list[MonitorViolation]
+    max_value:   Optional[float]
+    min_value:   Optional[float]
+    samples:     int
 
 class ProcedureError(Exception):
     pass
@@ -95,9 +106,10 @@ class ParameterMonitor:
         self._greater_than = greater_than
         self._requirement = requirement
         self._poll_interval = poll_interval
-        self._violations: list[dict] = []
+        self._violations: list[MonitorViolation] = []
         self._samples = 0
         self._max_value: Optional[float] = None
+        self._min_value: Optional[float] = None
         self._running = True
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -109,10 +121,11 @@ class ParameterMonitor:
                 v = entry.value
                 self._samples += 1
                 if self._max_value is None or v > self._max_value: self._max_value = v
+                if self._min_value is None or v < self._min_value: self._min_value = v
                 if self._less_than is not None and v >= self._less_than:
-                    self._violations.append({"t": entry.t, "v": v, "limit": self._less_than, "cond": "less_than"})
+                    self._violations.append(MonitorViolation(entry.t, v, self._less_than, "less_than"))
                 elif self._greater_than is not None and v <= self._greater_than:
-                    self._violations.append({"t": entry.t, "v": v, "limit": self._greater_than, "cond": "greater_than"})
+                    self._violations.append(MonitorViolation(entry.t, v, self._greater_than, "greater_than"))
             time.sleep(self._poll_interval)
 
     def stop(self) -> None:
@@ -124,9 +137,16 @@ class ParameterMonitor:
         self.stop()
         if self._violations:
             v = self._violations[0]
-            raise ProcedureError(f"Monitor violation: {self._parameter}={v['v']:.2f} at t={v['t']:.1f}s")
+            raise ProcedureError(f"Monitor violation: {self._parameter}={v.value:.2f} at t={v.sim_time:.1f}s")
 
-# ── The Enriched Context ────────────────────────────────────────────────────
+    def summary(self) -> MonitorResult:
+        self.stop()
+        return MonitorResult(
+            self._parameter, self._requirement, len(self._violations) == 0,
+            list(self._violations), self._max_value, self._min_value, self._samples
+        )
+
+# ── Procedure Context ───────────────────────────────────────────────────────
 
 class ProcedureContext:
     def __init__(
@@ -142,10 +162,9 @@ class ProcedureContext:
         self._apid = apid
         self._seq = 1
         self._active_monitors: list[ParameterMonitor] = []
-        self._events: list[SimEvent] = [] # Current step event buffer
+        self._events: list[SimEvent] = []
 
     def _log_event(self, event_type: EventType, description: str, details: Optional[str] = None) -> None:
-        """Internal helper to capture automated events."""
         t = self.read_parameter("svf.sim_time") or 0.0
         self._events.append(SimEvent(round(t, 2), event_type, description, details))
 
@@ -164,7 +183,7 @@ class ProcedureContext:
             for model in self._master._models:
                 if hasattr(model, "receive_tc"):
                     model.receive_tc(tc_bytes)
-                    target = model.model_id
+                    target = getattr(model, "equipment_id", "obc")
                     break
                     
         self._log_event(EventType.COMMAND, f"Sent TC({service},{subservice}) to {target}", details=tc_bytes.hex())
@@ -210,12 +229,37 @@ class ProcedureContext:
             raise ProcedureError(f"Assertion failed for {parameter}: current={val:.4f}")
         self._log_event(EventType.INFO, f"Verified {parameter}")
 
+    def monitor(self, parameter: str, less_than: Optional[float] = None, greater_than: Optional[float] = None, requirement: str = "") -> ParameterMonitor:
+        return ParameterMonitor(self._store, parameter, less_than, greater_than, requirement)
+
     def expect_always(self, parameter: str, less_than: Optional[float] = None, greater_than: Optional[float] = None) -> None:
-        monitor = ParameterMonitor(self._store, parameter, less_than, greater_than)
+        monitor = self.monitor(parameter, less_than, greater_than)
         self._active_monitors.append(monitor)
         self._log_event(EventType.MONITOR, f"Active invariant: {parameter}")
 
-# ── The Base Procedure ──────────────────────────────────────────────────────
+    def inject_equipment_fault(self, equipment_id: str, port: str, fault_type: str, value: float = 0.0, duration_s: float = 0.0) -> None:
+        if self._master is not None:
+            from svf.core.equipment import Equipment
+            from svf.core.equipment_fault import EquipmentFaultEngine, EquipmentFault, FaultMode
+            for model in self._master._models:
+                if isinstance(model, Equipment) and model.equipment_id == equipment_id:
+                    engine = getattr(model, "_fault_engine", None)
+                    if engine is None:
+                        engine = EquipmentFaultEngine(equipment_id)
+                        model.attach_fault_engine(engine)
+                    engine.inject(EquipmentFault(port, FaultMode(fault_type), value, duration_s, self.read_parameter("svf.sim_time") or 0.0))
+                    self._log_event(EventType.INFO, f"Injected {fault_type} fault on {equipment_id}.{port}")
+                    return
+
+    def clear_equipment_faults(self, equipment_id: str) -> None:
+        if self._master is not None:
+            from svf.core.equipment import Equipment
+            for model in self._master._models:
+                if isinstance(model, Equipment) and model.equipment_id == equipment_id:
+                    engine = getattr(model, "_fault_engine", None)
+                    if engine is not None:
+                        engine.clear()
+                        self._log_event(EventType.INFO, f"Cleared faults on {equipment_id}")
 
 class Procedure:
     id: str = ""
@@ -227,16 +271,13 @@ class Procedure:
         self._ctx: Optional[ProcedureContext] = None
 
     def step(self, name: str) -> None:
-        # If there was a previous step, finalize it by moving events from context
         if self._ctx and self._ctx._events:
             if self._steps:
                 self._steps[-1].events.extend(self._ctx._events)
                 self._ctx._events = []
-        
         logger.info(f"[{self.id}] Step: {name}")
         self._steps.append(StepResult(name, Verdict.PASS))
-        if self._ctx:
-            self._ctx._log_event(EventType.STEP, name)
+        if self._ctx: self._ctx._log_event(EventType.STEP, name)
 
     def run(self, ctx: ProcedureContext) -> None:
         raise NotImplementedError()
@@ -246,10 +287,8 @@ class Procedure:
         t_start = time.monotonic()
         verdict = Verdict.PASS
         error_msg = None
-
         try:
             self.run(self._ctx)
-            # Finalize last step events
             if self._steps and self._ctx._events:
                 self._steps[-1].events.extend(self._ctx._events)
         except ProcedureError as e:
@@ -261,8 +300,6 @@ class Procedure:
         except Exception as e:
             verdict = Verdict.ERROR
             error_msg = f"{type(e).__name__}: {e}"
-
-        # Post-check invariants
         for mon in self._ctx._active_monitors:
             try:
                 mon.assert_no_violations()
@@ -271,5 +308,4 @@ class Procedure:
                     verdict = Verdict.FAIL
                     error_msg = str(e)
                     self._steps.append(StepResult(f"Invariant: {mon._parameter}", Verdict.FAIL, str(e)))
-
         return ProcedureResult(self.id, self.title, self.requirement, verdict, time.monotonic() - t_start, self._steps, error_msg, getattr(master, "seed", None))

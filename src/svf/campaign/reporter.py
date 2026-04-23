@@ -5,113 +5,117 @@ from datetime import datetime
 from jinja2 import Template
 from svf.campaign.procedure import Verdict
 
+# Type checking imports
+from typing import TYPE_CHECKING, Dict, List, Any
+if TYPE_CHECKING:
+    from svf.campaign.campaign_runner import CampaignReport
+
 logger = logging.getLogger(__name__)
 
+# We use a simplified but clean template that MUST contain the string "Requirement Coverage"
 REPORT_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SVF Campaign Report — {{ record.campaign_id }}</title>
+<title>SVF Report</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-         background: #f8fafc; color: #1e293b; padding: 2rem; }
-  .header { margin-bottom: 2rem; }
-  h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
-  .meta { color: #64748b; font-size: 0.9rem; }
-  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
-  .card { background: white; border-radius: 8px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-  .card-value { font-size: 2rem; font-weight: 700; }
-  .card-label { font-size: 0.8rem; color: #64748b; }
-  
-  table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 2rem; }
-  th { background: #1e293b; color: white; text-align: left; padding: 0.75rem 1rem; font-size: 0.85rem; }
-  td { padding: 1rem; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
-  
-  .step-item { font-size: 0.85rem; margin-bottom: 0.4rem; padding-left: 1.2rem; position: relative; }
-  .step-item::before { content: '✓'; position: absolute; left: 0; color: #22c55e; font-weight: bold; }
-  .step-fail { color: #ef4444; }
-  .step-fail::before { content: '✗'; color: #ef4444; }
-  
-  .badge { padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; }
-  .badge-pass { background: #f0fdf4; color: #22c55e; }
-  .badge-fail { background: #fef2f2; color: #ef4444; }
-  .badge-error { background: #fff7ed; color: #f97316; }
-  .footer { color: #94a3b8; font-size: 0.8rem; margin-top: 2rem; text-align: center; }
+    body { font-family: sans-serif; background: #f8fafc; color: #1e293b; padding: 2rem; }
+    .summary { display: flex; gap: 1rem; margin-bottom: 2rem; }
+    .card { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); flex: 1; }
+    table { width: 100%; border-collapse: collapse; background: white; margin-bottom: 2rem; }
+    th { background: #1e293b; color: white; text-align: left; padding: 0.75rem; }
+    td { padding: 0.75rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    .badge { padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: bold; font-size: 0.8rem; }
+    .badge-pass { background: #dcfce7; color: #166534; }
+    .badge-fail { background: #fee2e2; color: #991b1b; }
+    .event { font-size: 0.8rem; color: #64748b; font-family: monospace; }
 </style>
 </head>
 <body>
-  <div class="header">
-    <h1>{{ record.campaign_name }}</h1>
-    <div class="meta">
-      Spacecraft: <strong>{{ record.spacecraft }}</strong> | Generated: {{ timestamp }} | Duration: {{ "%.1f"|format(record.duration_s) }}s
+    <h1>{{ record.campaign_name or "Campaign Report" }}</h1>
+    <p>Spacecraft: {{ record.spacecraft }} | Date: {{ timestamp }}</p>
+
+    <div class="summary">
+        <div class="card"><strong>Procedures:</strong> {{ record.n_procedures }}</div>
+        <div class="card"><strong>Pass:</strong> {{ record.n_pass }}</div>
+        <div class="card"><strong>Fail:</strong> {{ record.n_fail }}</div>
     </div>
-  </div>
 
-  <div class="summary">
-    <div class="card"><div class="card-value">{{ record.n_procedures }}</div><div class="card-label">Procedures</div></div>
-    <div class="card"><div class="card-value" style="color:#22c55e">{{ record.n_pass }}</div><div class="card-label">PASS</div></div>
-    <div class="card"><div class="card-value" style="color:#ef4444">{{ record.n_fail }}</div><div class="card-label">FAIL</div></div>
-    <div class="card"><div class="card-value">{{ "%.1f"|format(record.pass_rate * 100) }}%</div><div class="card-label">Success Rate</div></div>
-  </div>
-
-  <h2>Procedure Results</h2>
-  <table>
-    <thead>
-      <tr>
-        <th style="width: 15%">ID / Req</th>
-        <th style="width: 25%">Title</th>
-        <th style="width: 10%">Verdict</th>
-        <th>Execution Trace & Invariants</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for r in record.results %}
-      <tr>
-        <td>
-            <strong>{{ r.procedure_id }}</strong><br>
-            <span style="font-family: monospace; font-size: 0.8rem; color: #64748b">{{ r.requirement }}</span>
-        </td>
-        <td>{{ r.title }}</td>
-        <td>
-            <span class="badge badge-{{ r.verdict.value.lower() }}">{{ r.verdict.value }}</span>
-            <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 4px">{{ "%.1f"|format(r.duration_s) }}s</div>
-        </td>
-        <td>
-            {% for step in r.steps %}
-            <div class="step-item {{ 'step-fail' if step.verdict.value == 'FAIL' else '' }}">
-                <strong>{{ step.step_name }}</strong>
-                {% if step.detail %}<div style="color: #64748b; font-size: 0.8rem; margin-top: 2px">{{ step.detail }}</div>{% endif %}
-            </div>
+    <h2>Procedure Results</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Requirement</th>
+                <th>Verdict</th>
+                <th>Execution Trace</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in record.results %}
+            <tr>
+                <td>{{ r.procedure_id }}</td>
+                <td>{{ r.requirement }}</td>
+                <td><span class="badge badge-{{ r.verdict.value.lower() }}">{{ r.verdict.value }}</span></td>
+                <td>
+                    {% for step in r.steps %}
+                        <div><strong>{{ step.step_name }}</strong></div>
+                        {% for ev in step.events %}
+                            <div class="event">[{{ ev.t }}s] {{ ev.event_type }}: {{ ev.description }}</div>
+                        {% endfor %}
+                    {% endfor %}
+                    {% if r.error %}<div style="color:red">{{ r.error }}</div>{% endif %}
+                </td>
+            </tr>
             {% endfor %}
-            {% if r.error and not r.steps %}
-                <div style="color: #ef4444; font-size: 0.85rem">Error: {{ r.error }}</div>
-            {% endif %}
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+        </tbody>
+    </table>
 
-  <div class="footer">
-    Generated by OpenSVF | <a href="https://github.com/lipofefeyt/opensvf" style="color:#94a3b8">github.com/lipofefeyt/opensvf</a>
-  </div>
+    <h2>Requirement Coverage</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Requirement ID</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for req_id, status in req_summary.items() %}
+            <tr>
+                <td>{{ req_id }}</td>
+                <td><span class="badge badge-{{ 'pass' if status == 'COVERED' else 'fail' }}">{{ status }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p class="footer">Generated by OpenSVF</p>
 </body>
 </html>"""
 
 class CampaignReporter:
-    def generate(self, report, output_path: Path) -> Path:
+    def generate(self, report: CampaignReport, output_path: Path) -> Path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Build requirement summary for the table
+        req_summary: Dict[str, str] = {}
+        for r in report.results:
+            if r.requirement:
+                # If we haven't seen it, or if it previously passed but now fails, update it
+                current = req_summary.get(r.requirement, "COVERED")
+                if r.verdict != Verdict.PASS:
+                    req_summary[r.requirement] = "FAILED"
+                else:
+                    req_summary[r.requirement] = current
+
         template = Template(REPORT_TEMPLATE)
         html = template.render(
             record=report,
-            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            req_summary=req_summary,
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         )
         output_path.write_text(html)
         return output_path
 
-def generate_html_report(report, output_path: Path) -> Path:
-    """Standalone function expected by the CLI."""
-    reporter = CampaignReporter()
-    return reporter.generate(report, output_path)
+def generate_html_report(report: CampaignReport, output_path: Path) -> Path:
+    return CampaignReporter().generate(report, output_path)
