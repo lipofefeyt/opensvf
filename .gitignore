@@ -228,3 +228,14 @@ obsw_sim
 
 # Firebase / Nix stuff
 .idx
+# Firebase
+.firebase/
+firebaselog.txt
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local binaries (handled by download scripts)
+bin/*.fmu
+bin/obsw_sim*

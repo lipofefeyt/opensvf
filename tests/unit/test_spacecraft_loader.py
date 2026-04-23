@@ -5,7 +5,7 @@ from pathlib import Path
 from svf.config.spacecraft import SpacecraftLoader, SpacecraftConfigError
 
 
-EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
+EXAMPLES_DIR = Path(__file__).parent.parent.parent / "mission_mysat1"
 
 
 class TestSpacecraftLoaderSuite:

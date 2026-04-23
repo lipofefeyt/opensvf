@@ -24,7 +24,7 @@ REPO = Path(__file__).parent.parent
 import os as _os
 _arch = _os.environ.get("OBSW_ARCH", "x86_64")
 OBSW_SIM = REPO / ("obsw_sim_aarch64" if _arch == "aarch64" else "obsw_sim")
-KDE_FMU  = REPO / "models/fmu/SpacecraftDynamics.fmu"
+KDE_FMU  = REPO / "bin/SpacecraftDynamics.fmu"
 
 
 def run_bdot(seed: int) -> dict:

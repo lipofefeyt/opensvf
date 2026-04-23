@@ -2,9 +2,9 @@
 from __future__ import annotations
 import pytest
 from pathlib import Path
-from svf.test.procedure import Procedure, ProcedureContext, Verdict, ProcedureResult
-from svf.test.campaign_runner import CampaignReport
-from svf.test.report import generate_html_report
+from svf.campaign.procedure import Procedure, ProcedureContext, Verdict, ProcedureResult
+from svf.campaign.campaign_runner import CampaignReport
+from svf.campaign.reporter import generate_html_report
 
 
 def make_report(n_pass: int = 2, n_fail: int = 1) -> CampaignReport:

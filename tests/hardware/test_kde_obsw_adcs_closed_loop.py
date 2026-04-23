@@ -50,10 +50,10 @@ else:
     )
 KDE_FMU = next(
     (p for p in [
-        _root / "models/fmu/SpacecraftDynamics.fmu",
-        Path("models/fmu/SpacecraftDynamics.fmu")
+        _root / "bin/SpacecraftDynamics.fmu",
+        Path("bin/SpacecraftDynamics.fmu")
     ] if p.exists()),
-    _root / "models/fmu/SpacecraftDynamics.fmu"
+    _root / "bin/SpacecraftDynamics.fmu"
 )
 
 pytestmark = pytest.mark.skipif(
@@ -89,7 +89,7 @@ def make_adcs_system(
 
     equipment = {"kde": kde, "mag": mag, "gyro": gyro, "mtq": mtq, "obc": obc}
     wiring = WiringLoader(equipment).load(
-        _root / "srdb/wiring/full_loop_wiring.yaml"
+        _root / "mission_mysat1/wiring/full_loop_wiring.yaml"
     )
 
     master = SimulationMaster(

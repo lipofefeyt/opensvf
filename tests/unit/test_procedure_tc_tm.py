@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 import time
 import threading
-from svf.test.procedure import Procedure, ProcedureContext, ProcedureError
+from svf.campaign.procedure import Procedure, ProcedureContext, ProcedureError
 from svf.stores.parameter_store import ParameterStore
 from svf.stores.command_store import CommandStore
 

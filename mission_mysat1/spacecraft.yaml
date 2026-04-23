@@ -1,0 +1,49 @@
+version: 1
+spacecraft: MySat-1
+
+obsw:
+  type: stub
+
+equipment:
+  - id: kde
+    model: dynamics
+  - id: mag1
+    model: magnetometer
+    hardware_profile: mag_default
+  - id: gyro1
+    model: gyroscope
+    hardware_profile: gyro_default
+  - id: mtq1
+    model: magnetorquer
+  - id: str1
+    model: star_tracker
+  - id: css1
+    model: css
+  # Added the missing Reaction Wheel!
+  - id: rw1
+    model: reaction_wheel
+    hardware_profile: rw_default
+
+# Added the missing 1553 Bus!
+buses:
+  - id: aocs_bus
+    type: mil1553
+    rt_count: 8
+    mappings:
+      - rt: 5
+        sa: 1
+        parameter: aocs.rw1.torque_cmd
+        direction: BC_to_RT
+      - rt: 5
+        sa: 2
+        parameter: aocs.rw1.speed
+        direction: RT_to_BC
+
+wiring:
+  auto: true
+
+simulation:
+  dt: 0.1
+  stop_time: 3600.0
+  seed: 42
+  realtime: true

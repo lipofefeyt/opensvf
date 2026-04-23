@@ -37,8 +37,8 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 def cmd_campaign(args: argparse.Namespace) -> int:
     """Run a test campaign and optionally generate HTML report."""
-    from svf.test.campaign_runner import CampaignRunner
-    from svf.test.report import generate_html_report
+    from svf.campaign.campaign_runner import CampaignRunner
+    from svf.campaign.reporter import generate_html_report
 
     path = Path(args.config)
     if not path.exists():

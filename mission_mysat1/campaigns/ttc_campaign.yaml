@@ -1,0 +1,4 @@
+campaign: MySat-1 TTC & PUS Validation
+spacecraft: ../spacecraft.yaml
+procedures:
+  - ../procedures/ttc_pus_procedures.py

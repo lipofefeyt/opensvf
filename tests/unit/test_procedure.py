@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import Any
 import pytest
-from svf.test.procedure import (
+from svf.campaign.procedure import (
     Procedure, ProcedureContext, ProcedureError,
     ProcedureResult, Verdict
 )

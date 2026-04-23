@@ -5,7 +5,7 @@ Runs a collection of Procedure instances against a spacecraft
 configuration and collects results with requirement traceability.
 
 Usage:
-    from svf.test.campaign_runner import CampaignRunner
+    from svf.campaign.campaign_runner import CampaignRunner
     from svf.config.spacecraft import SpacecraftLoader
 
     runner = CampaignRunner.from_yaml("campaign.yaml")
@@ -36,7 +36,7 @@ import yaml
 
 from svf.stores.command_store import CommandStore
 from svf.stores.parameter_store import ParameterStore
-from svf.test.procedure import Procedure, ProcedureResult, Verdict, StepResult
+from svf.campaign.procedure import Procedure, ProcedureResult, Verdict, StepResult
 from svf.config.spacecraft import SpacecraftLoader
 
 logger = logging.getLogger(__name__)
@@ -256,16 +256,10 @@ class CampaignRunner:
                     break
                 entry = fresh_store.read("svf.sim_time")
                 cur_t = entry.value if entry is not None else -1.0
-                if cur_t > 0.0:
-                    if cur_t == last_t:
-                        stable_count += 1
-                        if stable_count >= 3:
-                            # Sim has stopped — it ran to completion
-                            break
-                    else:
-                        stable_count = 0
-                    last_t = cur_t
-                _time.sleep(0.05)
+                if cur_t >= 0.0:
+                    # Sim has started successfully, release the Procedure
+                    break
+                _time.sleep(0.01)
 
             if sim_error:
                 results.append(ProcedureResult(

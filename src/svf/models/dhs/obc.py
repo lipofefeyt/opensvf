@@ -357,6 +357,11 @@ class ObcEquipment(Equipment):
                 name=canonical, value=value, t=t,
                 source_id="obc.s20.set",
             )
+        if self._store is not None:
+            self._store.write(
+                name=canonical, value=value, t=t,
+                model_id=self.equipment_id,
+            )
             logger.info(
                 f"[obc] S20 set: 0x{param_id:04X} -> {canonical} = {value}"
             )
@@ -455,3 +460,6 @@ class ObcEquipment(Equipment):
     def _enqueue_tm(self, packets: list[PusTmPacket]) -> None:
         with self._lock:
             self._tm_queue.extend(packets)
+        if self._store is not None:
+            for p in packets:
+                self._store.write(f"svf.tm.{p.service}.{p.subservice}.received", float(self._tm_seq), self._obt, self.equipment_id)

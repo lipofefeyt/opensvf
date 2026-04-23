@@ -2,8 +2,8 @@
 from __future__ import annotations
 import pytest
 from pathlib import Path
-from svf.test.procedure import Procedure, ProcedureContext, Verdict
-from svf.test.campaign_runner import CampaignRunner, CampaignReport
+from svf.campaign.procedure import Procedure, ProcedureContext, Verdict
+from svf.campaign.campaign_runner import CampaignRunner, CampaignReport
 
 
 class PassProc(Procedure):
@@ -23,7 +23,7 @@ class FailProc(Procedure):
         ctx.assert_parameter("nonexistent", less_than=1.0)
 
 
-EXAMPLES = Path(__file__).parent.parent.parent / "examples"
+EXAMPLES = Path(__file__).parent.parent.parent / "mission_mysat1"
 
 
 class TestCampaignRunnerSuite:

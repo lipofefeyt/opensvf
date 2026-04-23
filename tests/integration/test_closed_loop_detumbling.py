@@ -30,7 +30,7 @@ from svf.models.aocs.magnetorquer import make_magnetorquer
 from svf.models.aocs.bdot_controller import make_bdot_controller
 from svf.models.aocs.gyroscope import make_gyroscope
 
-KDE_FMU = Path("models/fmu/SpacecraftDynamics.fmu")
+KDE_FMU = Path("bin/SpacecraftDynamics.fmu")
 
 pytestmark = pytest.mark.skipif(
     not KDE_FMU.exists(),
@@ -66,7 +66,7 @@ def make_closed_loop_system(
         "bdot": bdot, "gyro": gyro,
     }
     wiring = WiringLoader(equipment).load(
-        Path("srdb/wiring/kde_wiring.yaml")
+        Path("mission_mysat1/wiring/kde_wiring.yaml")
     )
 
     # KDE runs first — produces true state for sensors

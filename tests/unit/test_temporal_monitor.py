@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 import threading
 import pytest
-from svf.test.procedure import (
+from svf.campaign.procedure import (
     ParameterMonitor, MonitorResult, ProcedureContext, ProcedureError
 )
 from svf.stores.parameter_store import ParameterStore

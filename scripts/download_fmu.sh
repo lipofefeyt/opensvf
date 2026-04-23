@@ -7,7 +7,7 @@
 set -euo pipefail
 
 REPO="lipofefeyt/opensvf-kde"
-FMU_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/models/fmu"
+FMU_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/bin"
 VERSION="${1:-latest}"
 
 mkdir -p "$FMU_DIR"

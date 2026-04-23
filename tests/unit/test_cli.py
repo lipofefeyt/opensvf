@@ -6,7 +6,7 @@ from unittest.mock import patch
 import sys
 from svf.campaign.cli import main, cmd_profiles, cmd_check
 
-EXAMPLES = Path(__file__).parent.parent.parent / "examples"
+EXAMPLES = Path(__file__).parent.parent.parent / "mission_mysat1"
 
 
 class TestCliSuite:

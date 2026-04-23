@@ -40,7 +40,7 @@ OBSW_SIM = next(
      if p.exists()),
     _root / "obsw_sim"
 )
-KDE_FMU  = Path("models/fmu/SpacecraftDynamics.fmu")
+KDE_FMU  = Path("bin/SpacecraftDynamics.fmu")
 
 pytestmark = pytest.mark.skipif(
     not OBSW_SIM.exists() or not KDE_FMU.exists(),
@@ -77,7 +77,7 @@ def make_full_system(
         "mtq": mtq, "obc": obc,
     }
     wiring = WiringLoader(equipment).load(
-        Path("srdb/wiring/full_loop_wiring.yaml")
+        Path("mission_mysat1/wiring/full_loop_wiring.yaml")
     )
 
     master = SimulationMaster(
