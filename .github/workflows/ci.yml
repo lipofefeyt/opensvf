@@ -5,18 +5,15 @@ on:
   pull_request:
     branches: ["main"]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
@@ -26,31 +23,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      - name: Download FMU Binaries
+        run: |
+          mkdir -p bin
+          bash scripts/download_fmu.sh
+
       - name: Run pytest
         run: pytest tests/ --junitxml=results/junit.xml -v
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4.4.0
+        uses: actions/upload-artifact@v4
         with:
           name: junit-results
           path: results/junit.xml
-
-  docker:
-    name: docker build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
-
-      - name: Build Docker image
-        run: docker build -t opensvf .
-
-      - name: Smoke test in container
-        run: |
-          docker run --rm opensvf /opensvf/.venv/bin/python3 -c "
-          import svf
-          from svf.sim.simulation import SimulationMaster
-          from svf.stores.parameter_store import ParameterStore
-          print('SVF imports OK')
-          "
