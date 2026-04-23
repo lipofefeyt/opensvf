@@ -32,6 +32,7 @@ jobs:
           bash scripts/download_fmu.sh || echo "Download failed, generating structured mocks"
           
           # Generate VALID FMUs with the internal folder structure fmpy expects
+          # AND compliant start values for FMI 2.0 input variables
           python3 -c "
           import zipfile, os
           xml = (
@@ -42,20 +43,18 @@ jobs:
               '    <ScalarVariable name=\"counter\" valueReference=\"0\" causality=\"output\"><Real/></ScalarVariable>\n'
               '    <ScalarVariable name=\"battery_soc\" valueReference=\"1\" causality=\"output\"><Real/></ScalarVariable>\n'
               '    <ScalarVariable name=\"generated_power\" valueReference=\"2\" causality=\"output\"><Real/></ScalarVariable>\n'
-              '    <ScalarVariable name=\"solar_illumination\" valueReference=\"3\" causality=\"input\"><Real/></ScalarVariable>\n'
-              '    <ScalarVariable name=\"load_power\" valueReference=\"4\" causality=\"input\"><Real/></ScalarVariable>\n'
+              '    <ScalarVariable name=\"solar_illumination\" valueReference=\"3\" causality=\"input\"><Real start=\"1.0\"/></ScalarVariable>\n'
+              '    <ScalarVariable name=\"load_power\" valueReference=\"4\" causality=\"input\"><Real start=\"30.0\"/></ScalarVariable>\n'
               '  </ModelVariables>\n'
               '  <ModelStructure/>\n'
               '</fmiModelDescription>'
           )
-          fmus = ['SpacecraftDynamics.fmu', 'EpsFmu.fmu', 'BatteryFmu.fmu', 'SolarArrayFmu.fmu', 'PcduFmu.fmu', 'SimpleCounter.fmu']
+          fmus =['SpacecraftDynamics.fmu', 'EpsFmu.fmu', 'BatteryFmu.fmu', 'SolarArrayFmu.fmu', 'PcduFmu.fmu', 'SimpleCounter.fmu']
           for name in fmus:
               path = os.path.join('models', name)
               if not os.path.exists(path):
                   with zipfile.ZipFile(path, 'w') as f:
-                      # 1. The metadata
                       f.writestr('modelDescription.xml', xml)
-                      # 2. THE FIX: The empty shared library in the correct platform folder
                       f.writestr('binaries/linux64/Mock.so', b'')
           "
           ls -l models/
