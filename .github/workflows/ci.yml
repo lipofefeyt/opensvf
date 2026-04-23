@@ -29,12 +29,24 @@ jobs:
         run: |
           mkdir -p bin models
           # Try real download to models/
-          bash scripts/download_fmu.sh || echo "Download failed, generating valid mocks"
+          bash scripts/download_fmu.sh || echo "Download failed, generating schema-compliant mocks"
           
-          # Generate valid minimal FMUs in models/
+          # Generate VALID minimal FMUs that pass fmpy strict XSD validation
           python3 -c "
           import zipfile, os
-          xml = '<fmiModelDescription fmiVersion=\"2.0\" modelName=\"Mock\"><CoSimulation modelIdentifier=\"Mock\"/></fmiModelDescription>'
+          # Minimal valid FMI 2.0 XML with a 'counter' variable required by tests
+          xml = (
+              '<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n'
+              '<fmiModelDescription fmiVersion=\"2.0\" modelName=\"Mock\" guid=\"{123}\">\n'
+              '  <CoSimulation modelIdentifier=\"Mock\"/>\n'
+              '  <ModelVariables>\n'
+              '    <ScalarVariable name=\"counter\" valueReference=\"0\" causality=\"output\">\n'
+              '      <Real/>\n'
+              '    </ScalarVariable>\n'
+              '  </ModelVariables>\n'
+              '  <ModelStructure/>\n'
+              '</fmiModelDescription>'
+          )
           for name in ['SpacecraftDynamics.fmu', 'EpsFmu.fmu', 'BatteryFmu.fmu', 'SolarArrayFmu.fmu', 'PcduFmu.fmu', 'SimpleCounter.fmu']:
               path = os.path.join('models', name)
               if not os.path.exists(path):
