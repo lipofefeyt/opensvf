@@ -40,7 +40,7 @@ OBSW_SIM = next(
      if p.exists()),
     _root / "obsw_sim"
 )
-KDE_FMU  = Path("bin/SpacecraftDynamics.fmu")
+KDE_FMU  = Path("models/SpacecraftDynamics.fmu")
 
 pytestmark = pytest.mark.skipif(
     not OBSW_SIM.exists() or not KDE_FMU.exists(),

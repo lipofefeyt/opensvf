@@ -12,7 +12,7 @@ class DynamicsFmu:
         fmu_path = None
         
         for _ in range(10): # Search up to 10 levels
-            candidate = search_path.parent / "bin" / "SpacecraftDynamics.fmu"
+            candidate = search_path.parent / "models" / "SpacecraftDynamics.fmu"
             if candidate.exists():
                 fmu_path = candidate
                 break
@@ -20,7 +20,7 @@ class DynamicsFmu:
             
         if fmu_path is None:
             # Last ditch effort: current working directory
-            fmu_path = Path(os.getcwd()) / "bin" / "SpacecraftDynamics.fmu"
+            fmu_path = Path(os.getcwd()) / "models" / "SpacecraftDynamics.fmu"
 
         self.fmu_path = str(fmu_path)
         

@@ -15,8 +15,8 @@ from svf.stores.parameter_store import ParameterStore
 from svf.stores.command_store import CommandStore
 from svf.ground.dds_sync import DdsSyncProtocol
 
-EPS_FMU = Path(__file__).parent.parent.parent / "bin" / "EpsFmu.fmu"
-COUNTER_FMU = Path(__file__).parent.parent.parent / "examples" / "SimpleCounter.fmu"
+EPS_FMU = Path(__file__).parent.parent.parent / "models" / "EpsFmu.fmu"
+COUNTER_FMU = Path(__file__).parent.parent.parent / "models" / "SimpleCounter.fmu"
 
 EPS_MAP = {
     "battery_soc":        "eps.battery.soc",

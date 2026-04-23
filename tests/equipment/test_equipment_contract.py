@@ -13,7 +13,7 @@ from svf.core.fmu_equipment import FmuEquipment
 from svf.core.native_equipment import NativeEquipment
 from pathlib import Path
 
-EPS_FMU = Path(__file__).parent.parent.parent / "bin" / "EpsFmu.fmu"
+EPS_FMU = Path(__file__).parent.parent.parent / "models" / "EpsFmu.fmu"
 
 EPS_MAP = {
     "battery_soc":        "eps.battery.soc",

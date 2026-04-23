@@ -30,7 +30,7 @@ from svf.models.aocs.magnetorquer import make_magnetorquer
 from svf.models.aocs.bdot_controller import make_bdot_controller
 from svf.models.aocs.gyroscope import make_gyroscope
 
-KDE_FMU = Path("bin/SpacecraftDynamics.fmu")
+KDE_FMU = Path("models/SpacecraftDynamics.fmu")
 
 pytestmark = pytest.mark.skipif(
     not KDE_FMU.exists(),

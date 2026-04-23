@@ -50,10 +50,10 @@ else:
     )
 KDE_FMU = next(
     (p for p in [
-        _root / "bin/SpacecraftDynamics.fmu",
-        Path("bin/SpacecraftDynamics.fmu")
+        _root / "models/SpacecraftDynamics.fmu",
+        Path("models/SpacecraftDynamics.fmu")
     ] if p.exists()),
-    _root / "bin/SpacecraftDynamics.fmu"
+    _root / "models/SpacecraftDynamics.fmu"
 )
 
 pytestmark = pytest.mark.skipif(

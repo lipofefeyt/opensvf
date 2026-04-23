@@ -206,7 +206,7 @@ def svf_session(
     if not models:
         default_fmu = (
             Path(__file__).parent.parent.parent.parent
-            / "examples" / "SimpleCounter.fmu"
+            / "models" / "SimpleCounter.fmu"
         )
         models = [FmuEquipment(
             fmu_path=default_fmu,

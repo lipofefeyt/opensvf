@@ -10,7 +10,7 @@ from svf.plugin.fixtures import FmuConfig
 from svf.plugin.verdict import Verdict
 from svf.plugin.observable import ConditionNotMet
 
-FMU_PATH = Path(__file__).parent.parent.parent / "mission_mysat1" / "SimpleCounter.fmu"
+FMU_PATH = Path(__file__).parent.parent.parent / "models" / "SimpleCounter.fmu"
 
 
 @pytest.mark.requirement("SVF-DEV-041")

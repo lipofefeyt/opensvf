@@ -1,0 +1,5 @@
+[console_scripts]
+svf = svf.campaign.cli:main
+
+[pytest11]
+svf = svf.plugin

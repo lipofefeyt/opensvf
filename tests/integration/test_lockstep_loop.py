@@ -19,7 +19,7 @@ from svf.core.equipment import PortDefinition, PortDirection
 from svf.stores.parameter_store import ParameterStore
 from svf.stores.command_store import CommandStore
 
-FMU_PATH = Path(__file__).parent.parent.parent / "examples" / "SimpleCounter.fmu"
+FMU_PATH = Path(__file__).parent.parent.parent / "models" / "SimpleCounter.fmu"
 
 
 @pytest.fixture
