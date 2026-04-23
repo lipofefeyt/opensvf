@@ -7,14 +7,25 @@ class DynamicsFmu:
     """Wrapper for the SpacecraftDynamics FMI 2.0 Co-Simulation FMU."""
 
     def __init__(self, initial_omega: list[float] | None = None) -> None:
-        # Robust path discovery: find repo root relative to this file
-        current_file = Path(__file__).resolve()
-        repo_root = current_file.parents[5]
-        self.fmu_path = str(repo_root / "bin" / "SpacecraftDynamics.fmu")
+        # Walk up from this file until we find the 'bin' directory
+        search_path = Path(__file__).resolve()
+        fmu_path = None
+        
+        for _ in range(10): # Search up to 10 levels
+            candidate = search_path.parent / "bin" / "SpacecraftDynamics.fmu"
+            if candidate.exists():
+                fmu_path = candidate
+                break
+            search_path = search_path.parent
+            
+        if fmu_path is None:
+            # Last ditch effort: current working directory
+            fmu_path = Path(os.getcwd()) / "bin" / "SpacecraftDynamics.fmu"
+
+        self.fmu_path = str(fmu_path)
         
         if not os.path.exists(self.fmu_path):
-            # Fallback for CI environments
-            self.fmu_path = str(Path(os.getcwd()) / "bin" / "SpacecraftDynamics.fmu")
+            raise FileNotFoundError(f"FMU not found: {self.fmu_path}")
 
         self.unzipdir = fmpy.extract(self.fmu_path)
         model_desc = fmpy.read_model_description(self.fmu_path)
@@ -26,7 +37,6 @@ class DynamicsFmu:
         self.fmu.instantiate()
         self.fmu.setupExperiment(startTime=0.0)
         
-        # VRs for SpacecraftDynamics.fmu
         self.vrs = {
             "tq_mtq_x": 0, "tq_mtq_y": 1, "tq_mtq_z": 2,
             "q_w": 3, "q_x": 4, "q_y": 5, "q_z": 6,
