@@ -29,17 +29,29 @@ echo "[4/4] Adding aarch64 glibc for QEMU"
 export AARCH64_GLIBC=$(find /nix/store -name "ld-linux-aarch64.so.1" \
     2>/dev/null | head -1 | sed 's|/lib/ld-linux-aarch64.so.1||')
 
-# Aliases
+# Aliases — test and quality
 alias testosvf='pytest tests/ --junitxml=results/junit.xml -v'
 alias checkosvf='mypy src/ --config-file pyproject.toml'
-alias checkcov='python3 scripts/check_coverage.py'
+alias checkcov='python3 tools/check_coverage.py'
+alias checkcons='python3 tools/srdb_consistency_check.py'
+
+# checkcons with cross-repo C struct check (pass gitingest snapshot)
+# Usage: checkcons-full lipofefeyt-openobsw-*.txt
+alias checkcons-full='python3 tools/srdb_consistency_check.py --obsw'
+
+# Aliases — SVF CLI
 alias svf-campaign='svf run'
 alias svf-campaign-all='for f in $REPO/campaigns/*.yaml; do svf run "$f"; done'
+
+# Aliases — YAMCS
 alias yamcs-start='bash $REPO/scripts/start-yamcs.sh'
 alias yamcs-stop='pkill -f yamcsd 2>/dev/null || true'
 alias yamcs-log-follow='tail -f /tmp/yamcs.log'
 alias regen-xtce='python3 $REPO/tools/generate_xtce.py > $REPO/yamcs/mdb/opensvf.xml'
+
+# Aliases — demo
 alias svf-demo-fg='cd $REPO && .venv/bin/python3 scripts/demo_yamcs.py'
 alias svf-demo='bash $REPO/scripts/demo.sh'
+
 [ -n "$AARCH64_GLIBC" ] && \
     alias omksim-aarch64='qemu-aarch64 -L $AARCH64_GLIBC $REPO/obsw_sim_aarch64'

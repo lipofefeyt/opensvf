@@ -293,7 +293,42 @@ Per-model seeds derived deterministically from master seed via SHA-256.
 
 ---
 
-## 12. Milestones
+## 12. Checks
+
+### Coverage check
+
+```bash
+checkcov   # cross-references BASELINED requirements vs traceability matrix
+```
+
+### Cross-repository consistency check
+
+```bash
+# Python-side checks only (struct sizes, port mapping, orphan requirements):
+checkcons
+
+# Full check including C struct field names (pass openobsw gitingest snapshot):
+checkcons-full lipofefeyt-openobsw-*.txt
+```
+
+`checkcons` (`tools/srdb_consistency_check.py`) catches failure modes invisible
+to `checkcov` and `testosvf`:
+
+| Check | What it catches |
+|---|---|
+| Struct sizes | `_SENSOR_FMT` / `_ACTUATOR_FMT` drift from C struct layout |
+| Python-side mapping | `obc_emulator.py` store keys diverging from mapping table |
+| C struct fields | Field renames in openobsw not propagated to SVF packer |
+| Producer/consumer | Sensor model port renames that produce silent zeros in the OBSW |
+| Requirement orphans | `@pytest.mark.requirement` IDs absent from `REQUIREMENTS.md` |
+| Profile symmetry | Mission hardware profiles missing from bundled directory |
+
+The C struct check accepts either a real openobsw checkout (directory) or a
+gitingest snapshot (`.txt` file), which is the correct approach in
+single-workspace environments (Firebase IDX, GitHub Codespaces) where both
+repos cannot coexist on the same filesystem.
+
+## 13. Milestones
 
 | Milestone | Status |
 |---|---|

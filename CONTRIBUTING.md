@@ -297,21 +297,23 @@ feat/xxx    — feature branches
 fix/xxx     — bug fixes
 ```
 
-### Before submitting a PR
-
+## Before submitting a PR
+ 
 ```bash
 checkosvf   # mypy strict — must be clean
 testosvf    # full test suite — must be green
 checkcov    # requirement coverage — no unexpected gaps
+checkcons   # SRDB cross-repo consistency — no ungoverned requirements
 ```
-
+ 
 ### Adding a new SVF-DEV requirement
-
+ 
 1. Add the requirement to `REQUIREMENTS.md` with status `BASELINED`
 2. Write the implementation
 3. Write a test with `@pytest.mark.requirement("SVF-DEV-xxx")`
 4. Verify `checkcov` shows no unexpected gaps
-5. Update the traceability index in `REQUIREMENTS.md`
+5. Verify `checkcons` passes (no new ungoverned IDs)
+6. Update the traceability index in `REQUIREMENTS.md`
 
 ### Commit message format
 

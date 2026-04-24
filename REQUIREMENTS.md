@@ -77,6 +77,15 @@ The simulation master shall handle FMU initialisation errors gracefully and repo
 **SVF-DEV-008** `[SIM]` `DEFERRED`
 The simulation master shall support FMI 3.0 Scheduled Execution mode for deterministic clock-driven stepping.
 
+**SVF-DEV-120** `[SIM]` `IMPLEMENTED`
+The platform shall provide a MonteCarloRunner that executes a user-supplied
+simulation factory function N times with different integer seeds, collecting
+metrics from each run. The runner shall support parallel execution via
+ProcessPoolExecutor. Results shall include per-run metrics, statistical
+summary (mean, std, percentiles), and a pass rate for boolean metrics.
+Results shall be serialisable to JSON.
+
+
 ---
 
 ## Kinematics & Dynamics Environment Requirements [KDE]
@@ -413,6 +422,14 @@ Each test procedure shall be expressible as a standalone Python file with no man
 **SVF-DEV-048** `[ORC]` `IMPLEMENTED`
 The plugin shall provide an svf_command_schedule mark allowing test procedures to schedule commands at specific simulation times.
 
+**SVF-DEV-131** `[ORC]` `IMPLEMENTED`
+The platform shall provide a ParameterMonitor that runs in a background
+thread and continuously checks a named ParameterStore entry against a
+threshold (less_than or greater_than) throughout a test procedure step.
+assert_no_violations() shall raise ProcedureError on any breach.
+summary() shall return a MonitorResult with compliance status, violation
+list, and min/max observed values.
+
 ---
 
 ## Campaign Manager Requirements [CAM]
@@ -434,6 +451,20 @@ The campaign manager shall support per-test-case timeout configuration.
 
 **SVF-DEV-055** `[CAM]` `DEFERRED`
 The campaign manager shall support conditional test execution.
+
+**SVF-DEV-121** `[CAM]` `IMPLEMENTED`
+The platform shall provide a CampaignRunner that loads Procedure subclasses
+from Python files declared in a campaign YAML, instantiates a spacecraft
+per the campaign's spacecraft.yaml, runs each Procedure against it, and
+returns a CampaignReport with per-procedure verdicts, pass/fail counts,
+total duration, and a to_dict() method for serialisation.
+ 
+**SVF-DEV-122** `[CAM]` `IMPLEMENTED`
+The platform shall provide a generate_html_report() function that renders
+a CampaignReport to a self-contained HTML file using Jinja2. The report
+shall include: campaign metadata, summary statistics, per-procedure verdict
+cards, per-step event timelines (TC/TM/INJECT/MONITOR events), and seed
+information for deterministic replay. No CDN dependencies.
 
 ---
 
@@ -522,6 +553,76 @@ The platform shall expose a public Python API with type annotations compatible w
 **SVF-DEV-089** `[SYS]` `DEFERRED`
 The platform shall support soft real-time execution on RT_PREEMPT patched Linux. Assigned to M9.
 
+**SVF-DEV-100** `[SYS]` `IMPLEMENTED`
+The platform shall support running obsw_sim binaries cross-compiled for
+AArch64 (ZynqMP Cortex-A53) on x86_64 hosts via QEMU user-mode emulation
+(qemu-aarch64). The OBCEmulatorAdapter shall auto-detect the binary
+architecture via `file` and prepend the QEMU prefix transparently. The
+wire protocol shall be identical to the native x86_64 case.
+ 
+**SVF-DEV-101** `[SYS]` `IMPLEMENTED`
+The platform shall support connecting OBCEmulatorAdapter to an OBSW
+running inside Renode ZynqMP emulation via a TCP socket (socket mode).
+The adapter shall connect to a Renode UART terminal exposed as a TCP
+server and exchange the same wire protocol frames as in pipe mode.
+ 
+**SVF-DEV-110** `[SYS]` `IMPLEMENTED`
+The platform shall provide a SpacecraftLoader that instantiates a complete
+SimulationMaster from a single YAML spacecraft configuration file. The YAML
+shall declare: obsw transport mode (pipe/socket/stub), equipment list with
+hardware profiles, wiring (auto or explicit overrides), and simulation
+parameters (dt, stop_time, seed, realtime). This is the zero-Python entry
+point.
+
+**SVF-DEV-130** `[SYS]` `IMPLEMENTED`
+The platform shall bundle hardware profiles in a directory shipped with
+the opensvf package (mission_mysat1/hardware_profiles/ or srdb/hardware/).
+Profile search order shall be: (1) bundled directory, (2) obsw-srdb
+package if installed, (3) explicit hardware_dir argument. opensvf shall
+function without obsw-srdb installed.
+ 
+**SVF-DEV-132** `[EQP]` `IMPLEMENTED`
+The platform shall provide an EquipmentFaultEngine that intercepts
+NativeEquipment.read_port() and write_port() to inject standardised
+faults without modifying model physics code. Supported fault modes:
+stuck (fixed value), noise (Gaussian), bias (constant offset), scale
+(multiplicative factor), fail (zero output). Faults shall have an
+optional duration after which they expire automatically. Fault injection
+shall be deterministic when seeded.
+
+**GAP-014** `[SYS]` `IMPLEMENTED`
+The platform shall provide a `svf` command-line entrypoint (registered
+as a console_scripts entry point in pyproject.toml) with the following
+subcommands: `run <spacecraft.yaml>` (run a simulation), `campaign
+<campaign.yaml>` (run a test campaign), `campaign --report` (run and
+generate an HTML report), `profiles` (list available hardware profiles),
+`check <spacecraft.yaml>` (validate a spacecraft config without running).
+
+---
+ 
+## Power Conditioning and Distribution Unit Requirements [PCDU]
+ 
+**PCDU-001** `[PCDU]` `IMPLEMENTED`
+The PCDU model shall support per-channel load switching via 8 independent
+Latching Current Limiters (LCLs). Each LCL shall accept an enable command
+and report its status independently.
+ 
+**PCDU-002** `[PCDU]` `IMPLEMENTED`
+The PCDU model shall implement a simplified Maximum Power Point Tracking
+(MPPT) efficiency curve. The efficiency shall peak at a nominal
+illumination level and degrade towards zero and full illumination extremes.
+ 
+**PCDU-003** `[PCDU]` `IMPLEMENTED`
+The PCDU model shall implement Under-Voltage Lock-Out (UVLO) protection.
+When battery voltage falls below the UVLO threshold (3.1 V), all LCL
+loads shall be disconnected to protect the battery from deep discharge.
+ 
+**PCDU-004** `[PCDU]` `IMPLEMENTED`
+The PCDU model shall compute power balance each tick: effective solar
+power (solar_power × MPPT_efficiency) minus total LCL load equals net
+power; charge current shall be derived from net power and battery voltage,
+clamped to ±MAX_CHARGE_CURRENT.
+ 
 ---
 
 ## Traceability Index
@@ -664,3 +765,17 @@ The platform shall support soft real-time execution on RT_PREEMPT patched Linux.
 | SVF-DEV-087 | SYS | IMPLEMENTED | M1 | CI pipeline (pytest) |
 | SVF-DEV-088 | SYS | IMPLEMENTED | M1 | CI pipeline (mypy) |
 | SVF-DEV-089 | SYS | DEFERRED | M9 | — |
+| PCDU-001      | PCDU | IMPLEMENTED | M9  | test_pcdu_lcl_switching         |
+| PCDU-002      | PCDU | IMPLEMENTED | M9  | test_pcdu_mppt_efficiency        |
+| PCDU-003      | PCDU | IMPLEMENTED | M9  | test_pcdu_uvlo_disconnects_loads  |
+| PCDU-004      | PCDU | IMPLEMENTED | M9  | test_pcdu_power_balance          |
+| SVF-DEV-100   | SYS  | IMPLEMENTED | M24 | test_aarch64_starts_and_prints_version |
+| SVF-DEV-101   | SYS  | IMPLEMENTED | M24 | test_renode_zynqmp_ping_pong     |
+| SVF-DEV-110   | SYS  | IMPLEMENTED | M19 | test_spacecraft_loader           |
+| SVF-DEV-120   | SIM  | IMPLEMENTED | M24 | test_monte_carlo_runs            |
+| SVF-DEV-121   | CAM  | IMPLEMENTED | M20 | test_campaign_runs_all_procedures |
+| SVF-DEV-122   | CAM  | IMPLEMENTED | M21 | test_generates_html_file         |
+| SVF-DEV-130   | SYS  | IMPLEMENTED | M16 | test_load_hardware_profile       |
+| SVF-DEV-131   | ORC  | IMPLEMENTED | M23 | test_compliant_when_no_violations |
+| SVF-DEV-132   | EQP  | IMPLEMENTED | M23 | test_stuck_fault_returns_fixed_value |
+| GAP-014       | SYS  | IMPLEMENTED | M19 | test_check_valid_config_returns_zero |
