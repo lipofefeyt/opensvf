@@ -10,7 +10,6 @@ firebaselog.txt
 
 # Artifacts (Binaries & FMUs stay out of git)
 bin/obsw_sim*
-models/*.fmu
 
 # Results
 results/*
