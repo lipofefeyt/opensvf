@@ -2,102 +2,110 @@
 
 **Open-core spacecraft Software Validation Facility**
 
-OpenSVF validates your flight software against a 6-DOF physics engine and a real ground station. Configure your spacecraft in YAML, write test procedures in Python, run a campaign, get an HTML report.
+OpenSVF is a Python-based platform for validating spacecraft flight software against a 6-DOF physics engine and a real PUS ground station. It is aimed at small satellite teams who write flight software in C and need a structured, traceable way to test it before hardware integration.
+
+The core idea: your flight software binary runs inside the SVF. The SVF feeds it sensor data from a physics simulation, receives its actuator commands, closes the loop, and records everything. You write test procedures in Python that send telecommands and assert on telemetry. At the end you get an HTML campaign report with a requirement traceability matrix.
 
 ---
 
-## Design Philosophy
+## What it looks like
 
-OpenSVF is a **flight software validation platform** — not an AOCS design tool and not a Simulink replacement.
-
-- `opensvf-kde` is the **spacecraft plant** (physics). No control algorithm.
-- `openobsw` contains the **flight algorithms** (b-dot, ADCS PD, FDIR). Under test.
-- Python reference controllers are **validation oracles** — not flight code.
-- Monte Carlo runs against fixed C code — tests the actual flight software.
-
-See [`docs/design-philosophy.md`](docs/design-philosophy.md).
+```
+opensvf-kde (C++/Eigen3)        openobsw (C11)
+  6-DOF rigid body dynamics        PUS S1/3/5/6/8/17/20
+  Euler equations                  b-dot detumbling
+  IGRF magnetic field model        ADCS PD controller
+        │                          FDIR + watchdog
+        │  FMI 3.0 Co-Simulation         │
+        ▼                                ▼
+              OpenSVF (Python)
+         ┌────────────────────────────┐
+         │  Sensor models             │  magnetometer, gyroscope,
+         │  (noise, bias, FDIR faults)│  star tracker, CSS, GPS, RW
+         │                            │
+         │  Bus adapters              │  MIL-STD-1553B, SpaceWire,
+         │                            │  CAN 2.0B (ECSS)
+         │                            │
+         │  PUS TM/TC stack           │  ECSS-E-ST-70-41C
+         │                            │
+         │  Campaign runner           │  Procedure → verdict → HTML
+         └────────────────────────────┘
+                    │ PUS TM/TC
+                    ▼
+             YAMCS 5.12.6
+         (optional ground station)
+```
 
 ---
 
-## Quick Start
+## Prerequisites
+
+- Linux (Ubuntu 22.04+) or a Firebase IDX / GitHub Codespaces workspace
+- Python 3.11+
+- Eclipse Cyclone DDS (`pip install cyclonedds`)
+- Java 11+ (for YAMCS, optional)
+
+The setup script handles the rest.
+
+---
+
+## Quick start
 
 ```bash
 git clone https://github.com/lipofefeyt/opensvf
 cd opensvf
-source scripts/setup-workspace.sh
+source scripts/setup-workspace.sh   # installs venv, YAMCS, activates aliases
 
-testosvf           # ~460 tests
-svf profiles       # list available hardware profiles
-svf check examples/spacecraft.yaml
-svf campaign campaigns/example_campaign.yaml --report
+testosvf                            # ~377 unit + integration tests
+checkcov                            # requirement coverage report
+svf profiles                        # list bundled hardware profiles
+svf check mission_mysat1/spacecraft.yaml
+svf campaign mission_mysat1/campaigns/aocs_campaign.yaml --report
 ```
+
+The campaign produces `results/report.html` — open it in a browser.
 
 ---
 
-## CLI
+## Three modes of operation
 
-```bash
-svf run spacecraft.yaml              # run simulation
-svf campaign campaign.yaml           # run test campaign
-svf campaign campaign.yaml --report  # run + HTML report
-svf profiles                         # list hardware profiles
-svf check spacecraft.yaml            # validate config
-```
-
----
-
-## Zero-Python Entry Point
+### 1. Stub mode (unit testing, no binary)
 
 ```yaml
 # spacecraft.yaml
-version: 1
-spacecraft: MySat-1
-
 obsw:
-  type: pipe        # pipe | socket | stub
-  binary: ./obsw_sim
-
-equipment:
-  - id: mag1
-    model: magnetometer
-    hardware_profile: mag_default
-  - id: gyro1
-    model: gyroscope
-    hardware_profile: gyro_default
-  - id: mtq1
-    model: magnetorquer
-  - id: rw1
-    model: reaction_wheel
-    hardware_profile: rw_sinclair_rw003
-
-wiring:
-  auto: true
-
-simulation:
-  dt: 0.1
-  stop_time: 3600.0
-  seed: 42
-  realtime: true
+  type: stub
 ```
+
+The OBC is replaced by a rule-based stub. All sensors and actuators run. Use this for rapid iteration on test procedures before you have a flight binary.
+
+### 2. Pipe mode (host simulation, CI)
 
 ```yaml
-# campaign.yaml
-campaign: MySat-1 AOCS Validation
-spacecraft: spacecraft.yaml
-procedures:
-  - procedures/test_aocs.py
+obsw:
+  type: pipe
+  binary: ./bin/obsw_sim        # x86_64 or aarch64 via QEMU
 ```
 
-```bash
-svf campaign campaign.yaml --report
+The real flight software binary runs as a subprocess. SVF feeds it sensor frames over stdin/stdout using wire protocol v3. This is the primary SIL validation mode and runs in CI with no special hardware.
+
+### 3. Socket mode (Renode ZynqMP emulation)
+
+```yaml
+obsw:
+  type: socket
+  host: localhost
+  port: 3456
 ```
+
+The flight software runs inside Renode emulating a ZynqMP Cortex-A53. SVF connects to the Renode UART terminal over TCP. Same wire protocol — the flight binary never knows the difference.
 
 ---
 
-## Test Procedures
+## Writing a test procedure
 
 ```python
-from svf.procedure import Procedure, ProcedureContext
+from svf.campaign.procedure import Procedure, ProcedureContext
 
 class BdotConvergence(Procedure):
     id          = "TC-AOCS-001"
@@ -118,125 +126,129 @@ class BdotConvergence(Procedure):
         ctx.assert_parameter("aocs.gyro.status", greater_than=0.5)
 ```
 
+```yaml
+# campaign.yaml
+campaign: MySat-1 AOCS Validation
+spacecraft: mission_mysat1/spacecraft.yaml
+procedures:
+  - procedures/test_bdot.py
+```
+
+```bash
+svf campaign campaign.yaml --report
+```
+
 ---
 
-## Equipment Fault Injection
+## Fault injection
 
 ```python
-# Inject star tracker stuck fault
+# Star tracker stuck fault for 10 seconds
 ctx.inject_equipment_fault(
     "str1", "aocs.str1.quaternion_w",
     fault_type="stuck", value=0.0, duration_s=10.0
 )
 
-# Inject magnetometer bias
+# Magnetometer bias
 ctx.inject_equipment_fault(
     "mag1", "aocs.mag.field_x",
     fault_type="bias", value=1e-5, duration_s=30.0
 )
-
-# Clear all faults
-ctx.clear_equipment_faults("str1")
 ```
 
 Fault types: `stuck` | `noise` | `bias` | `scale` | `fail`
 
 ---
 
-## Temporal Assertions (MTL-style)
+## Temporal assertions
 
 ```python
-# "Rate shall NEVER exceed 0.1 rad/s for 60 seconds"
+# "Angular rate shall never exceed 0.1 rad/s during detumbling"
 monitor = ctx.monitor("aocs.truth.rate_magnitude", less_than=0.1)
 ctx.wait(60.0)
 monitor.assert_no_violations()
 
-# Full summary
 result = monitor.summary()
-# result.compliant, result.violations, result.max_value
+# result.compliant, result.violations, result.min_value, result.max_value
 ```
 
 ---
 
-## The Closed Loop
+## Hardware profiles
 
-```
-opensvf-kde (C++ / Eigen3)          Your OBSW (C11)
-  6-DOF physics engine                 b-dot, ADCS PD, FDIR
-  Euler equations, B-field             PUS S1/3/5/8/17/20
-         │  true state via FMI 2.0           │ wire protocol v3
-         ▼                                    ▼
-              opensvf (Python)
-              Sensor + actuator models
-              Bus adapters (1553/SpW/CAN)
-                    │ PUS TM/TC
-                    ▼
-               YAMCS 5.12.6
-```
+Ten bundled profiles cover common small satellite components:
 
----
-
-## OBSW Transport Modes
-
-| Mode | Config | Use Case |
-|---|---|---|
-| `pipe` | `binary: ./obsw_sim` | CI, development |
-| `socket` | `host/port` | Renode ZynqMP SIL |
-| `stub` | (no binary) | Unit testing |
-
----
-
-## Hardware Profiles
-
-```yaml
-equipment:
-  - id: rw1
-    model: reaction_wheel
-    hardware_profile: rw_sinclair_rw003
-```
-
-10 bundled profiles in `srdb/hardware/`. No extra packages needed.
+| Profile | Component |
+|---|---|
+| `mag_default` | Generic 3-axis magnetometer |
+| `gyro_default` | Generic MEMS gyroscope |
+| `rw_default` | Generic reaction wheel |
+| `rw_sinclair_rw003` | Sinclair RW-003 |
+| `mtq_default` | Generic magnetorquer |
+| `gps_default` | Generic GPS receiver |
+| `gps_novatel_oem7` | NovAtel OEM7 |
+| `thr_default` | Generic thruster |
+| `thr_moog_monarc_1` | Moog Monarc-1 |
+| `thermal_default` | Generic thermal model |
 
 ```bash
-svf profiles   # list all available
+svf profiles          # list all available
 ```
 
 ---
 
-## Bus Adapters
+## Bus adapters
 
-| Bus | Type | Fault Injection |
-|---|---|---|
-| MIL-STD-1553B | `mil1553` | BUS_ERROR, NO_RESPONSE, BAD_PARITY |
-| SpaceWire + RMAP | `spacewire` | Link error, invalid address |
-| CAN 2.0B (ECSS) | `can` | Bus-off, node error, bad parity |
-
----
-
-## Model Organisation
-
-```
-src/svf/models/
-├── aocs/       reaction_wheel, magnetometer, magnetorquer, gyroscope,
-│               star_tracker, css, bdot_controller, thruster, gps
-├── dynamics/   kde_equipment + fmu/DynamicsFmu
-├── eps/        pcdu + fmu/{EpsFmu,BatteryFmu,SolarArrayFmu,PcduFmu}
-├── dhs/        obc, obc_stub, obc_emulator
-├── ttc/        ttc, sbt
-└── thermal/    thermal
-
-models/fmu/     FMU binaries (data — see scripts/download_fmu.sh)
-srdb/hardware/  Bundled hardware profiles
-```
-
----
-
-## Related Projects
-
-| Project | Role |
+| Bus | Fault injection |
 |---|---|
-| [opensvf-kde](https://github.com/lipofefeyt/opensvf-kde) | C++ 6-DOF physics (FMI 2.0) |
-| [openobsw](https://github.com/lipofefeyt/openobsw) | C11 OBSW: PUS, b-dot, ADCS, FDIR |
+| MIL-STD-1553B | `BUS_ERROR`, `NO_RESPONSE`, `LATE_RESPONSE`, `BAD_PARITY` |
+| SpaceWire + RMAP | link error, invalid address, RMAP error codes |
+| CAN 2.0B (ECSS) | bus-off, node error, bad parity |
+
+---
+
+## Developer tools
+
+```bash
+testosvf        # full test suite (~377 tests)
+checkosvf       # mypy strict type check
+checkcov        # requirement coverage (REQUIREMENTS.md → traceability.txt)
+checkcons       # SRDB cross-repo consistency (wire protocol, orphan requirements)
+checkcons-full lipofefeyt-openobsw-*.txt   # + C struct field cross-check
+regen-xtce      # regenerate YAMCS XTCE database
+```
+
+---
+
+## Repository layout
+
+```
+src/svf/
+├── campaign/       CampaignRunner, Procedure, HTML reporter
+├── models/
+│   ├── aocs/       magnetometer, gyroscope, star_tracker, magnetorquer,
+│   │               reaction_wheel, css, bdot_controller, thruster, gps
+│   ├── dynamics/   KDE FMU wrapper (6-DOF physics)
+│   ├── eps/        PCDU, battery, solar array FMUs
+│   ├── dhs/        OBCStub, OBCEmulatorAdapter (pipe + socket)
+│   └── ttc/        TTC, S-band transponder
+├── bus/            MIL-STD-1553B, SpaceWire, CAN
+├── pus/            PUS-C TM/TC packet builder/parser
+├── stores/         ParameterStore, CommandStore
+└── config/         SpacecraftLoader, HardwareProfile, SRDB
+
+mission_mysat1/     Reference mission configuration
+tools/              check_coverage.py, srdb_consistency_check.py, generate_xtce.py
+```
+
+---
+
+## Related projects
+
+| Project | What it is |
+|---|---|
+| [openobsw](https://github.com/lipofefeyt/openobsw) | C11 flight software: PUS stack, b-dot, ADCS PD, FDIR, ZynqMP + MSP430 targets |
+| [opensvf-kde](https://github.com/lipofefeyt/opensvf-kde) | C++ 6-DOF kinematics and dynamics engine (FMI 3.0 FMU) |
 
 ---
 
@@ -244,12 +256,14 @@ srdb/hardware/  Bundled hardware profiles
 
 | Milestone | Status |
 |---|---|
-| M1–M18 — Core platform through architecture refactor | ✅ Done |
-| M19 — Spacecraft Configuration DSL | ✅ Done |
-| M20 — Structured Test Procedure API | ✅ Done |
-| M21 — Mission-Level Results Reporting | ✅ Done |
-| M22 — OBSW Integration Guide | ✅ Done |
-| M23 — Temporal Assertions + Equipment Fault Engine | ✅ Done |
+| M1–M18 — Core platform, FMI 3.0, DDS sync, PUS stack, equipment models | ✅ Done |
+| M19 — Spacecraft configuration DSL (YAML zero-Python entry point) | ✅ Done |
+| M20 — Structured test procedure API | ✅ Done |
+| M21 — Mission-level HTML reporting | ✅ Done |
+| M22 — OBSW integration guide | ✅ Done |
+| M23 — Temporal assertions + equipment fault engine | ✅ Done |
+| M24 — ZynqMP SIL (aarch64 QEMU + Renode socket transport) | ✅ Done |
+| M25 — YAMCS ground segment integration | 🔄 In progress |
 
 ---
 
@@ -257,4 +271,4 @@ srdb/hardware/  Bundled hardware profiles
 
 Apache 2.0
 
-*Built by lipofefeyt · [opensvf-kde](https://github.com/lipofefeyt/opensvf-kde) · [openobsw](https://github.com/lipofefeyt/openobsw)*
+*Built by [lipofefeyt](https://github.com/lipofefeyt)*
