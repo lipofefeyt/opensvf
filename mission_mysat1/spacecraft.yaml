@@ -46,4 +46,4 @@ simulation:
   dt: 0.1
   stop_time: 3600.0
   seed: 42
-  realtime: true
+  realtime: false

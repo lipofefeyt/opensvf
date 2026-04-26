@@ -1,0 +1,4 @@
+campaign: MySat-1 Safe Mode Recovery Demo
+spacecraft: ../spacecraft.yaml
+procedures:
+  - ../procedures/demo_procedures.py
