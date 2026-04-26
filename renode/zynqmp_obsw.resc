@@ -1,0 +1,14 @@
+using sysbus
+
+mach create "zynqmp"
+machine LoadPlatformDescription @platforms/cpus/zynqmp.repl
+
+# Load raw binary at entry point
+sysbus LoadBinary @bin/obsw_zynqmp.bin 0x400000
+apu0 PC 0x400000
+
+emulation CreateServerSocketTerminal 3456 "term" false
+connector Connect uart0 term
+
+logLevel 3
+start
