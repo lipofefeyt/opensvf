@@ -16,3 +16,6 @@ bin/obsw_sim*
 # Results
 results/*
 !results/.gitkeep
+bin/obsw_zynqmp.bin
+*.cast
+lipofefeyt-*.txt

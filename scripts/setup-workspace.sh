@@ -5,13 +5,16 @@
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)
 cd "$REPO"
 
+# Suppress the setup noise in the recording
+[ -n "$ASCIINEMA_REC" ] && return 0
+
 echo "=== OpenSVF Full Setup ==="
 
 # 1. aarch64 toolchain
 AARCH64_GCC=$(find /nix/store -name "aarch64-unknown-linux-gnu-gcc" \
     -path "*/gcc-wrapper*/bin/*" -type f 2>/dev/null | head -1)
 if [ -z "$AARCH64_GCC" ]; then
-    echo "[1/5] Installing aarch64 cross-compiler (once)..."
+    echo "[1/6] Installing aarch64 cross-compiler (once)..."
     nix-env -iA nixpkgs.pkgsCross.aarch64-multiplatform.stdenv.cc > /dev/null 2>&1
     echo "    Done"
 else
