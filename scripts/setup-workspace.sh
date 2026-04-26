@@ -15,18 +15,18 @@ if [ -z "$AARCH64_GCC" ]; then
     nix-env -iA nixpkgs.pkgsCross.aarch64-multiplatform.stdenv.cc > /dev/null 2>&1
     echo "    Done"
 else
-    echo "[1/5] aarch64 toolchain: already installed"
+    echo "[1/6] aarch64 toolchain: already installed"
 fi
 
 # 2. Python venv
-echo "[2/5] Python venv..."
+echo "[2/6] Python venv..."
 [ ! -f ".venv/bin/activate" ] && python3 -m venv .venv
 source .venv/bin/activate
 pip install -q --upgrade pip
 pip install -q -e ".[dev]" pyyaml yamcs-client
 
 # 3. YAMCS
-echo "[3/5] YAMCS..."
+echo "[3/6] YAMCS..."
 if [ -z "$(find /tmp/yamcs -name yamcsd 2>/dev/null)" ]; then
     echo "    Downloading YAMCS 5.12.6..."
     mkdir -p /tmp/yamcs
@@ -36,15 +36,26 @@ if [ -z "$(find /tmp/yamcs -name yamcsd 2>/dev/null)" ]; then
 fi
 echo "    YAMCS: OK"
 
-# 4. XTCE
-echo "[4/5] Generating XTCE..."
+# 4. Renode
+echo "[4/6] Renode..."
+if ! command -v renode &>/dev/null; then
+    echo "    Installing Renode portable..."
+    mkdir -p /opt/renode
+    curl -sL https://github.com/renode/renode/releases/download/v1.15.3/renode-1.15.3.linux-portable.tar.gz \
+        | tar -xz -C /opt/renode --strip-components=1
+    sudo ln -sf /opt/renode/renode /usr/local/bin/renode
+fi
+echo "    Renode: $(renode --version 2>&1 | head -1)"
+
+# 5. XTCE
+echo "[5/6] Generating XTCE..."
 python3 tools/generate_xtce.py > yamcs/mdb/opensvf.xml
 sed -i "s|spec: \".*yamcs/mdb/opensvf.xml\"|spec: \"$REPO/yamcs/mdb/opensvf.xml\"|" \
     yamcs/etc/yamcs.opensvf.yaml
 echo "    $(wc -l < yamcs/mdb/opensvf.xml) lines"
 
-# 5. Activate
-echo "[5/5] Activating..."
+# 6. Activate
+echo "[6/6] Activating..."
 source "$REPO/scripts/activate.sh"
 
 echo ""
