@@ -61,7 +61,12 @@ def obc_socket(tmp_path: Path) -> OBCEmulatorAdapter:
     yield obc
     obc.teardown()
     sync.close()
-    participant._delete()
+    
+    # Avoid DDS crash
+    try:
+        participant._delete()
+    except Exception:
+        pass
 
 
 class TestRenodeZynqmpSuite:
@@ -88,7 +93,11 @@ class TestRenodeZynqmpSuite:
             pytest.skip(f"Renode not running on {RENODE_HOST}:{RENODE_PORT}: {e}")
         finally:
             sync.close()
-            participant._delete()
+            try:
+                # Avoid DDS crash
+                participant._delete()
+            except Exception:
+                pass
 
     @pytest.mark.requirement("SVF-DEV-101")
     def test_s17_ping_via_renode(self) -> None:

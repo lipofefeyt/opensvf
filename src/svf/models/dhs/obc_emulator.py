@@ -258,6 +258,12 @@ class OBCEmulatorAdapter(Equipment):
 
     def teardown(self) -> None:
         self._alive = False
+        if self._sock is not None:
+            try:
+                self._sock.close()  # type: ignore[union-attr]
+            except Exception:
+                pass
+            self._sock = None
         if self._proc is not None:
             try:
                 if self._proc.stdin is not None:
@@ -375,18 +381,23 @@ class OBCEmulatorAdapter(Equipment):
         return hdr + user_data
 
     def _write_typed_frame(self, frame_type: int, frame: bytes) -> None:
-        """Send [type_byte][uint16 BE length][frame bytes] to obsw_sim stdin."""
-        if self._proc is None or self._proc.stdin is None:
-            return
-        try:
-            self._proc.stdin.write(
-                bytes([frame_type]) +
-                struct.pack(">H", len(frame)) +
-                frame
-            )
-            self._proc.stdin.flush()
-        except Exception as e:
-            logger.error(f"[obc-emu] stdin write failed: {e}")
+        """Send [type_byte][uint16 BE length][frame bytes] to obsw_sim."""
+        payload = (
+            bytes([frame_type]) +
+            struct.pack(">H", len(frame)) +
+            frame
+        )
+        if self._sock is not None:
+            try:
+                self._sock.sendall(payload)  # type: ignore[union-attr]
+            except Exception as e:
+                logger.error(f"[obc-emu] socket write failed: {e}")
+        elif self._proc is not None and self._proc.stdin is not None:
+            try:
+                self._proc.stdin.write(payload)
+                self._proc.stdin.flush()
+            except Exception as e:
+                logger.error(f"[obc-emu] stdin write failed: {e}")
 
     # ------------------------------------------------------------------ #
     # Stdout reader                                                        #
@@ -551,6 +562,39 @@ class OBCEmulatorAdapter(Equipment):
             self._mode = MODE_SAFE
         elif event_id == 0x0003:
             self._mode = MODE_NOMINAL
+
+    # ------------------------------------------------------------------ #
+    # Socket reader (Renode mode)                                          #
+    # ------------------------------------------------------------------ #
+
+    def _start_socket_reader(self) -> None:
+        """Start background thread reading bytes from Renode socket into _rx_q."""
+        self._alive = True
+        self._reader = threading.Thread(
+            target=self._socket_reader_thread,
+            name="obc-emulator-socket-reader",
+            daemon=True,
+        )
+        self._reader.start()
+
+    def _socket_reader_thread(self) -> None:
+        sock = self._sock
+        if sock is None:
+            return
+        try:
+            while self._alive:
+                try:
+                    chunk = sock.recv(4096)  # type: ignore[union-attr]
+                except Exception as e:
+                    logger.debug(f"[obc-emu] socket recv: {e}")
+                    break
+                if not chunk:
+                    break
+                for byte in chunk:
+                    self._rx_q.put(bytes([byte]))
+        finally:
+            self._rx_q.put(None)
+            logger.debug("[obc-emu] socket reader exited")
 
     # ------------------------------------------------------------------ #
     # ObcInterface compatibility                                           #

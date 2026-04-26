@@ -34,7 +34,7 @@ from svf.models.aocs.magnetorquer import make_magnetorquer
 from svf.models.aocs.gyroscope import make_gyroscope
 from svf.models.aocs.star_tracker import make_star_tracker
 
-_root = Path(__file__).parent.parent.parent
+_root = Path(__file__).parent.parent.parent / "bin"
 OBSW_SIM = next(
     (p for p in [_root / "obsw_sim", Path("obsw_sim")]
      if p.exists()),

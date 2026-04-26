@@ -24,7 +24,7 @@ from svf.bus.mil1553 import Mil1553Bus, SubaddressMapping
 from svf.pus.tc import PusTcPacket, PusTcBuilder
 from svf.models.dhs.obc import MODE_SAFE, MODE_NOMINAL
 
-_root = Path(__file__).parent.parent.parent
+_root = Path(__file__).parent.parent.parent / "bin"
 OBSW_SIM = next(
     (p for p in [_root / "obsw_sim", Path("obsw_sim")]
      if p.exists()),

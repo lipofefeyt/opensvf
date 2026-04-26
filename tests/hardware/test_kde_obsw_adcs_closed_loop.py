@@ -34,7 +34,7 @@ from svf.models.aocs.magnetorquer import make_magnetorquer
 from svf.models.aocs.gyroscope import make_gyroscope
 from svf.models.aocs.star_tracker import make_star_tracker
 
-_root = Path(__file__).parent.parent.parent
+_root = Path(__file__).parent.parent.parent / "bin"
 # Prefer aarch64 binary if OBSW_ARCH=aarch64, else use native
 import os as _os
 _arch = _os.environ.get("OBSW_ARCH", "x86_64")

@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-_root = Path(__file__).parent.parent.parent
+_root = Path(__file__).parent.parent.parent / "bin"
 OBSW_AARCH64 = _root / "obsw_sim_aarch64"
 QEMU         = shutil.which("qemu-aarch64")
 GLIBC        = os.environ.get("AARCH64_GLIBC", "")
