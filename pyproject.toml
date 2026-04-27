@@ -62,4 +62,4 @@ log_format = "%(asctime)s %(name)s %(levelname)s %(message)s"
 log_date_format = "%H:%M:%S"
 python_classes = ["*Suite", "*Tests"]
 testpaths = ["tests"]
-norecursedirs = ["tests/hardware"]
+norecursedirs = ["tests/system"]  # was tests/hardware

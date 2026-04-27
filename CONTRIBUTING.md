@@ -174,7 +174,7 @@ ReactionWheelFmu speed shall be 0.0 when power_enable = 0.0.
 
 ### Write equipment tests
 
-Add tests to `tests/equipment/` or `tests/spacecraft/`:
+Add tests to `tests/unit/equipment/` or `tests/unit/`:
 
 ```python
 @pytest.mark.requirement("RW-001")

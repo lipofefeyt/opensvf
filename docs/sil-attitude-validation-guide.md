@@ -239,20 +239,20 @@ The seed manifest is saved to `results/seed.json` after each run:
 
 ```bash
 # Hardware tests (requires obsw_sim + SpacecraftDynamics.fmu)
-pytest tests/hardware/test_kde_obsw_adcs_closed_loop.py -v
+pytest tests/system/test_kde_obsw_adcs_closed_loop.py -v
 
 # Full closed-loop tests (KDE + sensors, no real OBSW)
-pytest tests/hardware/test_kde_obsw_closed_loop.py -v
+pytest tests/system/test_kde_obsw_closed_loop.py -v
 
 # All hardware tests
-pytest tests/hardware/ -v
+pytest tests/system/ -v
 ```
 
 Expected output:
 
 ```
-tests/hardware/test_kde_obsw_adcs_closed_loop.py::test_safe_mode_bdot_reduces_angular_rate PASSED
-tests/hardware/test_kde_obsw_adcs_closed_loop.py::test_bdot_dipoles_reach_mtq PASSED
-tests/hardware/test_kde_obsw_adcs_closed_loop.py::test_nominal_mode_adcs_controller_activates PASSED
-tests/hardware/test_kde_obsw_adcs_closed_loop.py::test_sensor_frames_drive_obsw_each_tick PASSED
+tests/system/test_kde_obsw_adcs_closed_loop.py::test_safe_mode_bdot_reduces_angular_rate PASSED
+tests/system/test_kde_obsw_adcs_closed_loop.py::test_bdot_dipoles_reach_mtq PASSED
+tests/system/test_kde_obsw_adcs_closed_loop.py::test_nominal_mode_adcs_controller_activates PASSED
+tests/system/test_kde_obsw_adcs_closed_loop.py::test_sensor_frames_drive_obsw_each_tick PASSED
 ```
