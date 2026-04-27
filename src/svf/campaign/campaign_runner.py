@@ -44,7 +44,16 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CampaignReport:
-    """Aggregated results from a complete campaign run."""
+    """
+    Aggregated results from a complete campaign run.
+
+    Produced by ``CampaignRunner.run()``. Contains per-procedure verdicts,
+    pass/fail/error counts, total duration, and a ``to_dict()`` method for
+    JSON serialisation.
+
+    Use ``print_summary()`` to print a formatted table to stdout, or pass
+    to ``generate_html_report()`` to produce a self-contained HTML report.
+    """
     campaign_name:  str
     spacecraft:     str
     n_procedures:   int
@@ -103,14 +112,27 @@ class CampaignReport:
 
 class CampaignRunner:
     """
-    Runs a collection of Procedure instances against a spacecraft.
+    Runs a collection of ``Procedure`` instances against a spacecraft.
 
-    Args:
-        campaign_name:  Human-readable campaign name
-        spacecraft_cfg: Path to spacecraft.yaml
-        procedures:     List of Procedure subclasses to run
+    Each procedure gets a **fresh spacecraft simulation** — state does not
+    carry over between procedures. A failure or error in one procedure does
+    not stop the campaign.
+
+    The typical entry point is ``from_yaml()``, which reads a campaign YAML
+    and discovers ``Procedure`` subclasses from the referenced Python files.
+
+    Example::
+
+        runner = CampaignRunner.from_yaml("mission_mysat1/campaigns/aocs_campaign.yaml")
+        report = runner.run()
+        report.print_summary()
+
+    Or via the CLI::
+
+        svf campaign mission_mysat1/campaigns/aocs_campaign.yaml --report
+
+    Implements: SVF-DEV-121
     """
-
     def __init__(
         self,
         campaign_name:  str,
@@ -123,7 +145,29 @@ class CampaignRunner:
 
     @classmethod
     def from_yaml(cls, campaign_path: str | Path) -> "CampaignRunner":
-        """Load a campaign from a YAML file."""
+        """
+        Load a ``CampaignRunner`` from a campaign YAML file.
+
+        The YAML must use the M20 format::
+
+            campaign: MySat-1 AOCS Validation
+            spacecraft: spacecraft.yaml   # relative to campaign file
+            procedures:
+              - procedures/aocs_procedures.py
+
+        All ``Procedure`` subclasses found in the listed Python files are
+        loaded and will be run in the order they are declared in the file.
+
+        Args:
+            campaign_path: Path to the campaign YAML file.
+
+        Returns:
+            Configured ``CampaignRunner`` ready to call ``run()``.
+
+        Raises:
+            FileNotFoundError: If the campaign file does not exist.
+            ValueError: If the file uses the old pre-M20 pytest format.
+        """
         path = Path(campaign_path)
         if not path.exists():
             raise FileNotFoundError(f"Campaign file not found: {path}")
@@ -165,7 +209,22 @@ class CampaignRunner:
     def _load_procedures_from_file(
         path: Path,
     ) -> list[Type[Procedure]]:
-        """Discover Procedure subclasses in a Python file."""
+        """
+        Discover and return all ``Procedure`` subclasses in a Python file.
+
+        Classes are returned in the order ``inspect.getmembers()`` yields them
+        (alphabetical by class name). To control execution order, prefix class
+        names accordingly (e.g. ``Act1_NominalOps``, ``Act2_FaultCascade``).
+
+        Args:
+            path: Path to a Python file containing ``Procedure`` subclasses.
+
+        Returns:
+            List of ``Procedure`` subclass types, deduplicated.
+
+        Raises:
+            ImportError: If the file cannot be loaded.
+        """
         spec = importlib.util.spec_from_file_location(path.stem, path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load {path}")
@@ -195,10 +254,21 @@ class CampaignRunner:
         output_path: Optional[Path] = None,
     ) -> CampaignReport:
         """
-        Run all procedures in sequence against the spacecraft.
+        Run all procedures in sequence and return the campaign report.
 
-        A failure in one procedure does not stop the campaign.
-        Results are collected and reported at the end.
+        Each procedure runs against a fresh spacecraft simulation instance.
+        The simulation runs in a background thread; the procedure runs in the
+        main thread and controls it via ``ProcedureContext``.
+
+        A ``ProcedureError`` produces a FAIL verdict. Any other exception
+        produces an ERROR verdict. Neither stops the campaign.
+
+        Args:
+            output_path: Optional path to write the report JSON. If None,
+                         no JSON is written.
+
+        Returns:
+            ``CampaignReport`` with per-procedure results and summary stats.
         """
         logger.info(
             f"[campaign] Starting: {self._campaign_name} "

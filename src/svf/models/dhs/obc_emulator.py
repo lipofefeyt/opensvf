@@ -98,14 +98,29 @@ _ACTUATOR_LEN = struct.calcsize(_ACTUATOR_FMT)
 
 class OBCEmulatorAdapter(Equipment):
     """
-    OBC Emulator Adapter — wraps obsw_sim as an Equipment.
+    Drop-in replacement for ``ObcStub`` using a real openobsw binary.
 
-    Each SVF tick:
-      1. Read sensor values from ParameterStore
-      2. Send type-0x02 sensor frame to obsw_sim
-      3. Send type-0x01 TC frames (heartbeat ping or queued TCs)
-      4. Wait for 0xFF sync byte
-      5. Parse TM packets → update OUT ports
+    Connects to ``obsw_sim`` (or a Renode ZynqMP emulation) and drives it
+    through the SVF wire protocol v3. Each simulation tick:
+
+    1. Packs sensor values from ``ParameterStore`` into ``obsw_sensor_frame_t``
+       and sends it as a type-0x02 frame.
+    2. Sends any queued TC frames (type-0x01) — at minimum a TC(17,1) heartbeat.
+    3. Reads response frames until the 0xFF sync byte, parsing TM packets and
+       actuator commands.
+    4. Injects actuator values into ``CommandStore`` for downstream equipment.
+
+    **Transport modes:**
+
+    - *Pipe mode* (default): spawns ``obsw_sim`` as a subprocess and
+      communicates via ``stdin``/``stdout``.
+    - *Socket mode*: connects to a Renode UART terminal over TCP. Set
+      ``socket_addr=(host, port)`` and leave ``sim_path=None``.
+
+    **aarch64 support:** If ``sim_path`` points to an AArch64 binary, QEMU
+    user-mode emulation is detected automatically and applied transparently.
+
+    Implements: SVF-DEV-029, SVF-DEV-034, SVF-DEV-037
     """
 
     def __init__(
@@ -341,7 +356,20 @@ class OBCEmulatorAdapter(Equipment):
     # ------------------------------------------------------------------ #
 
     def _send_sensor_frame(self, t: float) -> None:
-        """Pack obsw_sensor_frame_t from ParameterStore and send to obsw_sim."""
+        """
+        Pack ``obsw_sensor_frame_t`` from ``ParameterStore`` and send to OBSW.
+
+        Reads MAG, ST, and GYRO values from ``ParameterStore``. Status ports
+        are thresholded at 0.5 to produce the ``uint8_t valid`` flags in the
+        C struct. The packed frame is sent as a type-0x02 typed frame.
+
+        Frame layout (47 bytes, little-endian, ``#pragma pack(1)``)::
+
+            float mag_x, mag_y, mag_z;   uint8_t mag_valid;
+            float st_q_w, x, y, z;       uint8_t st_valid;
+            float gyro_x, y, z;          uint8_t gyro_valid;
+            float sim_time;
+        """
         def _read(key: str, default: float = 0.0) -> float:
             e = self._store.read(key)
             return e.value if e is not None else default
@@ -497,12 +525,20 @@ class OBCEmulatorAdapter(Equipment):
         self, timeout: float
     ) -> tuple[list[bytes], bool]:
         """
-        Read type-prefixed frames until 0xFF sync byte.
+        Read type-prefixed frames from the OBSW until the 0xFF sync byte.
 
-        Protocol v3 stdout:
-          [0x04][uint16 BE len][TM bytes]       — PUS TM packet
-          [0x03][uint16 BE len][actuator bytes] — actuator frame
-          [0xFF]                                — end of tick
+        Called once per tick after sending the sensor and TC frames. Parses:
+
+        - Type 0x03 — actuator frame: injected into ``CommandStore``
+        - Type 0x04 — PUS TM packet: recorded in ``ParameterStore`` and
+          passed to ``_parse_tm()``
+
+        Args:
+            timeout: Maximum wall-clock seconds to wait for the sync byte.
+
+        Returns:
+            Tuple of (list of raw TM packet bytes, synced: bool).
+            ``synced`` is False if the timeout expired before seeing 0xFF.
         """
         packets: list[bytes] = []
         deadline = time.monotonic() + timeout
