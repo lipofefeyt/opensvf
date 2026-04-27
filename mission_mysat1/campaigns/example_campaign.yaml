@@ -1,4 +1,0 @@
-campaign: MySat-1 AOCS Validation
-spacecraft: spacecraft.yaml
-procedures:
-  - procedures/aocs_procedures.py

@@ -1,4 +1,0 @@
-campaign: MySat-1 FDIR Validation
-spacecraft: spacecraft.yaml
-procedures:
-  - procedures/fdir_procedures.py
