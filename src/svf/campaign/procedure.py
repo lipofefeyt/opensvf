@@ -91,6 +91,13 @@ class ProcedureError(Exception):
 # ── Background Monitoring ───────────────────────────────────────────────────
 
 class ParameterMonitor:
+    """
+    Continuous background assertion on a ParameterStore entry.
+
+    Created by ``ProcedureContext.monitor()``. Polls every 50ms in a daemon
+    thread. Call ``assert_no_violations()`` to stop and raise on any breach,
+    or ``summary()`` for the full result without raising.
+    """
     def __init__(
         self,
         store: ParameterStore,
@@ -149,6 +156,22 @@ class ParameterMonitor:
 # ── Procedure Context ───────────────────────────────────────────────────────
 
 class ProcedureContext:
+    """
+    Execution context passed to ``Procedure.run()``.
+
+    Provides the interface between a test procedure and the running simulation.
+    Created by the campaign runner — do not instantiate directly.
+
+    Key methods:
+
+    - ``inject(parameter, value)``    — write to CommandStore (equipment IN port)
+    - ``wait(seconds)``               — advance sim-time
+    - ``assert_parameter(...)``       — assert a ParameterStore value
+    - ``monitor(parameter, ...)``     — start a continuous background assertion
+    - ``tc(service, subservice)``     — send a PUS TC to the OBSW
+    - ``expect_tm(service, subsvc)``  — wait for a PUS TM response
+    - ``inject_equipment_fault(...)`` — inject a fault into an equipment model
+    """
     def __init__(
         self,
         master: Optional[SimulationMaster],
@@ -169,6 +192,16 @@ class ProcedureContext:
         self._events.append(SimEvent(round(t, 2), event_type, description, details))
 
     def inject(self, parameter: str, value: float) -> None:
+        """
+        Write a value to the simulation via CommandStore.
+
+        Delivered to the target equipment's IN port at the start of the next
+        tick. Use for non-PUS commands (mode transitions, sensor power, etc.).
+
+        Args:
+            parameter: Equipment IN port name (e.g. ``"dhs.obc.mode_cmd"``).
+            value:     Value in engineering units.
+        """
         self._cmd_store.inject(parameter, value, source_id="procedure")
         self._log_event(EventType.INJECTION, f"Set {parameter} = {value}")
 
@@ -210,6 +243,15 @@ class ProcedureContext:
         raise ProcedureError(f"Condition not met within {timeout}s")
 
     def wait(self, seconds: float) -> None:
+        """
+        Block until the simulation has advanced by ``seconds`` of sim-time.
+
+        In non-realtime mode the sim runs as fast as possible — this returns
+        as soon as sim-time advances by the requested amount.
+
+        Args:
+            seconds: Sim-time duration to wait.
+        """
         start_t = self.read_parameter("svf.sim_time") or 0.0
         target_t = start_t + seconds
         self._log_event(EventType.INFO, f"Waiting {seconds}s (until t={target_t:.1f}s)")
@@ -221,6 +263,22 @@ class ProcedureContext:
         return entry.value if entry else None
 
     def assert_parameter(self, parameter: str, less_than: Optional[float] = None, greater_than: Optional[float] = None, equals: Optional[float] = None, tolerance: float = 1e-6) -> None:
+        """
+        Assert the current value of a ParameterStore entry.
+
+        All conditions are checked independently. Raises ``ProcedureError``
+        (→ FAIL verdict) if any condition is violated.
+
+        Args:
+            parameter:    ParameterStore key (e.g. ``"dhs.obc.mode"``).
+            less_than:    Assert value < less_than.
+            greater_than: Assert value > greater_than.
+            equals:       Assert abs(value - equals) <= tolerance.
+            tolerance:    Tolerance for equals comparison (default 1e-6).
+
+        Raises:
+            ProcedureError: If parameter not found or any condition fails.
+        """
         val = self.read_parameter(parameter)
         if val is None: raise ProcedureError(f"Param '{parameter}' not found")
         if (less_than is not None and val >= less_than) or \
@@ -230,6 +288,25 @@ class ProcedureContext:
         self._log_event(EventType.INFO, f"Verified {parameter}")
 
     def monitor(self, parameter: str, less_than: Optional[float] = None, greater_than: Optional[float] = None, requirement: str = "") -> ParameterMonitor:
+        """
+        Start a continuous background assertion.
+
+        Spawns a daemon thread polling ``parameter`` every 50ms. Call
+        ``monitor.assert_no_violations()`` to stop it and fail on any breach::
+
+            monitor = ctx.monitor("aocs.truth.rate_x", less_than=0.5)
+            ctx.wait(60.0)
+            monitor.assert_no_violations()
+
+        Args:
+            parameter:    ParameterStore key to monitor.
+            less_than:    Violation if value >= less_than.
+            greater_than: Violation if value <= greater_than.
+            requirement:  Requirement ID for the monitor result.
+
+        Returns:
+            Active ``ParameterMonitor``.
+        """
         return ParameterMonitor(self._store, parameter, less_than, greater_than, requirement)
 
     def expect_always(self, parameter: str, less_than: Optional[float] = None, greater_than: Optional[float] = None) -> None:
@@ -238,6 +315,20 @@ class ProcedureContext:
         self._log_event(EventType.MONITOR, f"Active invariant: {parameter}")
 
     def inject_equipment_fault(self, equipment_id: str, port: str, fault_type: str, value: float = 0.0, duration_s: float = 0.0) -> None:
+        """
+        Inject a fault into an equipment model's port.
+
+        Attaches an ``EquipmentFaultEngine`` to the target equipment and
+        activates the fault. The model is unaware — its ``do_step()`` runs
+        normally and port values are intercepted transparently.
+
+        Args:
+            equipment_id: Equipment ID from spacecraft YAML (e.g. ``"str1"``).
+            port:         Port to fault (e.g. ``"aocs.str1.validity"``).
+            fault_type:   ``"stuck"`` | ``"noise"`` | ``"bias"`` | ``"scale"`` | ``"fail"``.
+            value:        Fault parameter (stuck value, noise sigma, bias, scale factor).
+            duration_s:   Sim-time duration. 0.0 = permanent.
+        """
         if self._master is not None:
             from svf.core.equipment import Equipment
             from svf.core.equipment_fault import EquipmentFaultEngine, EquipmentFault, FaultMode
@@ -262,6 +353,33 @@ class ProcedureContext:
                         self._log_event(EventType.INFO, f"Cleared faults on {equipment_id}")
 
 class Procedure:
+    """
+    Base class for all SVF test procedures.
+
+    Subclass and set class attributes ``id``, ``title``, and ``requirement``,
+    then implement ``run()`` using the ``ProcedureContext`` (``ctx``).
+
+    Call ``self.step()`` to mark logical test steps — each is recorded in
+    the campaign report with its verdict. Raise ``ProcedureError`` (or let
+    ``ctx.assert_parameter()`` raise it) to fail the current step. Unhandled
+    exceptions produce an ERROR verdict.
+
+    Example::
+
+        class BdotConvergence(Procedure):
+            id          = "TC-AOCS-001"
+            title       = "B-dot detumbling reduces angular rate"
+            requirement = "MIS-AOCS-042"
+
+            def run(self, ctx: ProcedureContext) -> None:
+                self.step("Power on magnetorquer")
+                ctx.inject("aocs.mtq.power_enable", 1.0)
+
+                self.step("Monitor angular rate for 60s")
+                monitor = ctx.monitor("aocs.truth.rate_x", less_than=0.5)
+                ctx.wait(60.0)
+                monitor.assert_no_violations()
+    """
     id: str = ""
     title: str = ""
     requirement: str = ""

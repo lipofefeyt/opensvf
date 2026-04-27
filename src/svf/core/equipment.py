@@ -76,15 +76,51 @@ class Equipment(ModelAdapter):
     """
     Abstract base class for all spacecraft equipment models.
 
-    Extends ModelAdapter so Equipment instances are directly driveable
-    by SimulationMaster. Provides a port-based interface for inter-equipment
-    data exchange via the WiringMap.
+    Subclass this to implement a sensor, actuator, bus adapter, or any
+    other spacecraft component. Each Equipment instance declares a set of
+    typed ports and implements ``do_step()`` to advance its physics by one
+    simulation timestep.
 
-    on_tick() implements the standard ModelAdapter contract:
-      1. Read CommandStore for each IN port and receive() into port
-      2. Call do_step() — subclass implements physics here
-      3. Write each OUT port value to ParameterStore
-      4. Call sync_protocol.publish_ready()
+    **Port contract:**
+
+    - Declare all ports in ``_declare_ports()``. Duplicate port names raise
+      ``ValueError`` at construction time.
+    - OUT ports are written by the model in ``do_step()`` via ``write_port()``.
+      Their values are mirrored to ``ParameterStore`` after each tick so test
+      procedures can read them via ``ctx.assert_parameter()``.
+    - IN ports receive values from other equipment via the ``WiringMap``, or
+      from test procedures via ``CommandStore`` injection (``ctx.inject()``).
+
+    **Tick lifecycle** (driven by ``SimulationMaster`` each timestep)::
+
+        CommandStore → receive IN ports
+        do_step(t, dt)           ← subclass physics here
+        write OUT ports → ParameterStore
+        sync_protocol.publish_ready()
+
+    **Fault injection:** Attach an ``EquipmentFaultEngine`` via
+    ``attach_fault_engine()`` to intercept port reads/writes and apply
+    stuck/noise/bias/scale/fail faults without modifying the model code.
+
+    Example::
+
+        class Magnetometer(Equipment):
+            def _declare_ports(self) -> list[PortDefinition]:
+                return [
+                    PortDefinition("aocs.mag.field_x", PortDirection.OUT, unit="T"),
+                    PortDefinition("aocs.mag.field_y", PortDirection.OUT, unit="T"),
+                    PortDefinition("aocs.mag.field_z", PortDirection.OUT, unit="T"),
+                    PortDefinition("aocs.mag.status",  PortDirection.OUT),
+                ]
+
+            def do_step(self, t: float, dt: float) -> None:
+                b = self._compute_field()
+                self.write_port("aocs.mag.field_x", b.x)
+                self.write_port("aocs.mag.field_y", b.y)
+                self.write_port("aocs.mag.field_z", b.z)
+                self.write_port("aocs.mag.status", 1.0)
+
+    Implements: SVF-DEV-004, SVF-DEV-013, SVF-DEV-038
     """
 
     def __init__(
@@ -185,20 +221,57 @@ class Equipment(ModelAdapter):
 
     @abstractmethod
     def _declare_ports(self) -> list[PortDefinition]:
-        """Declare all ports. Called once during __init__."""
+        """
+        Declare all ports for this equipment. Called once during ``__init__``.
+
+        Override to return the complete list of ``PortDefinition`` objects.
+        Duplicate port names raise ``ValueError``. Ports cannot be added after
+        construction.
+
+        Returns:
+            List of ``PortDefinition`` objects for this equipment.
+        """
         ...
 
     @abstractmethod
     def do_step(self, t: float, dt: float) -> None:
-        """Advance the equipment by one timestep."""
+        """
+        Advance the equipment by one simulation timestep.
+
+        Primary physics method — implement sensor noise, actuator dynamics,
+        bus routing, or any time-varying behaviour here. Read IN ports with
+        ``read_port()`` and write OUT ports with ``write_port()``.
+
+        Args:
+            t:  Current simulation time in seconds.
+            dt: Timestep duration in seconds.
+        """
         ...
 
     def teardown(self) -> None:
-        """Default teardown — no-op. Override if needed."""
+        """
+        Clean up resources. Called by ``SimulationMaster`` after simulation ends.
+
+        Override to close file handles, stop threads, or release hardware.
+        Default is a no-op.
+        """
         logger.debug(f"[{self._equipment_id}] Teardown")
 
     def write_port(self, name: str, value: float) -> None:
-        """Write a value to an OUT port."""
+        """
+        Write a value to an OUT port.
+
+        Call from within ``do_step()``. The value is mirrored to
+        ``ParameterStore`` so ``ctx.assert_parameter()`` sees it immediately.
+        If a fault engine is attached, the fault transform is applied first.
+
+        Args:
+            name:  Port name. Must be ``PortDirection.OUT``.
+            value: New value in engineering units.
+
+        Raises:
+            ValueError: If port is unknown or not an OUT port.
+        """
         if name not in self._ports:
             raise ValueError(
                 f"[{self._equipment_id}] Unknown port '{name}'"
@@ -220,11 +293,34 @@ class Equipment(ModelAdapter):
             )
 
     def attach_fault_engine(self, engine: "EquipmentFaultEngine") -> None:
-        """Attach a fault engine to intercept read/write port calls."""
+        """
+        Attach an ``EquipmentFaultEngine`` to intercept port reads/writes.
+
+        Once attached, active faults are applied transparently in
+        ``read_port()`` and ``write_port()``. The model's ``do_step()``
+        code is unaware. Faults are injected via ``ctx.inject_equipment_fault()``.
+
+        Args:
+            engine: Fault engine to attach.
+        """
         self._fault_engine = engine
 
     def read_port(self, name: str) -> float:
-        """Read the current value of any port."""
+        """
+        Read the current value of any port (IN or OUT).
+
+        If a fault engine is attached and the port has an active read fault,
+        the fault transform is applied to the returned value.
+
+        Args:
+            name: Declared port name.
+
+        Returns:
+            Current port value in engineering units.
+
+        Raises:
+            ValueError: If the port is unknown.
+        """
         if name not in self._ports:
             raise ValueError(
                 f"[{self._equipment_id}] Unknown port '{name}'"
@@ -237,7 +333,16 @@ class Equipment(ModelAdapter):
     def receive(self, port_name: str, value: float) -> None:
         """
         Inject a value into an IN port.
-        Called by SimulationMaster when applying wiring connections.
+
+        Called by ``SimulationMaster`` when propagating wiring connections.
+        Test procedures should use ``ctx.inject()`` instead.
+
+        Args:
+            port_name: Must be ``PortDirection.IN``.
+            value:     Value in engineering units.
+
+        Raises:
+            ValueError: If port is unknown or not an IN port.
         """
         if port_name not in self._ports:
             raise ValueError(
