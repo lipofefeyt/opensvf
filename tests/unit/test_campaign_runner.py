@@ -28,7 +28,7 @@ EXAMPLES = Path(__file__).parent.parent.parent / "mission_mysat1"
 
 class TestCampaignRunnerSuite:
 
-    @pytest.mark.requirement("SVF-DEV-121")
+    @pytest.mark.requirement("SVF-DEV-050", "SVF-DEV-051", "SVF-DEV-121")
     def test_campaign_runs_all_procedures(self) -> None:
         """Campaign runs all procedures and collects results."""
         runner = CampaignRunner(
@@ -52,7 +52,7 @@ class TestCampaignRunnerSuite:
         assert report.n_pass == 1
         assert report.n_fail == 1
 
-    @pytest.mark.requirement("SVF-DEV-121")
+    @pytest.mark.requirement("SVF-DEV-050", "SVF-DEV-121")
     def test_failure_does_not_stop_campaign(self) -> None:
         """A failing procedure does not stop subsequent procedures."""
         runner = CampaignRunner(
@@ -67,7 +67,7 @@ class TestCampaignRunnerSuite:
         assert Verdict.FAIL in verdicts
         assert Verdict.PASS in verdicts
 
-    @pytest.mark.requirement("SVF-DEV-121")
+    @pytest.mark.requirement("SVF-DEV-054", "SVF-DEV-121")
     def test_pass_rate_computed(self) -> None:
         """Pass rate is correctly computed."""
         runner = CampaignRunner(
@@ -78,7 +78,7 @@ class TestCampaignRunnerSuite:
         report = runner.run()
         assert report.pass_rate == pytest.approx(2/3, abs=0.01)
 
-    @pytest.mark.requirement("SVF-DEV-121")
+    @pytest.mark.requirement("SVF-DEV-052", "SVF-DEV-053", "SVF-DEV-121")
     def test_report_to_dict(self) -> None:
         """CampaignReport.to_dict() returns serialisable dict."""
         runner = CampaignRunner(

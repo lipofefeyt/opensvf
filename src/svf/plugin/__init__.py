@@ -84,12 +84,15 @@ def _collect_requirements(
     matrix: dict[str, list[tuple[str, str]]],
     verdict: str,
 ) -> None:
-    """Extract requirement markers from a test report."""
-    markers = getattr(report, "own_markers", [])
-    for marker in markers:
-        if marker.name == "requirement":
-            for req_id in marker.args:
-                matrix[req_id].append((report.nodeid, verdict))
+    """Extract requirement IDs from a test report's user_properties.
+
+    Markers live on Item, not TestReport. The pytest_runtest_makereport
+    hook copies them to item.user_properties as ("requirement", req_id)
+    tuples, which are then accessible on the report object.
+    """
+    for key, value in getattr(report, "user_properties", []):
+        if key == "requirement":
+            matrix[str(value)].append((report.nodeid, verdict))
                 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -142,11 +145,13 @@ def pytest_runtest_makereport(
             verdict = Verdict.INCONCLUSIVE.value
 
         item.user_properties.append(("ecss_verdict", verdict))
+        rep.user_properties.append(("ecss_verdict", verdict))
 
         for marker in item.own_markers:
             if marker.name == "requirement":
                 for req_id in marker.args:
                     item.user_properties.append(("requirement", req_id))
+                    rep.user_properties.append(("requirement", req_id))
 
 __all__ = [
     "svf_participant",

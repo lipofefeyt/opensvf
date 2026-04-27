@@ -54,6 +54,7 @@ def cmd_store() -> CommandStore:
 # ── Construction tests ────────────────────────────────────────────────────────
 
 @pytest.mark.requirement("EQP-001","EQP-008")
+@pytest.mark.requirement("SVF-DEV-066")
 def test_fmu_equipment_ports_declared(
     sync: _NoSync, store: ParameterStore, cmd_store: CommandStore
 ) -> None:
@@ -118,6 +119,7 @@ def test_fmu_equipment_no_map(
 # ── Step tests ────────────────────────────────────────────────────────────────
 
 @pytest.mark.requirement("EQP-009")
+@pytest.mark.requirement("SVF-DEV-063", "SVF-DEV-065")
 def test_fmu_equipment_step(
     sync: _NoSync, store: ParameterStore, cmd_store: CommandStore
 ) -> None:

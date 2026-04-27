@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import queue
+import socket
 import struct
 import subprocess
 import importlib.metadata
@@ -40,6 +41,7 @@ from svf.pus.tm import PusTmPacket
 logger = logging.getLogger(__name__)
 
 SYNC_BYTE       = 0xFF
+
 def _detect_qemu_prefix(sim_path: Path) -> list[str]:
     """
     Auto-detect if sim_path needs QEMU to run on this host.
@@ -64,7 +66,6 @@ def _detect_qemu_prefix(sim_path: Path) -> list[str]:
                 f"aarch64 binary detected but qemu-aarch64 not found. "
                 f"Install with: nix-env -iA nixpkgs.qemu"
             )
-        # Find glibc from environment or search
         import os
         glibc = os.environ.get("AARCH64_GLIBC", "")
         if not glibc:
@@ -121,7 +122,7 @@ class OBCEmulatorAdapter(Equipment):
         self._sim_path     = Path(sim_path) if sim_path is not None else None
         self._qemu_prefix  = qemu_prefix or []
         self._socket_addr  = socket_addr
-        self._sock: Optional[object] = None
+        self._sock: Optional[socket.socket] = None
         self._sync_timeout = sync_timeout
         self._apid         = apid
 
@@ -162,7 +163,6 @@ class OBCEmulatorAdapter(Equipment):
             PortDefinition("obc.tm_output",           PortDirection.OUT),
         ]
 
-
     def _check_srdb_version(self, srdb_version: str) -> None:
         """Compare obsw_sim SRDB version against installed obsw-srdb package."""
         try:
@@ -200,11 +200,43 @@ class OBCEmulatorAdapter(Equipment):
                 srdb_version = line.split("SRDB version:")[-1].strip()
                 self._check_srdb_version(srdb_version)
 
+    # ------------------------------------------------------------------ #
+    # Socket reader (Renode mode)                                          #
+    # ------------------------------------------------------------------ #
+
+    def _start_socket_reader(self) -> None:
+        """Start background thread reading bytes from Renode socket into _rx_q."""
+        self._alive = True
+        self._reader = threading.Thread(
+            target=self._socket_reader_thread,
+            name="obc-emulator-socket-reader",
+            daemon=True,
+        )
+        self._reader.start()
+
+    def _socket_reader_thread(self) -> None:
+        sock = self._sock
+        if sock is None:
+            return
+        try:
+            while self._alive:
+                try:
+                    chunk = sock.recv(4096)
+                except Exception as e:
+                    logger.debug(f"[obc-emu] socket recv: {e}")
+                    break
+                if not chunk:
+                    break
+                for byte in chunk:
+                    self._rx_q.put(bytes([byte]))
+        finally:
+            self._rx_q.put(None)
+            logger.debug("[obc-emu] socket reader exited")
+
     def initialise(self, start_time: float = 0.0) -> None:
         if self._socket_addr is not None:
             # Socket mode — connect to Renode UART TCP terminal
-            import socket as _socket_mod
-            self._sock = _socket_mod.create_connection(
+            self._sock = socket.create_connection(
                 self._socket_addr, timeout=self._sync_timeout
             )
             self._sock.settimeout(None)
@@ -212,7 +244,7 @@ class OBCEmulatorAdapter(Equipment):
                 f"[obc-emu] Socket mode: connected to "
                 f"{self._socket_addr[0]}:{self._socket_addr[1]}"
             )
-            self._start_socket_reader()  # type: ignore[attr-defined]
+            self._start_socket_reader()
             return
 
         # Auto-detect QEMU prefix if not explicitly set
@@ -240,10 +272,10 @@ class OBCEmulatorAdapter(Equipment):
 
         # Read startup lines synchronously — version handshake
         import time as _time
-        _time.sleep(0.1)  # give obsw_sim time to write startup lines
+        _time.sleep(0.1)
         import select as _select, os as _os
         if self._proc.stderr:
-            for _ in range(5):  # read up to 5 startup lines
+            for _ in range(5):
                 ready = _select.select([self._proc.stderr], [], [], 0.2)
                 if not ready[0]:
                     break
@@ -260,7 +292,7 @@ class OBCEmulatorAdapter(Equipment):
         self._alive = False
         if self._sock is not None:
             try:
-                self._sock.close()  # type: ignore[union-attr]
+                self._sock.close()
             except Exception:
                 pass
             self._sock = None
@@ -285,10 +317,7 @@ class OBCEmulatorAdapter(Equipment):
     def do_step(self, t: float, dt: float) -> None:
         self._obt += dt
 
-        # Send sensor frame first (AOCS needs fresh data each cycle)
         self._send_sensor_frame(t)
-
-        # Send TC frames (heartbeat + any queued TCs)
         self._send_tcs(t)
 
         tm_packets, synced = self._collect_until_sync(self._sync_timeout)
@@ -298,8 +327,8 @@ class OBCEmulatorAdapter(Equipment):
         for pkt in tm_packets:
             self._parse_tm(pkt, t)
 
-        self.write_port("dhs.obc.mode",           float(self._mode))
-        self.write_port("dhs.obc.obt",            self._obt)
+        self.write_port("dhs.obc.mode",            float(self._mode))
+        self.write_port("dhs.obc.obt",             self._obt)
         self.write_port("dhs.obc.watchdog_status", 0.0)
         self.write_port("dhs.obc.memory_used_pct", 0.0)
         self.write_port("dhs.obc.health",          0.0)
@@ -320,8 +349,8 @@ class OBCEmulatorAdapter(Equipment):
         mag_x = _read("aocs.mag.field_x")
         mag_y = _read("aocs.mag.field_y")
         mag_z = _read("aocs.mag.field_z")
-        mag_valid = 1 if self._store.read("aocs.mag.status") is not None and \
-            (self._store.read("aocs.mag.status").value or 0) > 0.5 else 0  # type: ignore[union-attr]
+        mag_status = self._store.read("aocs.mag.status")
+        mag_valid = 1 if mag_status is not None and mag_status.value > 0.5 else 0
 
         st_w = _read("aocs.str1.quaternion_w", 1.0)
         st_x = _read("aocs.str1.quaternion_x")
@@ -389,7 +418,7 @@ class OBCEmulatorAdapter(Equipment):
         )
         if self._sock is not None:
             try:
-                self._sock.sendall(payload)  # type: ignore[union-attr]
+                self._sock.sendall(payload)
             except Exception as e:
                 logger.error(f"[obc-emu] socket write failed: {e}")
         elif self._proc is not None and self._proc.stdin is not None:
@@ -444,16 +473,12 @@ class OBCEmulatorAdapter(Equipment):
         if self._command_store is None:
             return
 
-        # Inject MTQ dipole commands (b-dot output) into CommandStore
-        # so wiring picks them up → MTQ.read_port() → torque = m×B
         self._command_store.inject("aocs.mtq.dipole_x", mtq_x,
                                    t=sim_time, source_id="obc-emu")
         self._command_store.inject("aocs.mtq.dipole_y", mtq_y,
                                    t=sim_time, source_id="obc-emu")
         self._command_store.inject("aocs.mtq.dipole_z", mtq_z,
                                    t=sim_time, source_id="obc-emu")
-
-        # Inject RW torque commands (ADCS output) into CommandStore
         self._command_store.inject("aocs.rw1.torque_cmd", rw_x,
                                    t=sim_time, source_id="obc-emu")
         self._command_store.inject("aocs.rw2.torque_cmd", rw_y,
@@ -492,7 +517,6 @@ class OBCEmulatorAdapter(Equipment):
             if frame_type == SYNC_BYTE:
                 return packets, True
 
-            # Read 2-byte BE length
             b1 = self._read_byte(deadline - time.monotonic())
             b2 = self._read_byte(deadline - time.monotonic())
             if b1 is None or b2 is None:
@@ -523,6 +547,7 @@ class OBCEmulatorAdapter(Equipment):
                 logger.warning(
                     f"[obc-emu] Unknown frame type 0x{frame_type:02X}"
                 )
+
     # ------------------------------------------------------------------ #
     # TM parsing                                                           #
     # ------------------------------------------------------------------ #
@@ -533,7 +558,6 @@ class OBCEmulatorAdapter(Equipment):
         svc    = pkt[7]
         subsvc = pkt[8]
         self._tm_seq += 1
-        # Write receipt confirmation for ProcedureContext.expect_tm()
         if self._store is not None:
             self._store.write(
                 name=f"svf.tm.{svc}.{subsvc}.received",
@@ -562,39 +586,6 @@ class OBCEmulatorAdapter(Equipment):
             self._mode = MODE_SAFE
         elif event_id == 0x0003:
             self._mode = MODE_NOMINAL
-
-    # ------------------------------------------------------------------ #
-    # Socket reader (Renode mode)                                          #
-    # ------------------------------------------------------------------ #
-
-    def _start_socket_reader(self) -> None:
-        """Start background thread reading bytes from Renode socket into _rx_q."""
-        self._alive = True
-        self._reader = threading.Thread(
-            target=self._socket_reader_thread,
-            name="obc-emulator-socket-reader",
-            daemon=True,
-        )
-        self._reader.start()
-
-    def _socket_reader_thread(self) -> None:
-        sock = self._sock
-        if sock is None:
-            return
-        try:
-            while self._alive:
-                try:
-                    chunk = sock.recv(4096)  # type: ignore[union-attr]
-                except Exception as e:
-                    logger.debug(f"[obc-emu] socket recv: {e}")
-                    break
-                if not chunk:
-                    break
-                for byte in chunk:
-                    self._rx_q.put(bytes([byte]))
-        finally:
-            self._rx_q.put(None)
-            logger.debug("[obc-emu] socket reader exited")
 
     # ------------------------------------------------------------------ #
     # ObcInterface compatibility                                           #

@@ -41,6 +41,7 @@ def make_report(n_pass: int = 2, n_fail: int = 1) -> CampaignReport:
 class TestReportSuite:
 
     @pytest.mark.requirement("SVF-DEV-122")
+    @pytest.mark.requirement("SVF-DEV-075", "SVF-DEV-122")
     def test_generates_html_file(self, tmp_path: Path) -> None:
         """generate_html_report creates an HTML file."""
         report = make_report()
@@ -76,6 +77,7 @@ class TestReportSuite:
         assert "FAIL" in content
 
     @pytest.mark.requirement("SVF-DEV-122")
+    @pytest.mark.requirement("SVF-DEV-073", "SVF-DEV-074")
     def test_html_contains_requirements(self, tmp_path: Path) -> None:
         """Report HTML includes requirement coverage table."""
         report = make_report()

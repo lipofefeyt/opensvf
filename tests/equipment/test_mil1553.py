@@ -148,7 +148,7 @@ def test_no_response_fault_blocks_rt_to_bc(
     assert entry is None
 
 
-@pytest.mark.requirement("SVF-DEV-038")
+@pytest.mark.requirement("1553-005", "SVF-DEV-038")
 def test_broadcast_mapping_reaches_all_rts(
     sync: _NoSync,
     store: ParameterStore,
@@ -178,7 +178,7 @@ def test_broadcast_mapping_reaches_all_rts(
     assert entry.value == pytest.approx(2.0)
 
 
-@pytest.mark.requirement("SVF-DEV-038")
+@pytest.mark.requirement("1553-006", "SVF-DEV-038")
 def test_bus_error_triggers_switchover(
     bus: Mil1553Bus,
     store: ParameterStore,

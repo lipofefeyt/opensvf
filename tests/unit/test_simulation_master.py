@@ -76,6 +76,7 @@ def test_native_equipment_step(
 # ── FmuEquipment tests ────────────────────────────────────────────────────────
 
 @pytest.mark.requirement("SVF-DEV-014")
+@pytest.mark.requirement("SVF-DEV-063")
 def test_fmu_equipment_initialises(
     store: ParameterStore,
     cmd_store: CommandStore,
@@ -95,6 +96,7 @@ def test_fmu_equipment_initialises(
 
 
 @pytest.mark.requirement("SVF-DEV-014", "EQP-006")
+@pytest.mark.requirement("SVF-DEV-065")
 def test_fmu_equipment_on_tick_writes_store(
     store: ParameterStore,
     cmd_store: CommandStore,
@@ -167,6 +169,7 @@ def test_simulation_master_runs(
 
 
 @pytest.mark.requirement("SVF-DEV-002", "SVF-DEV-014")
+@pytest.mark.requirement("SVF-DEV-001", "SVF-DEV-002")
 def test_simulation_master_with_fmu(
     store: ParameterStore,
     cmd_store: CommandStore,
