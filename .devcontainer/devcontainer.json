@@ -1,0 +1,49 @@
+{
+    "name": "opensvf",
+    "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+    "features": {
+        "ghcr.io/devcontainers/features/common-utils:2": {
+            "upgradePackages": true
+        },
+        "ghcr.io/devcontainers/features/python:1": {
+            "version": "3.12"
+        },
+        "ghcr.io/devcontainers/features/java:1": {
+            "version": "21",
+            "jdk": "ms"
+        }
+    },
+    "mounts": [
+        "source=${localWorkspaceFolder}/../openobsw,target=/workspace/openobsw,type=bind,consistency=cached",
+        "source=${localWorkspaceFolder}/../opensvf-kde,target=/workspace/opensvf-kde,type=bind,consistency=cached"
+    ],
+    "runArgs": [
+        "--privileged"
+    ],
+    "postCreateCommand": "bash .devcontainer/post-create.sh",
+    "forwardPorts": [
+        8090,
+        10015,
+        10025
+    ],
+    "remoteEnv": {
+        "OPENSVF_REPO": "${containerWorkspaceFolder}",
+        "OPENOBSW_REPO": "/workspace/openobsw",
+        "OPENSVF_KDE_REPO": "/workspace/opensvf-kde",
+        "OBSW_SIM": "/workspace/openobsw/build/sim/obsw_sim"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.mypy-type-checker",
+                "ms-python.pylint",
+                "charliermarsh.ruff"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python3",
+                "mypy-type-checker.importStrategy": "fromEnvironment"
+            }
+        }
+    }
+}
