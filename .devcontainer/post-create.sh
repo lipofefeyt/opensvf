@@ -8,7 +8,7 @@ echo "=== opensvf dev container setup ==="
 # ── System packages ───────────────────────────────────────────────────
 sudo apt-get update -qq
 sudo apt-get install -y \
-    wget curl git \
+    wget curl git default-jdk \
     python3-pip \
     2>/dev/null
 echo "[1/4] System packages installed"

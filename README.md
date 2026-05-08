@@ -14,9 +14,9 @@ The core idea: your flight software binary runs inside the SVF. The SVF feeds it
 opensvf-kde (C++/Eigen3)        openobsw (C11)
   6-DOF rigid body dynamics        PUS S1/3/5/6/8/17/20
   Euler equations                  b-dot detumbling
-  IGRF magnetic field model        ADCS PD controller
+  Magnetic field model             ADCS PD controller
         │                          FDIR + watchdog
-        │  FMI 3.0 Co-Simulation         │
+        │  FMI 2.0 Co-Simulation         │
         ▼                                ▼
               OpenSVF (Python)
          ┌────────────────────────────┐
@@ -33,17 +33,29 @@ opensvf-kde (C++/Eigen3)        openobsw (C11)
                     │ PUS TM/TC
                     ▼
              YAMCS 5.12.6
-         (optional ground station)
+          (ground station)
 ```
+
+---
+
+## Compatibility
+
+| Package | Version | Notes |
+|---|---|---|
+| opensvf | v0.6.0 | Python 3.12 |
+| openobsw | v0.7.0+ | C11 |
+| opensvf-kde | v0.1.0 | C++ / Eigen3 |
+| YAMCS | 5.12.6 | Java 21+ |
 
 ---
 
 ## Prerequisites
 
-- Linux (Ubuntu 22.04+) or a Firebase IDX / GitHub Codespaces workspace
+- Linux (Ubuntu 22.04+), WSL2 (Ubuntu 24.04), or GitHub Codespaces
 - Python 3.11+
 - Eclipse Cyclone DDS (`pip install cyclonedds`)
-- Java 11+ (for YAMCS, optional)
+- Java 21+ (for YAMCS ground station)
+- Docker Desktop + VS Code Dev Containers extension (for local development)
 
 The setup script handles the rest.
 
@@ -54,16 +66,22 @@ The setup script handles the rest.
 ```bash
 git clone https://github.com/lipofefeyt/opensvf
 cd opensvf
-source scripts/setup-workspace.sh   # installs venv, YAMCS, activates aliases
+pip install -e ".[dev]"                                           # install SVF and dev dependencies
 
-testosvf                            # ~377 unit + integration tests
-checkcov                            # requirement coverage report
-svf profiles                        # list bundled hardware profiles
+testosvf                                                          # ~341 unit + integration tests
+checkcov                                                          # requirement coverage report
+svf profiles                                                      # list bundled hardware profiles
 svf check mission_mysat1/spacecraft.yaml
 svf campaign mission_mysat1/campaigns/aocs_campaign.yaml --report
 ```
 
 The campaign produces `results/report.html` — open it in a browser.
+
+To start the YAMCS ground station:
+
+```bash
+bash scripts/start-yamcs.sh     # downloads YAMCS 5.12.6 if not present, starts on port 8090
+```
 
 ---
 
@@ -207,16 +225,51 @@ svf profiles          # list all available
 
 ---
 
+## YAMCS ground station
+
+OpenSVF integrates with [YAMCS 5.12.6](https://yamcs.org) as an optional ground station. The XTCE mission database is generated automatically from the SRDB.
+
+```bash
+bash scripts/start-yamcs.sh     # start YAMCS on port 8090
+python3 scripts/demo_yamcs.py   # run a demo TC/TM exchange
+bash scripts/stop-yamcs.sh      # stop YAMCS
+```
+
+The YAMCS UI is available at `http://localhost:8090` (default credentials: `admin` / `password`).
+
+TC pipeline: YAMCS UI → UDP port 10025 → SVF → obsw_sim
+TM pipeline: obsw_sim → SVF → UDP port 10015 → YAMCS packet viewer
+
+---
+
 ## Developer tools
 
 ```bash
-testosvf        # full test suite (~377 tests)
+testosvf        # full test suite (~341 tests)
 checkosvf       # mypy strict type check
 checkcov        # requirement coverage (REQUIREMENTS.md → traceability.txt)
 checkcons       # SRDB cross-repo consistency (wire protocol, orphan requirements)
-checkcons-full lipofefeyt-openobsw-*.txt   # + C struct field cross-check
-regen-xtce      # regenerate YAMCS XTCE database
+regen-xtce      # regenerate YAMCS XTCE database from SRDB
 ```
+
+---
+
+## Local development (WSL2 + Dev Containers)
+
+```bash
+# Windows (PowerShell admin)
+wsl --install -d Ubuntu-24.04
+winget install -e --id Docker.DockerDesktop --source winget
+winget install -e --id dorssel.usbipd-win --source winget
+
+# WSL2
+git clone https://github.com/lipofefeyt/opensvf ~/workspace/opensvf
+git clone https://github.com/lipofefeyt/openobsw ~/workspace/openobsw
+git clone https://github.com/lipofefeyt/opensvf-kde ~/workspace/opensvf-kde
+code ~/workspace/opensvf   # VS Code detects .devcontainer/ → Reopen in Container
+```
+
+The dev container mounts `openobsw` and `opensvf-kde` as sibling workspaces at `/workspace/`.
 
 ---
 
@@ -239,6 +292,8 @@ src/svf/
 
 mission_mysat1/     Reference mission configuration
 tools/              check_coverage.py, srdb_consistency_check.py, generate_xtce.py
+yamcs/              YAMCS config, XTCE MDB, processor config
+scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 ```
 
 ---
@@ -247,8 +302,8 @@ tools/              check_coverage.py, srdb_consistency_check.py, generate_xtce.
 
 | Project | What it is |
 |---|---|
-| [openobsw](https://github.com/lipofefeyt/openobsw) | C11 flight software: PUS stack, b-dot, ADCS PD, FDIR, ZynqMP + MSP430 targets |
-| [opensvf-kde](https://github.com/lipofefeyt/opensvf-kde) | C++ 6-DOF kinematics and dynamics engine (FMI 3.0 FMU) |
+| [openobsw](https://github.com/lipofefeyt/openobsw) | C11 flight software: PUS stack, b-dot, ADCS PD, FDIR. Runs on MSP430, STM32H750, ZynqMP, x86_64 |
+| [opensvf-kde](https://github.com/lipofefeyt/opensvf-kde) | C++ 6-DOF kinematics and dynamics engine (FMI 2.0 FMU) |
 
 ---
 
@@ -256,14 +311,16 @@ tools/              check_coverage.py, srdb_consistency_check.py, generate_xtce.
 
 | Milestone | Status |
 |---|---|
-| M1–M18 — Core platform, FMI 3.0, DDS sync, PUS stack, equipment models | ✅ Done |
+| M1–M18 — Core platform, FMI, DDS sync, PUS stack, equipment models | ✅ Done |
 | M19 — Spacecraft configuration DSL (YAML zero-Python entry point) | ✅ Done |
 | M20 — Structured test procedure API | ✅ Done |
 | M21 — Mission-level HTML reporting | ✅ Done |
 | M22 — OBSW integration guide | ✅ Done |
 | M23 — Temporal assertions + equipment fault engine | ✅ Done |
 | M24 — ZynqMP SIL (aarch64 QEMU + Renode socket transport) | ✅ Done |
-| M25 — YAMCS ground segment integration | 🔄 In progress |
+| M25 — YAMCS ground segment integration (TM/TC pipeline, XTCE MDB) | ✅ Done |
+| M26 — Dev container + local WSL2 development environment | ✅ Done |
+| M27 — Dual-OBC topology (ZynqMP + MSP430 Renode lockstep) | 🔄 Planned |
 
 ---
 
