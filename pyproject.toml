@@ -72,7 +72,6 @@ disable = [
     "too-many-locals",
     "too-many-branches",
     "too-many-statements",
-    "cyclic-import",
 ]
 
 [tool.pylint.format]
