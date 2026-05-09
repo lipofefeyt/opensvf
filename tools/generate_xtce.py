@@ -6,19 +6,18 @@ Usage:
     python3 tools/generate_xtce.py > yamcs/mdb/opensvf.xml
 
 The generated XTCE contains:
-  - PUS-C TM packet definitions for TM(3,25) HK and TM(17,2)
+  - PUS-C TM packet definitions with proper container inheritance
+  - Restriction criteria so each container only matches its svc/subsvc
   - Parameter definitions from SRDB TM parameters
   - TC definitions for S17/1 and S20/1
 """
 
+from svf.srdb.definitions import Classification
+from svf.srdb.loader import SrdbLoader
 import sys
 from pathlib import Path
 
-# Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from svf.srdb.loader import SrdbLoader
-from svf.srdb.definitions import Classification
 
 
 def load_srdb():
@@ -48,21 +47,29 @@ def generate_xtce(srdb) -> str:
         '      <FloatParameterType name="float32" sizeInBits="32">',
         '        <UnitSet/>',
         '      </FloatParameterType>',
+        '      <IntegerParameterType name="uint8" sizeInBits="8" signed="false">',
+        '        <IntegerDataEncoding sizeInBits="8" encoding="unsigned"/>',
+        '        <UnitSet/>',
+        '      </IntegerParameterType>',
         '      <IntegerParameterType name="uint16" sizeInBits="16" signed="false">',
+        '        <IntegerDataEncoding sizeInBits="16" encoding="unsigned"/>',
         '        <UnitSet/>',
         '      </IntegerParameterType>',
         '    </ParameterTypeSet>',
         '',
         '    <ParameterSet>',
+        '      <!-- PUS-C primary + secondary header fields -->',
+        '      <Parameter name="pus_svc"    parameterTypeRef="uint8"/>',
+        '      <Parameter name="pus_subsvc" parameterTypeRef="uint8"/>',
     ]
 
     # Add all TM parameters from SRDB
     for name in sorted(tm_params):
         param = srdb.get(name)
         safe_name = name.replace(".", "_").replace("-", "_")
-        unit = getattr(param, "unit", "") or ""
         desc = getattr(param, "description", name) or name
-        lines.append(f'      <Parameter name="{safe_name}" parameterTypeRef="float32">')
+        lines.append(
+            f'      <Parameter name="{safe_name}" parameterTypeRef="float32">')
         lines.append(f'        <LongDescription>{desc}</LongDescription>')
         lines.append(f'      </Parameter>')
 
@@ -70,27 +77,111 @@ def generate_xtce(srdb) -> str:
         '    </ParameterSet>',
         '',
         '    <ContainerSet>',
-        '      <!-- PUS-C TM(17,2) Are-You-Alive response -->',
-        '      <SequenceContainer name="TM_17_2">',
-        '        <LongDescription>Are-You-Alive response</LongDescription>',
+        '',
+        '      <!-- Root PUS-C TM packet — matched by all PUS packets -->',
+        '      <!-- PUS-C TM secondary header layout:                  -->',
+        '      <!--   byte 6: PUS version + spare (0x20)               -->',
+        '      <!--   byte 7: service                                   -->',
+        '      <!--   byte 8: subservice                                -->',
+        '      <SequenceContainer name="PUS_Packet" abstract="true">',
+        '        <EntryList>',
+        '          <ParameterRefEntry parameterRef="pus_svc">',
+        '            <LocationInContainerInBits referenceLocation="containerStart">',
+        '              <FixedValue>56</FixedValue>',
+        '            </LocationInContainerInBits>',
+        '          </ParameterRefEntry>',
+        '          <ParameterRefEntry parameterRef="pus_subsvc">',
+        '            <LocationInContainerInBits referenceLocation="containerStart">',
+        '              <FixedValue>64</FixedValue>',
+        '            </LocationInContainerInBits>',
+        '          </ParameterRefEntry>',
+        '        </EntryList>',
+        '      </SequenceContainer>',
+        '',
+        '      <!-- TM(1,1) TC Acceptance Success -->',
+        '      <SequenceContainer name="TM_1_1_Accept">',
+        '        <LongDescription>TC Acceptance Success</LongDescription>',
+        '        <BaseContainer containerRef="PUS_Packet">',
+        '          <RestrictionCriteria>',
+        '            <ComparisonList>',
+        '              <Comparison parameterRef="pus_svc"    value="1" comparisonOperator="=="/>',
+        '              <Comparison parameterRef="pus_subsvc" value="1" comparisonOperator="=="/>',
+        '            </ComparisonList>',
+        '          </RestrictionCriteria>',
+        '        </BaseContainer>',
         '        <EntryList/>',
         '      </SequenceContainer>',
         '',
-        '      <!-- PUS-C TM(3,25) Housekeeping report -->',
-        '      <SequenceContainer name="TM_3_25">',
-        '        <LongDescription>Housekeeping parameter report</LongDescription>',
-        '        <EntryList>',
-    ]
-
-    # Add HK parameters to container
-    hk_params = [p for p in sorted(tm_params) if "dhs" in p or "eps" in p or "aocs" in p]
-    for name in hk_params[:16]:  # YAMCS handles up to 16 in a simple HK packet
-        safe_name = name.replace(".", "_").replace("-", "_")
-        lines.append(f'          <ParameterRefEntry parameterRef="{safe_name}"/>')
-
-    lines += [
-        '        </EntryList>',
+        '      <!-- TM(1,7) TC Completion Success -->',
+        '      <SequenceContainer name="TM_1_7_Complete">',
+        '        <LongDescription>TC Completion Success</LongDescription>',
+        '        <BaseContainer containerRef="PUS_Packet">',
+        '          <RestrictionCriteria>',
+        '            <ComparisonList>',
+        '              <Comparison parameterRef="pus_svc"    value="1" comparisonOperator="=="/>',
+        '              <Comparison parameterRef="pus_subsvc" value="7" comparisonOperator="=="/>',
+        '            </ComparisonList>',
+        '          </RestrictionCriteria>',
+        '        </BaseContainer>',
+        '        <EntryList/>',
         '      </SequenceContainer>',
+        '',
+        '      <!-- TM(3,25) Housekeeping report -->',
+        '      <SequenceContainer name="TM_3_25_HK">',
+        '        <LongDescription>Housekeeping parameter report</LongDescription>',
+        '        <BaseContainer containerRef="PUS_Packet">',
+        '          <RestrictionCriteria>',
+        '            <ComparisonList>',
+        '              <Comparison parameterRef="pus_svc"    value="3"  comparisonOperator="=="/>',
+        '              <Comparison parameterRef="pus_subsvc" value="25" comparisonOperator="=="/>',
+        '            </ComparisonList>',
+        '          </RestrictionCriteria>',
+        '        </BaseContainer>',
+        '        <EntryList/>',
+        '      </SequenceContainer>',
+        '',
+        '      <!-- TM(5,1) Event report — informative -->',
+        '      <SequenceContainer name="TM_5_1_Event">',
+        '        <LongDescription>Event report (informative)</LongDescription>',
+        '        <BaseContainer containerRef="PUS_Packet">',
+        '          <RestrictionCriteria>',
+        '            <ComparisonList>',
+        '              <Comparison parameterRef="pus_svc"    value="5" comparisonOperator="=="/>',
+        '              <Comparison parameterRef="pus_subsvc" value="1" comparisonOperator="=="/>',
+        '            </ComparisonList>',
+        '          </RestrictionCriteria>',
+        '        </BaseContainer>',
+        '        <EntryList/>',
+        '      </SequenceContainer>',
+        '',
+        '      <!-- TM(17,2) Are-You-Alive response -->',
+        '      <SequenceContainer name="TM_17_2_Pong">',
+        '        <LongDescription>Are-You-Alive response</LongDescription>',
+        '        <BaseContainer containerRef="PUS_Packet">',
+        '          <RestrictionCriteria>',
+        '            <ComparisonList>',
+        '              <Comparison parameterRef="pus_svc"    value="17" comparisonOperator="=="/>',
+        '              <Comparison parameterRef="pus_subsvc" value="2"  comparisonOperator="=="/>',
+        '            </ComparisonList>',
+        '          </RestrictionCriteria>',
+        '        </BaseContainer>',
+        '        <EntryList/>',
+        '      </SequenceContainer>',
+        '',
+        '      <!-- TM(20,2) Parameter value report -->',
+        '      <SequenceContainer name="TM_20_2_ParamReport">',
+        '        <LongDescription>Parameter value report</LongDescription>',
+        '        <BaseContainer containerRef="PUS_Packet">',
+        '          <RestrictionCriteria>',
+        '            <ComparisonList>',
+        '              <Comparison parameterRef="pus_svc"    value="20" comparisonOperator="=="/>',
+        '              <Comparison parameterRef="pus_subsvc" value="2"  comparisonOperator="=="/>',
+        '            </ComparisonList>',
+        '          </RestrictionCriteria>',
+        '        </BaseContainer>',
+        '        <EntryList/>',
+        '      </SequenceContainer>',
+        '',
         '    </ContainerSet>',
         '  </TelemetryMetaData>',
         '',
@@ -105,12 +196,17 @@ def generate_xtce(srdb) -> str:
         '    </ArgumentTypeSet>',
         '    <MetaCommandSet>',
         '',
-        '      <!-- TC(17,1) Are-You-Alive -->',
+        '      <!-- TC(17,1) Are-You-Alive ping -->',
+        '      <!-- Binary: 6 primary + 5 secondary = 11 bytes         -->',
+        '      <!-- Primary:   1810 C000 0004                          -->',
+        '      <!-- Secondary: 11 11 01 00 00                          -->',
         '      <MetaCommand name="TC_17_1_AreYouAlive">',
         '        <LongDescription>Send S17 Are-You-Alive ping to OBC</LongDescription>',
         '        <ArgumentList/>',
         '        <CommandContainer name="TC_17_1_AreYouAlive_cc">',
-        '          <EntryList/>',
+        '          <EntryList>',
+        '            <FixedValueEntry binaryValue="1810C00000041111010000" sizeInBits="88"/>',
+        '          </EntryList>',
         '        </CommandContainer>',
         '      </MetaCommand>',
         '',
