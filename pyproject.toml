@@ -63,3 +63,17 @@ log_date_format = "%H:%M:%S"
 python_classes = ["*Suite", "*Tests"]
 testpaths = ["tests"]
 norecursedirs = ["tests/system"]  # was tests/hardware
+
+[tool.pylint.messages_control]
+disable = [
+    "too-many-arguments",
+    "too-many-positional-arguments",
+    "too-many-instance-attributes",
+    "too-many-locals",
+    "too-many-branches",
+    "too-many-statements",
+    "cyclic-import",
+]
+
+[tool.pylint.format]
+max-line-length = 100

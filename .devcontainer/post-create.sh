@@ -46,6 +46,7 @@ echo "[4/4] YAMCS ready"
 
 # ── Run tests ─────────────────────────────────────────────────────────
 source .venv/bin/activate
+source /scripts/activate.sh
 pytest tests/ -q --tb=no 2>&1 | tail -3
 
 echo ""

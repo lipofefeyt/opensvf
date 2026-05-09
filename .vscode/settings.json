@@ -1,0 +1,8 @@
+{
+    "python.defaultInterpreterPath": "/workspaces/opensvf/.venv/bin/python3",
+    "pylint.args": [
+        "--rcfile=/workspaces/opensvf/pyproject.toml"
+    ],
+    "mypy-type-checker.importStrategy": "fromEnvironment",
+    "editor.formatOnSave": false
+}
