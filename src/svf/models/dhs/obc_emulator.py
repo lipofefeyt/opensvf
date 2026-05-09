@@ -29,7 +29,7 @@ import importlib.metadata
 import threading
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 
 from svf.core.abstractions import SyncProtocol
 from svf.stores.command_store import CommandStore
@@ -40,7 +40,8 @@ from svf.pus.tm import PusTmPacket
 
 logger = logging.getLogger(__name__)
 
-SYNC_BYTE       = 0xFF
+SYNC_BYTE = 0xFF
+
 
 def _detect_qemu_prefix(sim_path: Path) -> list[str]:
     """
@@ -83,15 +84,15 @@ def _detect_qemu_prefix(sim_path: Path) -> list[str]:
     return []
 
 
-FRAME_TC        = 0x01
-FRAME_SENSOR    = 0x02
-FRAME_ACTUATOR  = 0x03
-FRAME_TM        = 0x04
+FRAME_TC = 0x01
+FRAME_SENSOR = 0x02
+FRAME_ACTUATOR = 0x03
+FRAME_TM = 0x04
 
 # obsw_sensor_frame_t: 3f+B + 4f+B + 3f+B + f = 47 bytes (little-endian, packed)
 # obsw_actuator_frame_t: 3f + 3f + B + f = 29 bytes (little-endian, packed)
-_SENSOR_FMT   = "<3fB4fB3fBf"
-_SENSOR_LEN   = struct.calcsize(_SENSOR_FMT)
+_SENSOR_FMT = "<3fB4fB3fBf"
+_SENSOR_LEN = struct.calcsize(_SENSOR_FMT)
 _ACTUATOR_FMT = "<6fBf"
 _ACTUATOR_LEN = struct.calcsize(_ACTUATOR_FMT)
 
@@ -134,22 +135,22 @@ class OBCEmulatorAdapter(Equipment):
         socket_addr: Optional[tuple[str, int]] = None,
         apid: int = 0x010,
     ) -> None:
-        self._sim_path     = Path(sim_path) if sim_path is not None else None
-        self._qemu_prefix  = qemu_prefix or []
-        self._socket_addr  = socket_addr
+        self._sim_path = Path(sim_path) if sim_path is not None else None
+        self._qemu_prefix = qemu_prefix or []
+        self._socket_addr = socket_addr
         self._sock: Optional[socket.socket] = None
         self._sync_timeout = sync_timeout
-        self._apid         = apid
+        self._apid = apid
 
         self._obt:    float = 0.0
-        self._mode:   int   = MODE_SAFE
-        self._tm_seq: int   = 0
-        self._yamcs_bridge: object = None  # set externally
+        self._mode:   int = MODE_SAFE
+        self._tm_seq: int = 0
+        self._yamcs_bridge: "Optional[Any]" = None  # set externally
 
         self._proc:   Optional[subprocess.Popen[bytes]] = None
-        self._reader: Optional[threading.Thread]        = None
-        self._rx_q:   queue.Queue[Optional[bytes]]      = queue.Queue()
-        self._alive   = False
+        self._reader: Optional[threading.Thread] = None
+        self._rx_q:   queue.Queue[Optional[bytes]] = queue.Queue()
+        self._alive = False
 
         super().__init__(
             equipment_id="obc",
@@ -170,12 +171,15 @@ class OBCEmulatorAdapter(Equipment):
             PortDefinition("dhs.obc.watchdog_kick",   PortDirection.IN),
             PortDefinition("dhs.obc.memory_dump_cmd", PortDirection.IN),
             PortDefinition("dhs.obc.mode",            PortDirection.OUT),
-            PortDefinition("dhs.obc.obt",             PortDirection.OUT, unit="s"),
+            PortDefinition("dhs.obc.obt",
+                           PortDirection.OUT, unit="s"),
             PortDefinition("dhs.obc.watchdog_status", PortDirection.OUT),
-            PortDefinition("dhs.obc.memory_used_pct", PortDirection.OUT, unit="%"),
+            PortDefinition("dhs.obc.memory_used_pct",
+                           PortDirection.OUT, unit="%"),
             PortDefinition("dhs.obc.health",          PortDirection.OUT),
             PortDefinition("dhs.obc.reset_count",     PortDirection.OUT),
-            PortDefinition("dhs.obc.cpu_load",        PortDirection.OUT, unit="%"),
+            PortDefinition("dhs.obc.cpu_load",
+                           PortDirection.OUT, unit="%"),
             PortDefinition("obc.tm_output",           PortDirection.OUT),
         ]
 
@@ -289,7 +293,8 @@ class OBCEmulatorAdapter(Equipment):
         # Read startup lines synchronously — version handshake
         import time as _time
         _time.sleep(0.1)
-        import select as _select, os as _os
+        import select as _select
+        import os as _os
         if self._proc.stderr:
             for _ in range(5):
                 ready = _select.select([self._proc.stderr], [], [], 0.2)
@@ -432,10 +437,10 @@ class OBCEmulatorAdapter(Equipment):
 
     def _build_s8_recover_nominal(self) -> bytes:
         user_data = bytes([0x00, 0x01, 0x00])
-        data_len  = 3 + len(user_data) - 1
+        data_len = 3 + len(user_data) - 1
         hdr = struct.pack(">HHHBBB",
-            0x1801, 0xC000, data_len, 0x20, 8, 1,
-        )
+                          0x1801, 0xC000, data_len, 0x20, 8, 1,
+                          )
         return hdr + user_data
 
     def _write_typed_frame(self, frame_type: int, frame: bytes) -> None:
@@ -592,7 +597,7 @@ class OBCEmulatorAdapter(Equipment):
     def _parse_tm(self, pkt: bytes, t: float) -> None:
         if len(pkt) < 10:
             return
-        svc    = pkt[7]
+        svc = pkt[7]
         subsvc = pkt[8]
         self._tm_seq += 1
         if self._store is not None:
@@ -618,13 +623,15 @@ class OBCEmulatorAdapter(Equipment):
     def _on_s1(self, subsvc: int, pkt: bytes, t: float) -> None:
         labels = {1: "accepted", 2: "accept_failed",
                   7: "completed", 8: "completion_failed"}
-        logger.debug(f"[obc-emu] TM(1,{subsvc}) {labels.get(subsvc,'?')} t={t:.3f}")
+        logger.debug(
+            f"[obc-emu] TM(1,{subsvc}) {labels.get(subsvc, '?')} t={t:.3f}")
 
     def _on_s5(self, subsvc: int, pkt: bytes, t: float) -> None:
         if len(pkt) < 19:
             return
         event_id = struct.unpack(">H", pkt[17:19])[0]
-        logger.info(f"[obc-emu] TM(5,{subsvc}) event=0x{event_id:04X} t={t:.3f}")
+        logger.info(
+            f"[obc-emu] TM(5,{subsvc}) event=0x{event_id:04X} t={t:.3f}")
         if event_id == 0x0002:
             self._mode = MODE_SAFE
         elif event_id == 0x0003:
