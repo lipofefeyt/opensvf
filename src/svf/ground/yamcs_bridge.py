@@ -21,7 +21,6 @@ from __future__ import annotations
 import logging
 import queue
 import socket
-import struct
 import threading
 from typing import Optional
 
@@ -43,7 +42,7 @@ class YamcsBridge:
 
     def __init__(
         self,
-        store: "ParameterStore",
+        store: ParameterStore,
         tm_port: int = TM_PORT,
         tc_port: int = TC_PORT,
     ) -> None:
@@ -55,7 +54,7 @@ class YamcsBridge:
         self._tm_server: Optional[socket.socket] = None
         self._tc_server: Optional[socket.socket] = None
 
-        self._tc_queue: "queue.Queue[bytes]" = queue.Queue()
+        self._tc_queue: queue.Queue[bytes] = queue.Queue()
         self._alive = False
 
     def start(self) -> None:
@@ -65,21 +64,23 @@ class YamcsBridge:
         # TM - TCP server, YAMCS connects and holds the connection
         self._tm_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._tm_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._tm_server.bind(("0.0.0.0", self._tm_port))
+        self._tm_server.bind(("127.0.0.1", self._tm_port))
         self._tm_server.listen(1)
         self._tm_server.settimeout(10.0)
-        logger.info(f"[yamcs] TM server listening on TCP port {self._tm_port}")
+        logger.info("[yamcs] TM server listening on TCP port %d",
+                    self._tm_port)
 
         # TC - UDP server, YAMCS fires datagrams (no connection state)
         self._tc_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._tc_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._tc_server.bind(("0.0.0.0", self._tc_port))
-        logger.info(f"[yamcs] TC server listening on UDP port {self._tc_port}")
+        logger.info("[yamcs] TC server listening on UDP port %d",
+                    self._tc_port)
 
         # Wait for YAMCS TM connection
         try:
             self._tm_conn, addr = self._tm_server.accept()
-            logger.info(f"[yamcs] TM link connected from {addr}")
+            logger.info("[yamcs] TM link connected from %s", addr)
         except socket.timeout:
             logger.warning(
                 "[yamcs] TM link: no YAMCS connection within timeout")
@@ -98,7 +99,7 @@ class YamcsBridge:
             if sock:
                 try:
                     sock.close()
-                except Exception:
+                except Exception:  # pylint: disable=broad-exception-caught
                     pass
         logger.info("[yamcs] Bridge stopped")
 
@@ -108,8 +109,8 @@ class YamcsBridge:
             return
         try:
             self._tm_conn.sendall(packet)
-        except Exception as e:
-            logger.warning(f"[yamcs] TM send failed: {e}")
+        except Exception:  # pylint: disable=broad-exception-caught
+            logger.warning("[yamcs] TM send failed")
             self._tm_conn = None
 
     def get_tc(self) -> Optional[bytes]:
@@ -121,13 +122,9 @@ class YamcsBridge:
 
     def _read_tc_udp_loop(self) -> None:
         """Background thread - reads TC datagrams from YAMCS via UDP."""
+        if self._tc_server is None:
+            return
         logger.info("[yamcs] TC UDP reader started")
-        if self._tc_server is None:
-            return
-        if self._tc_server is None:
-            return
-        if self._tc_server is None:
-            return
         self._tc_server.settimeout(1.0)
         while self._alive:
             try:
@@ -137,13 +134,12 @@ class YamcsBridge:
                 svc = data[7] if len(data) > 7 else "?"
                 sub = data[8] if len(data) > 8 else "?"
                 logger.info(
-                    f"[yamcs] TC received from {addr} "
-                    f"svc={svc} subsvc={sub} "
-                    f"({len(data)} bytes): {data.hex()}"
+                    "[yamcs] TC received from %s svc=%s subsvc=%s (%d bytes): %s",
+                    addr, svc, sub, len(data), data.hex(),
                 )
                 self._tc_queue.put(data)
             except socket.timeout:
                 continue
-            except Exception as e:
+            except Exception:  # pylint: disable=broad-exception-caught
                 if self._alive:
-                    logger.debug(f"[yamcs] TC UDP reader: {e}")
+                    logger.debug("[yamcs] TC UDP reader error")
