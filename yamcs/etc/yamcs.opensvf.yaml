@@ -3,6 +3,8 @@ services:
     args:
       name: realtime
       type: realtime
+  - class: org.yamcs.archive.XtceTmRecorder
+  - class: org.yamcs.archive.CommandHistoryRecorder
 
 dataLinks:
   - name: tm-in
@@ -10,16 +12,19 @@ dataLinks:
     host: 127.0.0.1
     port: 10015
     stream: tm_realtime
+    packetPreprocessorClassName: org.yamcs.pus.PusPacketPreprocessor
+    packetPreprocessorArgs:
+      useLocalGenerationTime: true
 
   - name: tc-out
-    class: org.yamcs.tctm.TcpTcDataLink
+    class: org.yamcs.tctm.UdpTcDataLink
     host: 127.0.0.1
     port: 10025
     stream: tc_realtime
 
 mdb:
   - type: xtce
-    spec: "/home/user/opensvf/yamcs/mdb/opensvf.xml"
+    spec: "/workspaces/opensvf/yamcs/mdb/opensvf.xml"
 
 streamConfig:
   tm:

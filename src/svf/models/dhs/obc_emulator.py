@@ -144,6 +144,7 @@ class OBCEmulatorAdapter(Equipment):
         self._obt:    float = 0.0
         self._mode:   int   = MODE_SAFE
         self._tm_seq: int   = 0
+        self._yamcs_bridge: object = None  # set externally
 
         self._proc:   Optional[subprocess.Popen[bytes]] = None
         self._reader: Optional[threading.Thread]        = None
@@ -601,6 +602,12 @@ class OBCEmulatorAdapter(Equipment):
                 t=t,
                 model_id=self.equipment_id,
             )
+        # Forward raw TM to YAMCS if bridge is attached
+        if self._yamcs_bridge is not None:
+            try:
+                self._yamcs_bridge.send_tm(pkt)
+            except Exception:
+                pass
         if svc == 1:
             self._on_s1(subsvc, pkt, t)
         elif svc == 5:
