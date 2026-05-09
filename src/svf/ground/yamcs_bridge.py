@@ -122,6 +122,12 @@ class YamcsBridge:
     def _read_tc_udp_loop(self) -> None:
         """Background thread - reads TC datagrams from YAMCS via UDP."""
         logger.info("[yamcs] TC UDP reader started")
+        if self._tc_server is None:
+            return
+        if self._tc_server is None:
+            return
+        if self._tc_server is None:
+            return
         self._tc_server.settimeout(1.0)
         while self._alive:
             try:

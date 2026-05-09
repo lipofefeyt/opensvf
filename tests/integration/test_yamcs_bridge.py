@@ -1,23 +1,21 @@
 """
 YAMCS Bridge Integration Tests
-
-Tests the SVF↔YAMCS TCP bridge without requiring a real YAMCS server.
-Simulates YAMCS as a TCP client connecting to SVF's TM/TC ports.
-
+Tests the SVF<->YAMCS bridge without requiring a real YAMCS server.
+TM: simulates YAMCS as a TCP client connecting to SVF's TM port.
+TC: simulates YAMCS sending UDP datagrams to SVF's TC port.
 Implements: SVF-DEV-060
 """
 from __future__ import annotations
 
 import socket
-import struct
 import threading
 import time
 
 import pytest
 
-from svf.stores.parameter_store import ParameterStore
 from svf.ground.yamcs_bridge import YamcsBridge
-from svf.pus.tm import PusTmPacket, PusTmBuilder
+from svf.pus.tm import PusTmBuilder, PusTmPacket
+from svf.stores.parameter_store import ParameterStore
 
 
 def _build_minimal_tm(service: int, subservice: int) -> bytes:
@@ -37,40 +35,35 @@ def _make_bridge(tm_port: int, tc_port: int) -> YamcsBridge:
 
 
 @pytest.mark.requirement("SVF-DEV-060")
-def test_bridge_accepts_yamcs_connections() -> None:
-    """Bridge accepts TCP connections on TM and TC ports."""
+def test_bridge_accepts_yamcs_tm_connection() -> None:
+    """Bridge accepts TCP connection on TM port."""
     bridge = _make_bridge(10115, 10125)
     t = threading.Thread(target=bridge.start, daemon=True)
     t.start()
     time.sleep(0.2)
 
-    tm_sock = socket.socket()
-    tc_sock = socket.socket()
+    tm_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         tm_sock.connect(("127.0.0.1", 10115))
-        tc_sock.connect(("127.0.0.1", 10125))
-        t.join(timeout=2)
-        # Both connections accepted — no exception means pass
+        time.sleep(0.1)
+        # Connection accepted — no exception means pass
     finally:
         tm_sock.close()
-        tc_sock.close()
         bridge.stop()
 
 
 @pytest.mark.requirement("SVF-DEV-060")
 def test_bridge_sends_tm_to_yamcs() -> None:
-    """TM packets sent via bridge are received by YAMCS client."""
+    """TM packets sent via bridge are received by YAMCS TCP client."""
     bridge = _make_bridge(10215, 10225)
     t = threading.Thread(target=bridge.start, daemon=True)
     t.start()
     time.sleep(0.2)
 
-    tm_sock = socket.socket()
-    tc_sock = socket.socket()
+    tm_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         tm_sock.connect(("127.0.0.1", 10215))
-        tc_sock.connect(("127.0.0.1", 10225))
-        t.join(timeout=2)
+        time.sleep(0.1)
 
         pkt = _build_minimal_tm(17, 2)
         bridge.send_tm(pkt)
@@ -80,29 +73,28 @@ def test_bridge_sends_tm_to_yamcs() -> None:
         assert received == pkt
     finally:
         tm_sock.close()
-        tc_sock.close()
         bridge.stop()
 
 
 @pytest.mark.requirement("SVF-DEV-060")
 def test_bridge_receives_tc_from_yamcs() -> None:
-    """TC packets sent by YAMCS operator are queued in bridge."""
+    """TC packets sent by YAMCS via UDP are queued in bridge."""
     bridge = _make_bridge(10315, 10325)
     t = threading.Thread(target=bridge.start, daemon=True)
     t.start()
     time.sleep(0.2)
 
-    tm_sock = socket.socket()
-    tc_sock = socket.socket()
+    # Connect TM so bridge.start() unblocks
+    tm_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # Send TC via UDP (simulating YAMCS UdpTcDataLink)
+    tc_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         tm_sock.connect(("127.0.0.1", 10315))
-        tc_sock.connect(("127.0.0.1", 10325))
-        t.join(timeout=2)
-
-        # Build minimal PUS-C TC(17,1)
-        raw_tc = bytes.fromhex("1801c000000320110100")
-        tc_sock.sendall(raw_tc)
         time.sleep(0.1)
+
+        raw_tc = bytes.fromhex("1810c00000041111010000")
+        tc_sock.sendto(raw_tc, ("127.0.0.1", 10325))
+        time.sleep(0.2)
 
         received = bridge.get_tc()
         assert received == raw_tc
