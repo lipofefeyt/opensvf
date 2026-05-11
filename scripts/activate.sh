@@ -1,57 +1,40 @@
 #!/usr/bin/env bash
-# OpenSVF fast activation — runs every terminal
+# OpenSVF fast activation — source every terminal
 # Usage: source scripts/activate.sh (or auto-sourced from .bashrc)
+# Works in: WSL2 native, dev container, GitHub Codespaces
 
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)
 
-echo "[1/4] Activating Venv"
-
-# Venv
+# ── Python venv ───────────────────────────────────────────────────────
 [ -f "$REPO/.venv/bin/activate" ] && source "$REPO/.venv/bin/activate"
 
-echo "[2/4] Adding Nix Profile"
-
-# Nix profile (cross compiler)
-[ -d "$HOME/.nix-profile/bin" ] && export PATH="$HOME/.nix-profile/bin:$PATH"
-
-echo "[3/4] Adding Java environment"
-
-# Java
+# ── Java (for YAMCS) ─────────────────────────────────────────────────
 if ! command -v java &>/dev/null; then
-    JAVA=$(find /nix /usr /opt -name "java" -type f 2>/dev/null | head -1)
-    [ -n "$JAVA" ] && export JAVA_HOME=$(dirname $(dirname "$JAVA")) && \
+    JAVA=$(find /usr /opt /home -name "java" -type f 2>/dev/null | head -1)
+    if [ -n "$JAVA" ]; then
+        export JAVA_HOME=$(dirname "$(dirname "$JAVA")")
         export PATH="$JAVA_HOME/bin:$PATH"
+    fi
 fi
 
-echo "[4/4] Adding aarch64 glibc for QEMU"
+# ── aarch64-none-elf toolchain ────────────────────────────────────────
+[ -d /opt/arm-gnu-toolchain/bin ] && export PATH="/opt/arm-gnu-toolchain/bin:$PATH"
 
-# aarch64 glibc for QEMU
-export AARCH64_GLIBC=$(find /nix/store -name "ld-linux-aarch64.so.1" \
-    2>/dev/null | head -1 | sed 's|/lib/ld-linux-aarch64.so.1||')
-
-# Aliases — test and quality
+# ── Test and quality ─────────────────────────────────────────────────
 alias testosvf='pytest tests/ --junitxml=results/junit.xml -v'
 alias checkosvf='mypy src/ --config-file pyproject.toml'
-alias checkcov='python3 tools/check_coverage.py'
-alias checkcons='python3 tools/srdb_consistency_check.py'
+alias checkcov='python3 $REPO/tools/check_coverage.py'
+alias checkcons='python3 $REPO/tools/srdb_consistency_check.py'
+alias checkcons-full='python3 $REPO/tools/srdb_consistency_check.py --obsw'
 
-# checkcons with cross-repo C struct check (pass gitingest snapshot)
-# Usage: checkcons-full lipofefeyt-openobsw-*.txt
-alias checkcons-full='python3 tools/srdb_consistency_check.py --obsw'
-
-# Aliases — SVF CLI
-alias svf-campaign='svf run'
-alias svf-campaign-all='for f in $REPO/campaigns/*.yaml; do svf run "$f"; done'
-
-# Aliases — YAMCS
+# ── YAMCS ─────────────────────────────────────────────────────────────
 alias yamcs-start='bash $REPO/scripts/start-yamcs.sh'
 alias yamcs-stop='pkill -f yamcsd 2>/dev/null || true'
-alias yamcs-log-follow='tail -f /tmp/yamcs.log'
+alias yamcs-log='tail -f /tmp/yamcs.log'
 alias regen-xtce='python3 $REPO/tools/generate_xtce.py > $REPO/yamcs/mdb/opensvf.xml'
 
-# Aliases — demo
-alias svf-demo-fg='cd $REPO && .venv/bin/python3 scripts/demo_yamcs.py'
-alias svf-demo='bash $REPO/scripts/demo.sh'
+# ── Demo ──────────────────────────────────────────────────────────────
+alias svf-demo='python3 $REPO/scripts/demo_yamcs.py'
 
-[ -n "$AARCH64_GLIBC" ] && \
-    alias omksim-aarch64='qemu-aarch64 -L $AARCH64_GLIBC $REPO/obsw_sim_aarch64'
+echo "[opensvf] activated — repo: $REPO"
+echo "[opensvf] aliases: testosvf checkosvf checkcov checkcons yamcs-start svf-demo"
