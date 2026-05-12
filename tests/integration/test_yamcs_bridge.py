@@ -35,6 +35,7 @@ def _make_bridge(tm_port: int, tc_port: int) -> YamcsBridge:
 
 
 @pytest.mark.requirement("SVF-DEV-060")
+@pytest.mark.requirement("SVF-DEV-133")
 def test_bridge_accepts_yamcs_tm_connection() -> None:
     """Bridge accepts TCP connection on TM port."""
     bridge = _make_bridge(10115, 10125)
@@ -53,6 +54,7 @@ def test_bridge_accepts_yamcs_tm_connection() -> None:
 
 
 @pytest.mark.requirement("SVF-DEV-060")
+@pytest.mark.requirement("SVF-DEV-134")
 def test_bridge_sends_tm_to_yamcs() -> None:
     """TM packets sent via bridge are received by YAMCS TCP client."""
     bridge = _make_bridge(10215, 10225)
@@ -77,6 +79,7 @@ def test_bridge_sends_tm_to_yamcs() -> None:
 
 
 @pytest.mark.requirement("SVF-DEV-060")
+@pytest.mark.requirement("SVF-DEV-135")
 def test_bridge_receives_tc_from_yamcs() -> None:
     """TC packets sent by YAMCS via UDP are queued in bridge."""
     bridge = _make_bridge(10315, 10325)
@@ -105,6 +108,7 @@ def test_bridge_receives_tc_from_yamcs() -> None:
 
 
 @pytest.mark.requirement("SVF-DEV-060")
+@pytest.mark.requirement("SVF-DEV-135")
 def test_bridge_get_tc_returns_none_when_empty() -> None:
     """get_tc() returns None when no TC queued."""
     store = ParameterStore()
@@ -113,6 +117,7 @@ def test_bridge_get_tc_returns_none_when_empty() -> None:
 
 
 @pytest.mark.requirement("SVF-DEV-060")
+@pytest.mark.requirement("SVF-DEV-133")
 def test_bridge_stop_is_idempotent() -> None:
     """stop() can be called multiple times safely."""
     store = ParameterStore()

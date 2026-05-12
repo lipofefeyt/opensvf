@@ -14,6 +14,9 @@ from pathlib import Path
 # Requirements that are BASELINED/IMPLEMENTED but verified by process/CI, not code.
 KNOWN_GAPS: dict[str, str] = {
     "SVF-DEV-060": "Verified by validate_fmpy.py script",
+    "SVF-DEV-136": "Verified by generate_xtce.py tool — XTCE output inspected manually",
+    "SVF-DEV-137": "Verified by start-yamcs.sh/stop-yamcs.sh scripts in CI",
+    "SVF-DEV-138": "Verified by yamcs.opensvf.yaml config — PusPacketPreprocessor with useLocalGenerationTime=true",
     "SVF-DEV-070": "Verified by JUnit XML presence in results/",
     "SVF-DEV-072": "Verified by traceability.txt generation",
     "SVF-DEV-080": "Verified by pyproject.toml presence",

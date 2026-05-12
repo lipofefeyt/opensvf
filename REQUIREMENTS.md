@@ -590,6 +590,25 @@ stuck (fixed value), noise (Gaussian), bias (constant offset), scale
 optional duration after which they expire automatically. Fault injection
 shall be deterministic when seeded.
 
+**SVF-DEV-133** `[GND]` `IMPLEMENTED`
+The platform shall provide a YamcsBridge that connects a running SVF simulation to a YAMCS ground station instance. The bridge shall expose a TCP server on port 10015 for TM downlink and a UDP server on port 10025 for TC uplink.
+
+**SVF-DEV-134** `[GND]` `IMPLEMENTED`
+The YamcsBridge shall forward raw PUS TM packets from the OBC emulator to YAMCS in real time over the TM TCP connection.
+
+**SVF-DEV-135** `[GND]` `IMPLEMENTED`
+The YamcsBridge shall receive PUS TC packets from YAMCS via UDP and queue them for delivery to the OBC emulator on the next simulation tick.
+
+**SVF-DEV-136** `[GND]` `IMPLEMENTED`
+The platform shall provide a generate_xtce.py tool that auto-generates an XTCE mission database from the SRDB. The generated XTCE shall define a PUS_Packet abstract base container with RestrictionCriteria on all child containers so each TM service/subservice is correctly identified in the YAMCS packet viewer.
+
+**SVF-DEV-137** `[GND]` `IMPLEMENTED`
+The platform shall provide start-yamcs.sh and stop-yamcs.sh scripts that download YAMCS 5.12.6, write the instance configuration, and start/stop the YAMCS server on port 8090.
+
+**SVF-DEV-138** `[GND]` `IMPLEMENTED`
+The YAMCS instance configuration shall use PusPacketPreprocessor with useLocalGenerationTime=true so TM packets are timestamped with reception time rather than the PUS secondary header time field.
+
+
 **GAP-014** `[SYS]` `IMPLEMENTED`
 The platform shall provide a `svf` command-line entrypoint (registered
 as a console_scripts entry point in pyproject.toml) with the following
@@ -778,4 +797,10 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-130   | SYS  | IMPLEMENTED | M16 | test_load_hardware_profile       |
 | SVF-DEV-131   | ORC  | IMPLEMENTED | M23 | test_compliant_when_no_violations |
 | SVF-DEV-132   | EQP  | IMPLEMENTED | M23 | test_stuck_fault_returns_fixed_value |
+| SVF-DEV-133   | GND  | IMPLEMENTED | M25 | test_bridge_accepts_yamcs_tm_connection |
+| SVF-DEV-134   | GND  | IMPLEMENTED | M25 | test_bridge_sends_tm_to_yamcs |
+| SVF-DEV-135   | GND  | IMPLEMENTED | M25 | test_bridge_receives_tc_from_yamcs |
+| SVF-DEV-136   | GND  | IMPLEMENTED | M25 | test_xtce_generation |
+| SVF-DEV-137   | GND  | IMPLEMENTED | M25 | test_yamcs_start_stop |
+| SVF-DEV-138   | GND  | IMPLEMENTED | M25 | test_bridge_receives_tc_from_yamcs |
 | GAP-014       | SYS  | IMPLEMENTED | M19 | test_check_valid_config_returns_zero |
