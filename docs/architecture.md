@@ -194,15 +194,16 @@ The `.fmu` files are binary data committed at `models/fmu/`. The Python wrappers
 
 ## 7. Hardware Profile System
 
-Hardware profiles are YAML files that override equipment physics constants. They live in `srdb/hardware/` inside opensvf and are bundled — no extra packages needed.
+Hardware profiles are YAML files that override equipment physics constants. Bundled profiles live in `mission_mysat1/hardware_profiles/` — no extra packages needed.
 
 ```
-srdb/hardware/                        bundled profiles (opensvf)
+mission_mysat1/hardware_profiles/     bundled profiles
 ├── mag_default.yaml          Generic MAG (1e-7 T noise)
 ├── gyro_default.yaml         Generic GYRO (ARW 1e-4 rad/s/sqrthz)
 ├── mtq_default.yaml          Generic MTQ (10 Am^2)
 ├── rw_default.yaml           Generic RW (6000 rpm, 0.2 Nm)
 ├── rw_sinclair_rw003.yaml    Sinclair RW-0.03 (5000 rpm, 30 mNm)
+├── str_default.yaml          Generic ST (30° sun exclusion, 10s acq)
 ├── thr_default.yaml          Cold gas (1 N, Isp=70s)
 ├── thr_moog_monarc_1.yaml    Hydrazine (1 N, Isp=220s)
 ├── gps_default.yaml          Generic GPS (5 m noise)
@@ -210,10 +211,10 @@ srdb/hardware/                        bundled profiles (opensvf)
 └── thermal_default.yaml      3-node (panels + internal)
 ```
 
-Profile search order in `svf.hardware_profile.load_hardware_profile()`:
+Profile search order in `svf.config.hardware_profile.load_hardware_profile()`:
 
 1. Explicit `hardware_dir` argument (if provided)
-2. `srdb/hardware/` in opensvf (bundled, always available)
+2. Bundled `mission_mysat1/hardware_profiles/` in opensvf (always available)
 3. `obsw-srdb` Python package (if installed)
 
 **Note:** `srdb/data/hardware/` in the openobsw repository contains the same profile data used to generate the OBSW SRDB C header — this is a separate concern from SVF.

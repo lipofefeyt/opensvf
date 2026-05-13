@@ -6,8 +6,8 @@ sun blinding and acquisition time.
 Physics:
 - Internal attitude propagator: constant-rate rotation
 - Measurement noise: white noise + bias on quaternion components
-- Sun blinding: output invalid when sun_angle < SUN_EXCLUSION_DEG
-- Acquisition: ACQUISITION_TIME_S from cold start before valid output
+- Sun blinding: output invalid when sun_angle < sun_exclusion_deg
+- Acquisition: acquisition_time_s from cold start before valid output
 - Temperature: rises under operation, affects noise level
 
 Interface: SpaceWire (primary), MIL1553_RT (secondary)
@@ -30,23 +30,6 @@ from svf.stores.parameter_store import ParameterStore
 from svf.stores.command_store import CommandStore
 
 logger = logging.getLogger(__name__)
-
-# Sun exclusion angle — below this the ST is blinded
-SUN_EXCLUSION_DEG   = 30.0   # degrees — hard exclusion cone
-SUN_DEGRADED_DEG    = 45.0   # degrees — accuracy degradation begins
-
-# Acquisition time from cold start
-ACQUISITION_TIME_S  = 10.0
-
-# Noise parameters
-BASE_NOISE_STD      = 0.0001   # quaternion component std dev (nominal)
-TEMP_NOISE_COEFF    = 0.00001  # additional noise per degC above nominal
-
-# Temperature model
-AMBIENT_TEMP_C      = 20.0
-NOMINAL_TEMP_C      = 35.0    # operating temperature
-TEMP_RISE_RATE      = 0.1     # degC/s towards operating temp
-COOLING_RATE        = 0.05    # degC/s towards ambient when off
 
 # ST modes
 MODE_OFF       = 0
@@ -85,21 +68,53 @@ def make_star_tracker(
     sync_protocol: SyncProtocol,
     store: ParameterStore,
     command_store: Optional[CommandStore] = None,
+    equipment_id: str = "str1",
     initial_quaternion: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0),
     body_rate_rad_s: tuple[float, float, float] = (0.0, 0.001, 0.0),
     seed: Optional[int] = None,
+    hardware_profile: Optional[str] = None,
+    hardware_dir: Optional[str] = None,
 ) -> NativeEquipment:
     """
     Create a StarTracker NativeEquipment.
 
     Args:
+        equipment_id:       Instance name (e.g. 'str1', 'str2'). Port names
+                            use the form 'aocs.<equipment_id>.<signal>'.
         initial_quaternion: Starting attitude (w, x, y, z)
         body_rate_rad_s:    Constant body rate for propagation (rad/s)
         seed:               Random seed for reproducible noise
+        hardware_profile:   Profile name (e.g. 'str_redwire_ct633').
+                            Overrides built-in defaults when provided.
+        hardware_dir:       Directory to search for profile YAML files.
     """
-    rng = random.Random(seed)
+    # Physics constants — per-instance locals, overridden by hardware profile
+    sun_exclusion_deg  = 30.0
+    sun_degraded_deg   = 45.0
+    acquisition_time_s = 10.0
+    base_noise_std     = 0.0001
+    temp_noise_coeff   = 0.00001
+    ambient_temp_c     = 20.0
+    nominal_temp_c     = 35.0
+    temp_rise_rate     = 0.1
+    cooling_rate       = 0.05
 
-    # Internal state — captured in closure
+    if hardware_profile is not None:
+        from svf.config.hardware_profile import load_hardware_profile
+        p = load_hardware_profile(hardware_profile, hardware_dir)
+        sun_exclusion_deg  = p.get("sun_exclusion_deg",  sun_exclusion_deg)
+        sun_degraded_deg   = p.get("sun_degraded_deg",   sun_degraded_deg)
+        acquisition_time_s = p.get("acquisition_time_s", acquisition_time_s)
+        base_noise_std     = p.get("base_noise_std",     base_noise_std)
+        temp_noise_coeff   = p.get("temp_noise_coeff",   temp_noise_coeff)
+        ambient_temp_c     = p.get("temp_ambient_degc",  ambient_temp_c)
+        nominal_temp_c     = p.get("temp_nominal_degc",  nominal_temp_c)
+        temp_rise_rate     = p.get("temp_rise_rate",     temp_rise_rate)
+        cooling_rate       = p.get("cooling_rate",       cooling_rate)
+
+    rng = random.Random(seed)
+    _pfx = f"aocs.{equipment_id}"
+
     state: dict[str, Any] = {
         "q_w": initial_quaternion[0],
         "q_x": initial_quaternion[1],
@@ -108,39 +123,37 @@ def make_star_tracker(
         "rate": body_rate_rad_s,
         "mode": MODE_OFF,
         "acq_elapsed": 0.0,
-        "temperature": AMBIENT_TEMP_C,
+        "temperature": ambient_temp_c,
         "powered": False,
     }
 
     def _st_step(eq: NativeEquipment, t: float, dt: float) -> None:
-        power_enable = eq.read_port("aocs.str1.power_enable")
-        sun_angle    = eq.read_port("aocs.str1.sun_angle")
+        power_enable = eq.read_port(f"{_pfx}.power_enable")
+        sun_angle    = eq.read_port(f"{_pfx}.sun_angle")
 
         powered = power_enable > 0.5
 
-        # Power state transitions
         if powered and not state["powered"]:
             state["mode"] = MODE_ACQUIRING
             state["acq_elapsed"] = 0.0
-            logger.info(f"[str1] Powered on at t={t:.1f}s — acquiring")
+            logger.info("[%s] Powered on at t=%.1fs — acquiring", equipment_id, t)
         elif not powered and state["powered"]:
             state["mode"] = MODE_OFF
             state["acq_elapsed"] = 0.0
-            logger.info(f"[str1] Powered off at t={t:.1f}s")
+            logger.info("[%s] Powered off at t=%.1fs", equipment_id, t)
         state["powered"] = powered
 
         # Temperature model
         if powered:
-            state["temperature"] += TEMP_RISE_RATE * (
-                NOMINAL_TEMP_C - state["temperature"]
+            state["temperature"] += temp_rise_rate * (
+                nominal_temp_c - state["temperature"]
             ) * dt
         else:
-            state["temperature"] -= COOLING_RATE * (
-                state["temperature"] - AMBIENT_TEMP_C
+            state["temperature"] -= cooling_rate * (
+                state["temperature"] - ambient_temp_c
             ) * dt
-        state["temperature"] = max(AMBIENT_TEMP_C, state["temperature"])
+        state["temperature"] = max(ambient_temp_c, state["temperature"])
 
-        # Propagate attitude
         state["q_w"], state["q_x"], state["q_y"], state["q_z"] = \
             _propagate_quaternion(
                 state["q_w"], state["q_x"],
@@ -149,60 +162,50 @@ def make_star_tracker(
                 dt,
             )
 
-        # Variable acquisition time — faster if spacecraft is slow
-        # Safe read — default 0.0 if gyro not connected
+        # Variable acquisition time — faster when spacecraft is slow
         gx = eq._port_values.get("aocs.gyro.rate_x", 0.0)
         gy = eq._port_values.get("aocs.gyro.rate_y", 0.0)
         gz = eq._port_values.get("aocs.gyro.rate_z", 0.0)
         gyro_rate = math.sqrt(gx**2 + gy**2 + gz**2)
-        # At 0 rate: nominal ACQ_TIME. At >0.5 rad/s: up to 3x longer
         rate_factor = 1.0 + min(2.0, gyro_rate / 0.5)
-        effective_acq_time = ACQUISITION_TIME_S * rate_factor
+        effective_acq_time = acquisition_time_s * rate_factor
 
-        # Acquisition progress
         if state["mode"] == MODE_ACQUIRING:
             state["acq_elapsed"] += dt
             progress = min(1.0, state["acq_elapsed"] / effective_acq_time)
             if state["acq_elapsed"] >= effective_acq_time:
                 state["mode"] = MODE_TRACKING
-                logger.info(f"[str1] Acquisition complete at t={t:.1f}s")
+                logger.info("[%s] Acquisition complete at t=%.1fs", equipment_id, t)
         elif state["mode"] == MODE_TRACKING:
             progress = 1.0
         else:
             progress = 0.0
 
-        # Sun blinding check
-        blinded = powered and (sun_angle < SUN_EXCLUSION_DEG)
+        blinded = powered and (sun_angle < sun_exclusion_deg)
         if blinded:
             state["mode"] = MODE_ACQUIRING
             state["acq_elapsed"] = 0.0
             logger.warning(
-                f"[str1] Sun blinding at t={t:.1f}s "
-                f"(sun_angle={sun_angle:.1f}°)"
+                "[%s] Sun blinding at t=%.1fs (sun_angle=%.1f°)",
+                equipment_id, t, sun_angle,
             )
 
-        # Validity
         valid = (
             powered
             and state["mode"] == MODE_TRACKING
             and not blinded
         )
 
-        # Measurement noise — increases near sun exclusion cone
-        base_noise = BASE_NOISE_STD + TEMP_NOISE_COEFF * (
-            state["temperature"] - NOMINAL_TEMP_C
+        base_noise = base_noise_std + temp_noise_coeff * (
+            state["temperature"] - nominal_temp_c
         )
-        # Degrade accuracy near sun exclusion boundary
         sun_proximity_factor = 1.0
-        if powered and SUN_EXCLUSION_DEG < sun_angle < SUN_DEGRADED_DEG:
-            # Linearly degrade from 1x to 10x noise as sun approaches
-            proximity = 1.0 - (sun_angle - SUN_EXCLUSION_DEG) / (
-                SUN_DEGRADED_DEG - SUN_EXCLUSION_DEG
+        if powered and sun_exclusion_deg < sun_angle < sun_degraded_deg:
+            proximity = 1.0 - (sun_angle - sun_exclusion_deg) / (
+                sun_degraded_deg - sun_exclusion_deg
             )
             sun_proximity_factor = 1.0 + 9.0 * proximity
 
-        # During acquisition: output degraded quaternion (not zero)
-        # Noise reduces as acquisition progresses
         if valid:
             noise_std = base_noise * sun_proximity_factor
             q_w = state["q_w"] + rng.gauss(0, noise_std)
@@ -211,7 +214,6 @@ def make_star_tracker(
             q_z = state["q_z"] + rng.gauss(0, noise_std)
             q_w, q_x, q_y, q_z = _normalise_quaternion(q_w, q_x, q_y, q_z)
         elif powered and state["mode"] == MODE_ACQUIRING and progress > 0.5:
-            # Half-acquired: output very noisy estimate
             acq_noise = base_noise * 100.0 * (1.0 - progress)
             q_w = state["q_w"] + rng.gauss(0, acq_noise)
             q_x = state["q_x"] + rng.gauss(0, acq_noise)
@@ -221,39 +223,39 @@ def make_star_tracker(
         else:
             q_w, q_x, q_y, q_z = 0.0, 0.0, 0.0, 0.0
 
-        eq.write_port("aocs.str1.quaternion_w",        q_w)
-        eq.write_port("aocs.str1.quaternion_x",        q_x)
-        eq.write_port("aocs.str1.quaternion_y",        q_y)
-        eq.write_port("aocs.str1.quaternion_z",        q_z)
-        eq.write_port("aocs.str1.validity",            1.0 if valid else 0.0)
-        eq.write_port("aocs.str1.mode",                float(state["mode"]))
-        eq.write_port("aocs.str1.temperature",         state["temperature"])
-        eq.write_port("aocs.str1.acquisition_progress", progress)
+        eq.write_port(f"{_pfx}.quaternion_w",        q_w)
+        eq.write_port(f"{_pfx}.quaternion_x",        q_x)
+        eq.write_port(f"{_pfx}.quaternion_y",        q_y)
+        eq.write_port(f"{_pfx}.quaternion_z",        q_z)
+        eq.write_port(f"{_pfx}.validity",            1.0 if valid else 0.0)
+        eq.write_port(f"{_pfx}.mode",                float(state["mode"]))
+        eq.write_port(f"{_pfx}.temperature",         state["temperature"])
+        eq.write_port(f"{_pfx}.acquisition_progress", progress)
 
     eq = NativeEquipment(
-        equipment_id="str1",
+        equipment_id=equipment_id,
         ports=[
-            PortDefinition("aocs.str1.power_enable", PortDirection.IN,
+            PortDefinition(f"{_pfx}.power_enable", PortDirection.IN,
                            description="Power enable (0=off, 1=on)"),
-            PortDefinition("aocs.str1.sun_angle", PortDirection.IN,
+            PortDefinition(f"{_pfx}.sun_angle", PortDirection.IN,
                            unit="deg",
                            description="Sun angle for blinding detection"),
-            PortDefinition("aocs.str1.quaternion_w", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.quaternion_w", PortDirection.OUT,
                            description="Attitude quaternion W"),
-            PortDefinition("aocs.str1.quaternion_x", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.quaternion_x", PortDirection.OUT,
                            description="Attitude quaternion X"),
-            PortDefinition("aocs.str1.quaternion_y", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.quaternion_y", PortDirection.OUT,
                            description="Attitude quaternion Y"),
-            PortDefinition("aocs.str1.quaternion_z", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.quaternion_z", PortDirection.OUT,
                            description="Attitude quaternion Z"),
-            PortDefinition("aocs.str1.validity", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.validity", PortDirection.OUT,
                            description="Measurement validity (0=invalid, 1=valid)"),
-            PortDefinition("aocs.str1.mode", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.mode", PortDirection.OUT,
                            description="ST mode (0=off, 1=acquiring, 2=tracking)"),
-            PortDefinition("aocs.str1.temperature", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.temperature", PortDirection.OUT,
                            unit="degC",
                            description="Detector temperature"),
-            PortDefinition("aocs.str1.acquisition_progress", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.acquisition_progress", PortDirection.OUT,
                            description="Acquisition progress (0.0-1.0)"),
         ],
         step_fn=_st_step,
@@ -261,6 +263,6 @@ def make_star_tracker(
         store=store,
         command_store=command_store,
     )
-    eq._port_values["aocs.str1.temperature"] = AMBIENT_TEMP_C
-    eq._port_values["aocs.str1.sun_angle"]   = 90.0  # safe default
+    eq._port_values[f"{_pfx}.temperature"] = ambient_temp_c
+    eq._port_values[f"{_pfx}.sun_angle"]   = 90.0  # safe default
     return eq

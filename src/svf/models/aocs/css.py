@@ -27,30 +27,47 @@ from svf.stores.command_store import CommandStore
 
 logger = logging.getLogger(__name__)
 
-ECLIPSE_THRESHOLD = 0.05   # illumination below this → invalid
-NOISE_STD         = 0.01   # sun vector component noise std dev
-
 
 def make_css(
     sync_protocol: SyncProtocol,
     store: ParameterStore,
     command_store: Optional[CommandStore] = None,
+    equipment_id: str = "css",
     seed: Optional[int] = None,
+    hardware_profile: Optional[str] = None,
+    hardware_dir: Optional[str] = None,
 ) -> NativeEquipment:
     """
     Create a Coarse Sun Sensor NativeEquipment.
 
+    Args:
+        equipment_id:     Instance name (e.g. 'css', 'css2'). Port names use
+                          the form 'aocs.<equipment_id>.<signal>'.
+                          Truth rate ports (aocs.truth.rate_*) are shared and
+                          not prefixed.
+        hardware_profile: Profile name to override built-in defaults.
+        hardware_dir:     Directory to search for profile YAML files.
+
     Inputs:
-        aocs.css.illumination  — solar illumination fraction (0=eclipse, 1=sun)
-        aocs.truth.rate_x/y/z — true body rates (for sun vector propagation)
+        aocs.<id>.illumination — solar illumination fraction (0=eclipse, 1=sun)
+        aocs.truth.rate_x/y/z — true body rates (shared, from dynamics)
 
     Outputs:
-        aocs.css.sun_x/y/z    — estimated sun unit vector in body frame
-        aocs.css.validity      — 1=valid (sun visible), 0=invalid (eclipse)
+        aocs.<id>.sun_x/y/z   — estimated sun unit vector in body frame
+        aocs.<id>.validity     — 1=valid (sun visible), 0=invalid (eclipse)
     """
-    rng = random.Random(seed)
+    eclipse_threshold = 0.05
+    noise_std         = 0.01
 
-    # Internal sun vector — starts pointing at +Z (nadir face down)
+    if hardware_profile is not None:
+        from svf.config.hardware_profile import load_hardware_profile
+        p = load_hardware_profile(hardware_profile, hardware_dir)
+        eclipse_threshold = p.get("eclipse_threshold", eclipse_threshold)
+        noise_std         = p.get("noise_std",         noise_std)
+
+    rng  = random.Random(seed)
+    _pfx = f"aocs.{equipment_id}"
+
     state: dict[str, Any] = {
         "sun_x": 0.0,
         "sun_y": 0.0,
@@ -58,16 +75,15 @@ def make_css(
     }
 
     def _css_step(eq: NativeEquipment, t: float, dt: float) -> None:
-        illumination = eq.read_port("aocs.css.illumination")
+        illumination = eq.read_port(f"{_pfx}.illumination")
 
-        if illumination < ECLIPSE_THRESHOLD:
-            eq.write_port("aocs.css.sun_x", 0.0)
-            eq.write_port("aocs.css.sun_y", 0.0)
-            eq.write_port("aocs.css.sun_z", 0.0)
-            eq.write_port("aocs.css.validity", 0.0)
+        if illumination < eclipse_threshold:
+            eq.write_port(f"{_pfx}.sun_x",   0.0)
+            eq.write_port(f"{_pfx}.sun_y",   0.0)
+            eq.write_port(f"{_pfx}.sun_z",   0.0)
+            eq.write_port(f"{_pfx}.validity", 0.0)
             return
 
-        # Propagate sun vector using body rates
         wx = eq.read_port("aocs.truth.rate_x")
         wy = eq.read_port("aocs.truth.rate_y")
         wz = eq.read_port("aocs.truth.rate_z")
@@ -75,15 +91,10 @@ def make_css(
         sx, sy, sz = state["sun_x"], state["sun_y"], state["sun_z"]
 
         # Rotate sun vector by body rates (first-order)
-        dsx = (wy * sz - wz * sy) * dt
-        dsy = (wz * sx - wx * sz) * dt
-        dsz = (wx * sy - wy * sx) * dt
+        sx += (wy * sz - wz * sy) * dt
+        sy += (wz * sx - wx * sz) * dt
+        sz += (wx * sy - wy * sx) * dt
 
-        sx += dsx
-        sy += dsy
-        sz += dsz
-
-        # Normalise
         mag = math.sqrt(sx*sx + sy*sy + sz*sz)
         if mag > 1e-10:
             sx /= mag
@@ -94,16 +105,15 @@ def make_css(
         state["sun_y"] = sy
         state["sun_z"] = sz
 
-        # Add noise
-        eq.write_port("aocs.css.sun_x", sx + rng.gauss(0, NOISE_STD))
-        eq.write_port("aocs.css.sun_y", sy + rng.gauss(0, NOISE_STD))
-        eq.write_port("aocs.css.sun_z", sz + rng.gauss(0, NOISE_STD))
-        eq.write_port("aocs.css.validity", 1.0)
+        eq.write_port(f"{_pfx}.sun_x",   sx + rng.gauss(0, noise_std))
+        eq.write_port(f"{_pfx}.sun_y",   sy + rng.gauss(0, noise_std))
+        eq.write_port(f"{_pfx}.sun_z",   sz + rng.gauss(0, noise_std))
+        eq.write_port(f"{_pfx}.validity", 1.0)
 
     eq = NativeEquipment(
-        equipment_id="css",
+        equipment_id=equipment_id,
         ports=[
-            PortDefinition("aocs.css.illumination", PortDirection.IN,
+            PortDefinition(f"{_pfx}.illumination", PortDirection.IN,
                            description="Solar illumination (0=eclipse, 1=sun)"),
             PortDefinition("aocs.truth.rate_x", PortDirection.IN,
                            unit="rad/s", description="True rate X"),
@@ -111,13 +121,13 @@ def make_css(
                            unit="rad/s", description="True rate Y"),
             PortDefinition("aocs.truth.rate_z", PortDirection.IN,
                            unit="rad/s", description="True rate Z"),
-            PortDefinition("aocs.css.sun_x", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.sun_x", PortDirection.OUT,
                            description="Sun vector X"),
-            PortDefinition("aocs.css.sun_y", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.sun_y", PortDirection.OUT,
                            description="Sun vector Y"),
-            PortDefinition("aocs.css.sun_z", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.sun_z", PortDirection.OUT,
                            description="Sun vector Z"),
-            PortDefinition("aocs.css.validity", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.validity", PortDirection.OUT,
                            description="1=sun visible"),
         ],
         step_fn=_css_step,
@@ -125,6 +135,6 @@ def make_css(
         store=store,
         command_store=command_store,
     )
-    eq._port_values["aocs.css.illumination"] = 1.0
-    eq._port_values["aocs.css.sun_z"] = 1.0
+    eq._port_values[f"{_pfx}.illumination"] = 1.0
+    eq._port_values[f"{_pfx}.sun_z"]        = 1.0
     return eq

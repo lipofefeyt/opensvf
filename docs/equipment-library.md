@@ -1,7 +1,7 @@
 # SVF Equipment Library
 
-> **Status:** v0.4
-> **Last updated:** 2026-04
+> **Status:** v0.5
+> **Last updated:** 2026-05
 > **Author:** lipofefeyt
 
 ---
@@ -11,8 +11,6 @@
 Every spacecraft model in SVF is an `Equipment` — a Python class with named IN/OUT ports, a `do_step()` physics implementation, and SRDB-canonical parameter names. This document defines the **interface contract** for each reference model.
 
 The contract is stable. If you replace a reference model with a higher-fidelity implementation or a hardware-in-the-loop adapter, only the wiring YAML changes — nothing else.
-
-All `make_*` factories accept an optional `hardware_profile=` parameter to load physics constants from a SRDB hardware YAML profile rather than using built-in defaults.
 
 ---
 
@@ -42,20 +40,42 @@ All `make_*` factories accept an optional `hardware_profile=` parameter to load 
 
 ---
 
-## Hardware Profile Support
+## Port Name Convention
 
-All `make_*` factories accept an optional `hardware_profile=` parameter:
+All AOCS sensor and actuator ports follow the pattern:
 
-```python
-# Use built-in defaults
-rw = make_reaction_wheel(sync, store, cmd_store)
-
-# Load from SRDB hardware profile
-rw = make_reaction_wheel(sync, store, cmd_store,
-                         hardware_profile="rw_sinclair_rw003")
+```
+aocs.<equipment_id>.<signal>
 ```
 
-Profiles live in `srdb/data/hardware/*.yaml`. Falls back to defaults if `obsw-srdb` package not installed.
+The `equipment_id` is the instance name passed to the factory (e.g. `"rw1"`, `"rw2"`, `"str_front"`). This lets you instantiate the same model type multiple times without port collisions.
+
+**Exception — shared truth ports:** `aocs.truth.rate_x/y/z` are written by the KDE dynamics model and shared by all sensors. They use a fixed prefix because there is only one dynamics model per simulation.
+
+**Exception — GPS:** GPS ports use `<equipment_id>.<signal>` (no `aocs.` prefix) to match the NAV subsystem naming convention.
+
+---
+
+## Hardware Profile Support
+
+All `make_*` AOCS factories accept `equipment_id`, `hardware_profile`, and `hardware_dir` parameters:
+
+```python
+# Use built-in defaults, default id
+rw = make_reaction_wheel(sync, store, cmd_store)
+
+# Named instance — ports become aocs.rw_pitch.*
+rw = make_reaction_wheel(sync, store, cmd_store,
+                         equipment_id="rw_pitch")
+
+# Load physics constants from a hardware profile
+rw = make_reaction_wheel(sync, store, cmd_store,
+                         equipment_id="rw_pitch",
+                         hardware_profile="rw_sinclair_rw003",
+                         hardware_dir="mission_mysat1/hardware_profiles")
+```
+
+Profiles live in `mission_mysat1/hardware_profiles/`. If `hardware_dir` is omitted, the loader searches the built-in profile path.
 
 Available profiles:
 
@@ -66,6 +86,7 @@ Available profiles:
 | `mtq_default` | magnetorquer | 10 Am², 5 Ω |
 | `mag_default` | magnetometer | 1×10⁻⁷ T noise |
 | `gyro_default` | gyroscope | ARW 1×10⁻⁴ rad/s/√Hz |
+| `str_default` | star_tracker | 30° sun exclusion, 10 s acquisition |
 | `thr_default` | thruster | 1 N, Isp=70s (cold gas) |
 | `thr_moog_monarc_1` | thruster | 1 N, Isp=220s (hydrazine) |
 | `gps_default` | gps | 5 m position noise |
@@ -130,7 +151,7 @@ ttc = TtcEquipment(obc, sync, store, cmd_store, yamcs_bridge=bridge)
 | Port | Direction | Unit | Description |
 |---|---|---|---|
 | `aocs.mtq.torque_x/y/z` | IN | Nm | MTQ torques |
-| `aocs.truth.rate_x/y/z` | OUT | rad/s | True angular velocity → GYRO |
+| `aocs.truth.rate_x/y/z` | OUT | rad/s | True angular velocity → GYRO, CSS |
 | `aocs.mag.true_x/y/z` | OUT | T | True B-field → MAG |
 | `aocs.attitude.quaternion_w/x/y/z` | OUT | — | True attitude → ST |
 
@@ -139,117 +160,176 @@ ttc = TtcEquipment(obc, sync, store, cmd_store, yamcs_bridge=bridge)
 ## 4. AOCS Sensor Models
 
 ### Magnetometer
-`make_magnetometer(sync, store, cmd_store, seed=None, hardware_profile=None)`
 
-| Port | Direction | Unit |
-|---|---|---|
-| `aocs.mag.true_x/y/z` | IN | T |
-| `aocs.mag.field_x/y/z` | OUT | T |
-| `aocs.mag.status` | OUT | — |
+```python
+make_magnetometer(sync, store, cmd_store,
+                  equipment_id="mag", seed=None,
+                  hardware_profile=None, hardware_dir=None)
+```
+
+| Port | Direction | Unit | Description |
+|---|---|---|---|
+| `aocs.<id>.power_enable` | IN | — | Power on/off |
+| `aocs.<id>.true_x/y/z` | IN | T | True B-field from truth model |
+| `aocs.<id>.field_x/y/z` | OUT | T | Measured field (noise + bias drift) |
+| `aocs.<id>.status` | OUT | — | 0=off, 1=nominal |
 
 ### Gyroscope
-`make_gyroscope(sync, store, cmd_store, seed=None, hardware_profile=None)`
 
-| Port | Direction | Unit |
-|---|---|---|
-| `aocs.truth.rate_x/y/z` | IN | rad/s |
-| `aocs.gyro.rate_x/y/z` | OUT | rad/s |
-| `aocs.gyro.status` | OUT | — |
+```python
+make_gyroscope(sync, store, cmd_store,
+               equipment_id="gyro", seed=None,
+               hardware_profile=None, hardware_dir=None)
+```
 
-### CSS
-`make_css(sync, store, cmd_store, seed=None)`
+| Port | Direction | Unit | Description |
+|---|---|---|---|
+| `aocs.<id>.power_enable` | IN | — | Power on/off |
+| `aocs.truth.rate_x/y/z` | IN | rad/s | True angular rate (shared truth port) |
+| `aocs.<id>.rate_x/y/z` | OUT | rad/s | Measured rate (noise + ARW + bias) |
+| `aocs.<id>.status` | OUT | — | 0=off, 1=nominal |
 
-| Port | Direction | Description |
-|---|---|---|
-| `aocs.truth.rate_x/y/z` | IN | True rates |
-| `aocs.css.sun_x/y/z` | OUT | Sun vector |
-| `aocs.css.eclipse` | OUT | 1=eclipse |
+### Coarse Sun Sensor (CSS)
+
+```python
+make_css(sync, store, cmd_store,
+         equipment_id="css", seed=None,
+         hardware_profile=None, hardware_dir=None)
+```
+
+| Port | Direction | Unit | Description |
+|---|---|---|---|
+| `aocs.<id>.power_enable` | IN | — | Power on/off |
+| `aocs.truth.rate_x/y/z` | IN | rad/s | True angular rate (shared truth port) |
+| `aocs.<id>.sun_x/y/z` | OUT | — | Estimated sun unit vector |
+| `aocs.<id>.eclipse` | OUT | — | 1=eclipse |
+| `aocs.<id>.status` | OUT | — | 0=off, 1=nominal, 2=eclipse |
 
 ### B-dot Controller (validation oracle)
-`make_bdot_controller(sync, store, cmd_store)`
+
+```python
+make_bdot_controller(sync, store, cmd_store,
+                     equipment_id="bdot",
+                     gain=1e4, max_dipole=10.0,
+                     mag_id="mag", mtq_id="mtq")
+```
 
 **Note:** This is a Python validation oracle — not flight code. The flight b-dot runs in `openobsw`.
 
-| Port | Direction | Unit |
-|---|---|---|
-| `aocs.mag.field_x/y/z` | IN | T |
-| `aocs.mtq.dipole_x/y/z` | OUT | Am² |
+`mag_id` and `mtq_id` select which magnetometer and magnetorquer instance to read/command. Port prefixes resolve to `aocs.<mag_id>.field_*` and `aocs.<mtq_id>.dipole_*`.
+
+| Port | Direction | Unit | Description |
+|---|---|---|---|
+| `aocs.<id>.enable` | IN | — | Enable control (0=off, 1=on) |
+| `aocs.<mag_id>.field_x/y/z` | IN | T | MAG measurement |
+| `aocs.<mtq_id>.dipole_x/y/z` | OUT | Am² | MTQ dipole commands |
+| `aocs.<id>.bdot_x/y/z` | OUT | T/s | Estimated B-dot (telemetry) |
+| `aocs.<id>.active` | OUT | — | 1=controller active |
 
 ---
 
 ## 5. Magnetorquer
 
-`make_magnetorquer(sync, store, cmd_store, hardware_profile=None)`
+```python
+make_magnetorquer(sync, store, cmd_store,
+                  equipment_id="mtq",
+                  hardware_profile=None, hardware_dir=None)
+```
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
-| `aocs.mtq.dipole_x/y/z` | IN | Am² | Dipole commands |
-| `aocs.mtq.b_field_x/y/z` | IN | T | Local B-field |
-| `aocs.mtq.torque_x/y/z` | OUT | Nm | Torque = m × B |
+| `aocs.<id>.power_enable` | IN | — | Power on/off |
+| `aocs.<id>.dipole_x/y/z` | IN | Am² | Dipole commands |
+| `aocs.<id>.b_field_x/y/z` | IN | T | Local B-field for torque calculation |
+| `aocs.<id>.torque_x/y/z` | OUT | Nm | Torque = m × B |
+| `aocs.<id>.status` | OUT | — | 0=off, 1=nominal |
+| `aocs.<id>.power_w` | OUT | W | Power consumption |
 
 ---
 
 ## 6. Reaction Wheel
 
-`make_reaction_wheel(sync, store, cmd_store, hardware_profile=None)`
+```python
+make_reaction_wheel(sync, store, cmd_store,
+                    equipment_id="rw1",
+                    hardware_profile=None, hardware_dir=None)
+```
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
-| `aocs.rw1.torque_cmd` | IN | Nm | Torque command |
-| `aocs.rw1.speed` | OUT | rpm | Wheel speed |
-| `aocs.rw1.temperature` | OUT | °C | Bearing temperature |
-| `aocs.rw1.status` | OUT | — | 1=nominal, 0=over-temp |
+| `aocs.<id>.torque_cmd` | IN | Nm | Torque command |
+| `aocs.<id>.speed` | OUT | rpm | Wheel speed |
+| `aocs.<id>.temperature` | OUT | °C | Bearing temperature |
+| `aocs.<id>.status` | OUT | — | 0=off, 1=nominal, 2=over-temp |
+
+Multiple wheels: pass different `equipment_id` values (`"rw_x"`, `"rw_y"`, `"rw_z"`, `"rw_skew"`).
 
 ---
 
 ## 7. Star Tracker
 
-`make_star_tracker(sync, store, cmd_store, seed=None)`
+```python
+make_star_tracker(sync, store, cmd_store,
+                  equipment_id="str1", seed=None,
+                  hardware_profile=None, hardware_dir=None)
+```
 
-| Port | Direction | Description |
-|---|---|---|
-| `aocs.str1.power_enable` | IN | Power on/off |
-| `aocs.str1.sun_angle` | IN | Sun angle for blinding |
-| `aocs.str1.quaternion_w/x/y/z` | OUT | Attitude quaternion |
-| `aocs.str1.validity` | OUT | 1=valid |
-| `aocs.str1.mode` | OUT | 0=off, 1=acquiring, 2=tracking |
+| Port | Direction | Unit | Description |
+|---|---|---|---|
+| `aocs.<id>.power_enable` | IN | — | Power on/off |
+| `aocs.<id>.sun_angle` | IN | deg | Sun angle for blinding check |
+| `aocs.<id>.quaternion_w/x/y/z` | OUT | — | Attitude quaternion (noise added) |
+| `aocs.<id>.validity` | OUT | — | 1=valid measurement |
+| `aocs.<id>.mode` | OUT | — | 0=off, 1=acquiring, 2=tracking |
 
 ---
 
 ## 8. Thruster
 
-`make_thruster(sync, store, cmd_store, hardware_profile=None)`
+```python
+make_thruster(sync, store, cmd_store,
+              equipment_id="thr1",
+              hardware_profile=None, hardware_dir=None)
+```
 
-Physics: propellant consumption via Tsiolkovsky equation.
+Physics: propellant consumption via rocket equation (Δm = F / (Isp × g₀) × dt).
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
-| `aocs.thr1.enable` | IN | — | Fire command |
-| `aocs.thr1.thrust_cmd` | IN | N | Commanded thrust |
-| `aocs.thr1.thrust` | OUT | N | Actual thrust |
-| `aocs.thr1.temperature` | OUT | °C | Thruster temperature |
-| `aocs.thr1.propellant` | OUT | kg | Remaining propellant |
-| `aocs.thr1.status` | OUT | — | 0=off 1=nominal 2=low_prop 3=empty 4=over_temp |
+| `aocs.<id>.enable` | IN | — | Fire command (1=fire) |
+| `aocs.<id>.thrust_cmd` | IN | N | Commanded thrust |
+| `aocs.<id>.thrust` | OUT | N | Actual thrust |
+| `aocs.<id>.temperature` | OUT | °C | Thruster temperature |
+| `aocs.<id>.propellant` | OUT | kg | Remaining propellant mass |
+| `aocs.<id>.status` | OUT | — | 0=off 1=nominal 2=low_prop 3=empty 4=over_temp |
+
+Status codes are exported as `STATUS_OFF`, `STATUS_NOMINAL`, `STATUS_LOW_PROP`, `STATUS_EMPTY`, `STATUS_OVER_TEMP` from `svf.models.aocs.thruster`.
 
 ---
 
 ## 9. GPS Receiver
 
-`make_gps(sync, store, cmd_store, seed=None, hardware_profile=None)`
+```python
+make_gps(sync, store, cmd_store,
+         equipment_id="gps", seed=None,
+         hardware_profile=None, hardware_dir=None)
+```
 
-Truth state from KDE (position/velocity). Gaussian noise added per axis.
+Truth state from KDE (position/velocity). Gaussian noise added per axis. GPS ports use `<equipment_id>.<signal>` (no `aocs.` prefix).
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
-| `gps.power_enable` | IN | — | Power on/off |
-| `gps.truth.pos_x/y/z` | IN | m | True ECI position from KDE |
-| `gps.truth.vel_x/y/z` | IN | m/s | True ECI velocity from KDE |
-| `gps.eclipse` | IN | — | Eclipse flag from CSS |
-| `gps.position_x/y/z` | OUT | m | Measured ECI position |
-| `gps.velocity_x/y/z` | OUT | m/s | Measured ECI velocity |
-| `gps.fix` | OUT | — | 1=valid fix |
-| `gps.altitude_km` | OUT | km | Altitude above sphere |
-| `gps.status` | OUT | — | 0=off 1=acquiring 2=fix 3=eclipse_outage |
+| `<id>.power_enable` | IN | — | Power on/off |
+| `<id>.truth.pos_x/y/z` | IN | m | True ECI position from KDE |
+| `<id>.truth.vel_x/y/z` | IN | m/s | True ECI velocity from KDE |
+| `<id>.eclipse` | IN | — | Eclipse flag from CSS |
+| `<id>.position_x/y/z` | OUT | m | Measured ECI position |
+| `<id>.velocity_x/y/z` | OUT | m/s | Measured ECI velocity |
+| `<id>.fix` | OUT | — | 1=valid fix |
+| `<id>.altitude_km` | OUT | km | Altitude above sphere |
+| `<id>.status` | OUT | — | 0=off 1=acquiring 2=fix 3=eclipse_outage |
+
+Status codes exported as `STATUS_OFF`, `STATUS_ACQUIRING`, `STATUS_FIX`, `STATUS_ECLIPSE_OUTAGE` from `svf.models.aocs.gps`.
 
 ---
 
@@ -314,20 +394,37 @@ Default 3 nodes: `panel_plus_x`, `panel_minus_x`, `internal`.
 ## Adding a New Equipment Model
 
 ```python
-def make_my_equipment(sync, store, cmd_store, hardware_profile=None):
+def make_my_sensor(sync, store, cmd_store,
+                   equipment_id="mysensor",
+                   hardware_profile=None, hardware_dir=None):
+    # Physics constants as factory locals (not module globals)
+    noise_std = 0.01
+
+    if hardware_profile is not None:
+        from svf.config.hardware_profile import load_hardware_profile
+        p = load_hardware_profile(hardware_profile, hardware_dir)
+        noise_std = p.get("noise_std", noise_std)
+
+    _pfx = f"aocs.{equipment_id}"
+
     def _step(eq, t, dt):
-        val = eq.read_port("myeq.input")
-        eq.write_port("myeq.output", val * 2.0)
+        val = eq.read_port(f"{_pfx}.input")
+        eq.write_port(f"{_pfx}.output", val + rng.gauss(0, noise_std))
 
     return NativeEquipment(
-        equipment_id="myeq",
+        equipment_id=equipment_id,
         ports=[
-            PortDefinition("myeq.input",  PortDirection.IN),
-            PortDefinition("myeq.output", PortDirection.OUT),
+            PortDefinition(f"{_pfx}.input",  PortDirection.IN),
+            PortDefinition(f"{_pfx}.output", PortDirection.OUT),
         ],
         step_fn=_step,
         sync_protocol=sync, store=store, command_store=cmd_store,
     )
 ```
 
-Add a hardware profile in `srdb/data/hardware/myeq_default.yaml` and pass `hardware_profile="myeq_default"` to load parameters from it.
+Key rules:
+- Define `_step` **inside** the factory so physics constants are captured as closure variables. Module-level step functions break multi-instance support.
+- Use `_pfx = f"aocs.{equipment_id}"` for all port names. Hard-coding equipment names in port strings prevents running two instances simultaneously.
+- Load profile values with `p.get("key", local_default)` and assign back to the local constant. Calling `load_hardware_profile` without using the result is a silent no-op bug.
+
+Add a hardware profile in `mission_mysat1/hardware_profiles/mysensor_default.yaml` and declare the equipment in `spacecraft.yaml`.

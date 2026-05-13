@@ -144,26 +144,36 @@ eps = FmuEquipment(
 
 Wraps a Python step function. Ports declared explicitly at construction.
 
+Always define the step function **inside** a factory so the `equipment_id`-derived port prefix is captured as a closure variable. This is the only pattern that supports multiple instances of the same model without port name collisions.
+
 ```python
-from svf.native_equipment import NativeEquipment
-from svf.equipment import PortDefinition, PortDirection
+from svf.core.native_equipment import NativeEquipment
+from svf.core.equipment import PortDefinition, PortDirection
 
-def rw_step(eq: NativeEquipment, t: float, dt: float) -> None:
-    torque = eq.read_port("aocs.rw1.torque_cmd")
-    speed  = eq.read_port("aocs.rw1.speed")
-    eq.write_port("aocs.rw1.speed", speed + torque * 100.0 * dt)
+def make_reaction_wheel(sync, store, cmd_store,
+                        equipment_id="rw1") -> NativeEquipment:
+    _pfx = f"aocs.{equipment_id}"
 
-rw = NativeEquipment(
-    equipment_id="rw1",
-    ports=[
-        PortDefinition("aocs.rw1.torque_cmd", PortDirection.IN,  unit="Nm"),
-        PortDefinition("aocs.rw1.speed",       PortDirection.OUT, unit="rpm"),
-    ],
-    step_fn=rw_step,
-    sync_protocol=sync,
-    store=store,
-    command_store=cmd_store,
-)
+    def _rw_step(eq: NativeEquipment, t: float, dt: float) -> None:
+        torque = eq.read_port(f"{_pfx}.torque_cmd")
+        speed  = eq.read_port(f"{_pfx}.speed")
+        eq.write_port(f"{_pfx}.speed", speed + torque * 100.0 * dt)
+
+    return NativeEquipment(
+        equipment_id=equipment_id,
+        ports=[
+            PortDefinition(f"{_pfx}.torque_cmd", PortDirection.IN,  unit="Nm"),
+            PortDefinition(f"{_pfx}.speed",       PortDirection.OUT, unit="rpm"),
+        ],
+        step_fn=_rw_step,
+        sync_protocol=sync,
+        store=store,
+        command_store=cmd_store,
+    )
+
+# Two independent instances — distinct port namespaces
+rw_x = make_reaction_wheel(sync, store, cmd_store, equipment_id="rw_x")
+rw_y = make_reaction_wheel(sync, store, cmd_store, equipment_id="rw_y")
 ```
 
 ---
@@ -294,8 +304,8 @@ cmd_store   = CommandStore()
 # 2. Equipment
 obc = ObcEquipment(config, sync, store, cmd_store)
 ttc = TtcEquipment(obc,    sync, store, cmd_store)
-rw  = make_reaction_wheel( sync, store, cmd_store)
-st  = make_star_tracker(   sync, store, cmd_store)
+rw  = make_reaction_wheel( sync, store, cmd_store, equipment_id="rw1")
+st  = make_star_tracker(   sync, store, cmd_store, equipment_id="str1")
 sbt = make_sbt(            sync, store, cmd_store)
 bus = Mil1553Bus("platform_1553", rt_count=5,
                  mappings=mappings,
