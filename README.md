@@ -68,7 +68,7 @@ git clone https://github.com/lipofefeyt/opensvf
 cd opensvf
 pip install -e ".[dev]"                                           # install SVF and dev dependencies
 
-testosvf                                                          # ~341 unit + integration tests
+testosvf                                                          # ~351 unit + integration tests
 checkcov                                                          # requirement coverage report
 svf profiles                                                      # list bundled hardware profiles
 svf check mission_mysat1/spacecraft.yaml
@@ -203,6 +203,7 @@ Ten bundled profiles cover common small satellite components:
 | `rw_default` | Generic reaction wheel |
 | `rw_sinclair_rw003` | Sinclair RW-003 |
 | `mtq_default` | Generic magnetorquer |
+| `str_default` | Generic star tracker |
 | `gps_default` | Generic GPS receiver |
 | `gps_novatel_oem7` | NovAtel OEM7 |
 | `thr_default` | Generic thruster |

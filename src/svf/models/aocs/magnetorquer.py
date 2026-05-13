@@ -8,7 +8,7 @@ Physics:
 - Input: measured magnetic field (T) from magnetometer
 - Output: generated torque = dipole × B_field
 - Temperature rise proportional to dipole² (resistive heating)
-- Saturation at MAX_DIPOLE_AM2
+- Saturation at max_dipole_am2
 
 Implements: SVF-DEV-038
 """
@@ -27,67 +27,79 @@ from svf.stores.command_store import CommandStore
 
 logger = logging.getLogger(__name__)
 
-try:
-    import importlib.util as _importlib_util
-except Exception:
-    _HW_AVAILABLE = False
-
-MAX_DIPOLE_AM2  = 10.0    # Am² saturation limit
-TEMP_RISE_COEFF = 0.005   # degC per Am²² per second
-RESISTANCE_OHM  = 5.0     # Ohm coil resistance
-RATED_VOLTAGE_V = 5.0     # V rated supply voltage
-COOLING_RATE    = 0.02    # degC/s towards ambient
-AMBIENT_TEMP_C  = 20.0
-
 
 def make_magnetorquer(
     sync_protocol: SyncProtocol,
     store: ParameterStore,
     command_store: Optional[CommandStore] = None,
+    equipment_id: str = "mtq",
     hardware_profile: Optional[str] = None,
-    hardware_dir: str = "srdb/data/hardware",
+    hardware_dir: Optional[str] = None,
 ) -> NativeEquipment:
     """
     Create a Magnetorquer NativeEquipment.
 
+    Args:
+        equipment_id:     Instance name (e.g. 'mtq', 'mtq2'). Port names use
+                          the form 'aocs.<equipment_id>.<signal>'.
+        hardware_profile: Profile name to override built-in defaults.
+        hardware_dir:     Directory to search for profile YAML files.
+
     Inputs:
-        aocs.mtq.dipole_x/y/z  — commanded dipole moments (Am²)
-        aocs.mtq.power_enable   — power on/off
-        aocs.mag.field_x/y/z   — measured B field for torque calculation
+        aocs.<id>.power_enable   — power on/off
+        aocs.<id>.dipole_x/y/z  — commanded dipole moments (Am²)
+        aocs.<id>.b_field_x/y/z — measured B field for torque calculation
 
     Outputs:
-        aocs.mtq.torque_x/y/z  — generated torque (Nm) = dipole × B
-        aocs.mtq.status         — 0=off, 1=nominal
+        aocs.<id>.torque_x/y/z  — generated torque (Nm) = dipole × B
+        aocs.<id>.status        — 0=off, 1=nominal
+        aocs.<id>.power_w       — power consumption (W)
     """
-    state = {"temperature": AMBIENT_TEMP_C}
+    # Physics constants — per-instance locals
+    max_dipole_am2  = 10.0
+    temp_rise_coeff = 0.005
+    resistance_ohm  = 5.0
+    rated_voltage_v = 5.0
+    cooling_rate    = 0.02
+    ambient_temp_c  = 20.0
+
+    if hardware_profile is not None:
+        from svf.config.hardware_profile import load_hardware_profile
+        p = load_hardware_profile(hardware_profile, hardware_dir)
+        max_dipole_am2  = p.get("max_dipole_am2",  max_dipole_am2)
+        resistance_ohm  = p.get("resistance_ohm",  resistance_ohm)
+        temp_rise_coeff = p.get("temp_rise_coeff", temp_rise_coeff)
+        ambient_temp_c  = p.get("temp_ambient_degc", ambient_temp_c)
+
+    _pfx   = f"aocs.{equipment_id}"
+    state  = {"temperature": ambient_temp_c}
 
     def _mtq_step(eq: NativeEquipment, t: float, dt: float) -> None:
-        powered = eq.read_port("aocs.mtq.power_enable") > 0.5
+        powered = eq.read_port(f"{_pfx}.power_enable") > 0.5
 
         if not powered:
             state["temperature"] = max(
-                AMBIENT_TEMP_C,
-                state["temperature"] - COOLING_RATE * dt
+                ambient_temp_c,
+                state["temperature"] - cooling_rate * dt,
             )
-            eq.write_port("aocs.mtq.torque_x", 0.0)
-            eq.write_port("aocs.mtq.torque_y", 0.0)
-            eq.write_port("aocs.mtq.torque_z", 0.0)
-            eq.write_port("aocs.mtq.status", 0.0)
-            eq.write_port("aocs.mtq.power_w", 0.0)
+            eq.write_port(f"{_pfx}.torque_x", 0.0)
+            eq.write_port(f"{_pfx}.torque_y", 0.0)
+            eq.write_port(f"{_pfx}.torque_z", 0.0)
+            eq.write_port(f"{_pfx}.status",   0.0)
+            eq.write_port(f"{_pfx}.power_w",  0.0)
             return
 
         # Read and saturate dipole commands
-        mx = max(-MAX_DIPOLE_AM2, min(MAX_DIPOLE_AM2,
-             eq.read_port("aocs.mtq.dipole_x")))
-        my = max(-MAX_DIPOLE_AM2, min(MAX_DIPOLE_AM2,
-             eq.read_port("aocs.mtq.dipole_y")))
-        mz = max(-MAX_DIPOLE_AM2, min(MAX_DIPOLE_AM2,
-             eq.read_port("aocs.mtq.dipole_z")))
+        mx = max(-max_dipole_am2, min(max_dipole_am2,
+             eq.read_port(f"{_pfx}.dipole_x")))
+        my = max(-max_dipole_am2, min(max_dipole_am2,
+             eq.read_port(f"{_pfx}.dipole_y")))
+        mz = max(-max_dipole_am2, min(max_dipole_am2,
+             eq.read_port(f"{_pfx}.dipole_z")))
 
-        # Read B field
-        bx = eq.read_port("aocs.mtq.b_field_x")
-        by = eq.read_port("aocs.mtq.b_field_y")
-        bz = eq.read_port("aocs.mtq.b_field_z")
+        bx = eq.read_port(f"{_pfx}.b_field_x")
+        by = eq.read_port(f"{_pfx}.b_field_y")
+        bz = eq.read_port(f"{_pfx}.b_field_z")
 
         # Torque = m × B (cross product)
         tx = my * bz - mz * by
@@ -97,45 +109,45 @@ def make_magnetorquer(
         # Temperature (resistive heating)
         dipole_mag_sq = mx*mx + my*my + mz*mz
         state["temperature"] += (
-            TEMP_RISE_COEFF * dipole_mag_sq * dt
-            - COOLING_RATE * (state["temperature"] - AMBIENT_TEMP_C) * dt
+            temp_rise_coeff * dipole_mag_sq * dt
+            - cooling_rate * (state["temperature"] - ambient_temp_c) * dt
         )
 
-        eq.write_port("aocs.mtq.torque_x", tx)
-        eq.write_port("aocs.mtq.torque_y", ty)
-        eq.write_port("aocs.mtq.torque_z", tz)
-        eq.write_port("aocs.mtq.status", 1.0)
-        # Power consumption: P = V²/R * (dipole/max_dipole)²
-        duty = min(1.0, math.sqrt(mx**2 + my**2 + mz**2) / MAX_DIPOLE_AM2)
-        power_w = (RATED_VOLTAGE_V ** 2 / RESISTANCE_OHM) * duty
-        eq.write_port("aocs.mtq.power_w", power_w)
+        eq.write_port(f"{_pfx}.torque_x", tx)
+        eq.write_port(f"{_pfx}.torque_y", ty)
+        eq.write_port(f"{_pfx}.torque_z", tz)
+        eq.write_port(f"{_pfx}.status",   1.0)
+
+        duty    = min(1.0, math.sqrt(mx**2 + my**2 + mz**2) / max_dipole_am2)
+        power_w = (rated_voltage_v ** 2 / resistance_ohm) * duty
+        eq.write_port(f"{_pfx}.power_w", power_w)
 
     return NativeEquipment(
-        equipment_id="mtq",
+        equipment_id=equipment_id,
         ports=[
-            PortDefinition("aocs.mtq.power_enable", PortDirection.IN,
+            PortDefinition(f"{_pfx}.power_enable", PortDirection.IN,
                            description="Power enable"),
-            PortDefinition("aocs.mtq.dipole_x", PortDirection.IN,
+            PortDefinition(f"{_pfx}.dipole_x", PortDirection.IN,
                            unit="Am2", description="Dipole X command"),
-            PortDefinition("aocs.mtq.dipole_y", PortDirection.IN,
+            PortDefinition(f"{_pfx}.dipole_y", PortDirection.IN,
                            unit="Am2", description="Dipole Y command"),
-            PortDefinition("aocs.mtq.dipole_z", PortDirection.IN,
+            PortDefinition(f"{_pfx}.dipole_z", PortDirection.IN,
                            unit="Am2", description="Dipole Z command"),
-            PortDefinition("aocs.mtq.b_field_x", PortDirection.IN,
+            PortDefinition(f"{_pfx}.b_field_x", PortDirection.IN,
                            unit="T", description="B field X from MAG"),
-            PortDefinition("aocs.mtq.b_field_y", PortDirection.IN,
+            PortDefinition(f"{_pfx}.b_field_y", PortDirection.IN,
                            unit="T", description="B field Y from MAG"),
-            PortDefinition("aocs.mtq.b_field_z", PortDirection.IN,
+            PortDefinition(f"{_pfx}.b_field_z", PortDirection.IN,
                            unit="T", description="B field Z from MAG"),
-            PortDefinition("aocs.mtq.torque_x", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.torque_x", PortDirection.OUT,
                            unit="Nm", description="Generated torque X"),
-            PortDefinition("aocs.mtq.torque_y", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.torque_y", PortDirection.OUT,
                            unit="Nm", description="Generated torque Y"),
-            PortDefinition("aocs.mtq.torque_z", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.torque_z", PortDirection.OUT,
                            unit="Nm", description="Generated torque Z"),
-            PortDefinition("aocs.mtq.status", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.status", PortDirection.OUT,
                            description="Status (0=off, 1=nominal)"),
-            PortDefinition("aocs.mtq.power_w", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.power_w", PortDirection.OUT,
                            unit="W", description="Power consumption"),
         ],
         step_fn=_mtq_step,

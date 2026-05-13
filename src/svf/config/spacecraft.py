@@ -337,7 +337,6 @@ class SpacecraftLoader:
 
 
     @classmethod
-    @classmethod
     def _build_obc(
         cls,
         obsw_cfg: dict[str, Any],
@@ -423,6 +422,8 @@ class SpacecraftLoader:
         import inspect
         sig    = inspect.signature(factory)
         kwargs: dict[str, Any] = {}
+        if "equipment_id" in sig.parameters:
+            kwargs["equipment_id"] = eq_id
         if "hardware_profile" in sig.parameters and profile is not None:
             kwargs["hardware_profile"] = profile
         if "seed" in sig.parameters and seed is not None:
@@ -430,8 +431,9 @@ class SpacecraftLoader:
 
         eq = factory(sync, store, cmd_store, **kwargs)
 
-        # Rename equipment_id to match YAML id
-        if hasattr(eq, "_equipment_id"):
+        # For factories that don't yet accept equipment_id, patch the internal
+        # ID so SimulationMaster wiring can locate this equipment by its YAML id.
+        if "equipment_id" not in sig.parameters and hasattr(eq, "_equipment_id"):
             eq._equipment_id = eq_id
 
         return eq

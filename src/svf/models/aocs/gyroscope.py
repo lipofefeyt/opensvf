@@ -27,109 +27,115 @@ from svf.stores.command_store import CommandStore
 
 logger = logging.getLogger(__name__)
 
-try:
-    import importlib.util as _importlib_util
-except Exception:
-    _HW_AVAILABLE = False
-
-# Noise parameters
-ARW_STD          = 1e-4    # rad/s/√Hz angle random walk
-BIAS_INSTABILITY = 1e-5    # rad/s bias instability
-TEMP_NOISE_COEFF = 1e-5    # rad/s/degC additional noise
-
-# Temperature
-AMBIENT_TEMP_C   = 20.0
-NOMINAL_TEMP_C   = 35.0
-TEMP_RISE_RATE   = 0.05
-COOLING_RATE     = 0.03
-
 
 def make_gyroscope(
     sync_protocol: SyncProtocol,
     store: ParameterStore,
     command_store: Optional[CommandStore] = None,
+    equipment_id: str = "gyro",
     seed: Optional[int] = None,
     hardware_profile: Optional[str] = None,
-    hardware_dir: str = "srdb/data/hardware",
+    hardware_dir: Optional[str] = None,
 ) -> NativeEquipment:
     """
     Create a Gyroscope NativeEquipment.
 
+    Args:
+        equipment_id:     Instance name (e.g. 'gyro', 'gyro2'). Port names use
+                          the form 'aocs.<equipment_id>.<signal>'.
+                          Truth rate ports (aocs.truth.rate_*) are shared and
+                          not prefixed.
+        hardware_profile: Profile name to override built-in defaults.
+        hardware_dir:     Directory to search for profile YAML files.
+
     Inputs:
-        aocs.truth.rate_x/y/z — true angular rates (rad/s)
-        aocs.gyro.power_enable — power on/off
+        aocs.<id>.power_enable — power on/off
+        aocs.truth.rate_x/y/z  — true angular rates (shared, from dynamics)
 
     Outputs:
-        aocs.gyro.rate_x/y/z  — measured rates with noise + bias
-        aocs.gyro.temperature  — gyro temperature
-        aocs.gyro.status       — 0=off, 1=nominal
+        aocs.<id>.rate_x/y/z   — measured rates with noise + bias
+        aocs.<id>.temperature  — gyro temperature
+        aocs.<id>.status       — 0=off, 1=nominal
     """
-    rng = random.Random(seed)
+    # Physics constants — per-instance locals
+    arw_std          = 1e-4
+    bias_instability = 1e-5
+    temp_noise_coeff = 1e-5
+    ambient_temp_c   = 20.0
+    nominal_temp_c   = 35.0
+    temp_rise_rate   = 0.05
+    cooling_rate     = 0.03
+
+    if hardware_profile is not None:
+        from svf.config.hardware_profile import load_hardware_profile
+        p = load_hardware_profile(hardware_profile, hardware_dir)
+        arw_std          = p.get("arw_rad_s_sqrthz",       arw_std)
+        bias_instability = p.get("bias_drift_rate_rad_s2",  bias_instability)
+        temp_noise_coeff = p.get("temp_noise_coeff",        temp_noise_coeff)
+        ambient_temp_c   = p.get("temp_ambient_degc",       ambient_temp_c)
+        nominal_temp_c   = p.get("temp_nominal_degc",       nominal_temp_c)
+        temp_rise_rate   = p.get("temp_rise_rate",          temp_rise_rate)
+        cooling_rate     = p.get("cooling_rate",            cooling_rate)
+
+    rng  = random.Random(seed)
+    _pfx = f"aocs.{equipment_id}"
 
     state: dict[str, Any] = {
-        "bias_x": 0.0,
-        "bias_y": 0.0,
-        "bias_z": 0.0,
-        "temperature": AMBIENT_TEMP_C,
-        "powered": False,
+        "bias_x":      0.0,
+        "bias_y":      0.0,
+        "bias_z":      0.0,
+        "temperature": ambient_temp_c,
+        "powered":     False,
     }
 
     def _gyro_step(eq: NativeEquipment, t: float, dt: float) -> None:
-        powered = eq.read_port("aocs.gyro.power_enable") > 0.5
+        powered = eq.read_port(f"{_pfx}.power_enable") > 0.5
 
         if not powered:
-            state["powered"] = False
+            state["powered"]     = False
             state["temperature"] = max(
-                AMBIENT_TEMP_C,
-                state["temperature"] - COOLING_RATE * dt
+                ambient_temp_c,
+                state["temperature"] - cooling_rate * dt,
             )
-            eq.write_port("aocs.gyro.rate_x", 0.0)
-            eq.write_port("aocs.gyro.rate_y", 0.0)
-            eq.write_port("aocs.gyro.rate_z", 0.0)
-            eq.write_port("aocs.gyro.temperature", state["temperature"])
-            eq.write_port("aocs.gyro.status", 0.0)
+            eq.write_port(f"{_pfx}.rate_x",      0.0)
+            eq.write_port(f"{_pfx}.rate_y",      0.0)
+            eq.write_port(f"{_pfx}.rate_z",      0.0)
+            eq.write_port(f"{_pfx}.temperature", state["temperature"])
+            eq.write_port(f"{_pfx}.status",      0.0)
             return
 
-        state["powered"] = True
-        state["temperature"] += TEMP_RISE_RATE * (
-            NOMINAL_TEMP_C - state["temperature"]
+        state["powered"]      = True
+        state["temperature"] += temp_rise_rate * (
+            nominal_temp_c - state["temperature"]
         ) * dt
 
         # Bias drift (random walk)
-        bias_noise = BIAS_INSTABILITY * math.sqrt(dt)
+        bias_noise = bias_instability * math.sqrt(dt)
         state["bias_x"] += rng.gauss(0, bias_noise)
         state["bias_y"] += rng.gauss(0, bias_noise)
         state["bias_z"] += rng.gauss(0, bias_noise)
 
-        # Measurement noise
-        noise_std = (ARW_STD / math.sqrt(dt) + TEMP_NOISE_COEFF *
-                     max(0.0, state["temperature"] - NOMINAL_TEMP_C))
+        noise_std = arw_std / math.sqrt(dt) + temp_noise_coeff * max(
+            0.0, state["temperature"] - nominal_temp_c
+        )
 
-        # True rates + noise + bias
         wx = eq.read_port("aocs.truth.rate_x")
         wy = eq.read_port("aocs.truth.rate_y")
         wz = eq.read_port("aocs.truth.rate_z")
 
-        eq.write_port("aocs.gyro.rate_x",
+        eq.write_port(f"{_pfx}.rate_x",
                       wx + rng.gauss(0, noise_std) + state["bias_x"])
-        eq.write_port("aocs.gyro.rate_y",
+        eq.write_port(f"{_pfx}.rate_y",
                       wy + rng.gauss(0, noise_std) + state["bias_y"])
-        eq.write_port("aocs.gyro.rate_z",
+        eq.write_port(f"{_pfx}.rate_z",
                       wz + rng.gauss(0, noise_std) + state["bias_z"])
-        eq.write_port("aocs.gyro.temperature", state["temperature"])
-        eq.write_port("aocs.gyro.status", 1.0)
+        eq.write_port(f"{_pfx}.temperature", state["temperature"])
+        eq.write_port(f"{_pfx}.status",      1.0)
 
-
-    global BIAS_INSTABILITY, ARW_STD
-    if hardware_profile is not None:
-        from svf.config.hardware_profile import load_hardware_profile
-        profile = load_hardware_profile(hardware_profile)
-        ARW_STD          = profile.get("arw_rad_s_sqrthz",        ARW_STD)
-        BIAS_INSTABILITY = profile.get("bias_drift_rate_rad_s2",   BIAS_INSTABILITY)
     eq = NativeEquipment(
-        equipment_id="gyro",
+        equipment_id=equipment_id,
         ports=[
-            PortDefinition("aocs.gyro.power_enable", PortDirection.IN,
+            PortDefinition(f"{_pfx}.power_enable", PortDirection.IN,
                            description="Power enable"),
             PortDefinition("aocs.truth.rate_x", PortDirection.IN,
                            unit="rad/s", description="True rate X"),
@@ -137,15 +143,15 @@ def make_gyroscope(
                            unit="rad/s", description="True rate Y"),
             PortDefinition("aocs.truth.rate_z", PortDirection.IN,
                            unit="rad/s", description="True rate Z"),
-            PortDefinition("aocs.gyro.rate_x", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.rate_x", PortDirection.OUT,
                            unit="rad/s", description="Measured rate X"),
-            PortDefinition("aocs.gyro.rate_y", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.rate_y", PortDirection.OUT,
                            unit="rad/s", description="Measured rate Y"),
-            PortDefinition("aocs.gyro.rate_z", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.rate_z", PortDirection.OUT,
                            unit="rad/s", description="Measured rate Z"),
-            PortDefinition("aocs.gyro.temperature", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.temperature", PortDirection.OUT,
                            unit="degC", description="Gyro temperature"),
-            PortDefinition("aocs.gyro.status", PortDirection.OUT,
+            PortDefinition(f"{_pfx}.status", PortDirection.OUT,
                            description="Status (0=off, 1=nominal)"),
         ],
         step_fn=_gyro_step,
@@ -153,5 +159,5 @@ def make_gyroscope(
         store=store,
         command_store=command_store,
     )
-    eq._port_values["aocs.gyro.power_enable"] = 0.0
+    eq._port_values[f"{_pfx}.power_enable"] = 0.0
     return eq

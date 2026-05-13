@@ -3,9 +3,9 @@ SVF Hardware Profile Loader
 
 Loads equipment hardware profiles from YAML files.
 Search order:
-  1. srdb/hardware/ in the opensvf repo (bundled profiles)
-  2. obsw-srdb package (if installed)
-  3. Explicit hardware_dir argument
+  1. Explicit hardware_dir argument (if provided)
+  2. mission_mysat1/hardware_profiles/ in the opensvf repo (bundled)
+  3. obsw-srdb package (if installed)
 
 This means opensvf works out-of-the-box without obsw-srdb installed.
 
