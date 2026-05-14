@@ -27,8 +27,8 @@ listed in `KNOWN_GAPS` with an explicit justification.
 │  tests/integration/           testosvf                  │
 ├─────────────────────────────────────────────────────────┤
 │  Level 1 — Unit Tests                                   │
-│  Individual SVF classes in isolation                    │
-│  tests/unit/  tests/unit/equipment/   testosvf          │
+│  Individual SVF classes in isolation, no binaries       │
+│  tests/unit/                          testosvf          │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -53,14 +53,15 @@ no DDS, and no flight binary.
 
 **Run with:** `testosvf`
 
-**Directories:** `tests/unit/` `tests/unit/equipment/`
+**Directory:** `tests/unit/`
+
+**Criterion:** No compiled FMU binaries, no DDS, no flight binary. Pure Python + NativeEquipment only.
 
 | Test file | What it validates | Requirements |
 |---|---|---|
 | `test_parameter_store.py` | ParameterStore thread-safety, read/write, snapshot | SVF-DEV-031/032/033 |
 | `test_command_store.py` | CommandStore inject/take atomicity | SVF-DEV-035/036 |
-| `test_equipment_contract.py` | Equipment port direction, default values, teardown | EQP-001 through EQP-012 |
-| `test_fmu_equipment.py` | FmuEquipment port declaration, step, parameter_map | SVF-DEV-063/065/066 |
+| `test_equipment_contract.py` | Equipment port direction, default values, NativeEquipment teardown | EQP-001 through EQP-006, EQP-011, EQP-012 |
 | `test_equipment_fault.py` | EquipmentFaultEngine — stuck, noise, bias, scale, fail | SVF-DEV-132 |
 | `test_temporal_monitor.py` | ParameterMonitor threshold checking, violations | SVF-DEV-131 |
 | `test_mil1553.py` | MIL-STD-1553B routing, broadcast, fault injection | 1553-001 through 1553-010 |
@@ -68,7 +69,7 @@ no DDS, and no flight binary.
 | `test_bus.py` | Generic bus fault framework (duration, expiry, injection) | 1553-007/008/009 |
 | `test_sbt.py` | S-Band transponder model | SVF-DEV-038 |
 | `test_wiring.py` | WiringMap validation, duplicate detection | SVF-DEV-004 |
-| `test_simulation_master.py` | SimulationMaster lifecycle, FMU init, CSV logging | SVF-DEV-001/002/005/006/007 |
+| `test_simulation_master.py` | SimulationMaster lifecycle, NativeEquipment step, CSV logging | SVF-DEV-001/002/005/006/007/015/016 |
 | `test_variable_timestep.py` | Variable timestep execution | SVF-DEV-003 |
 | `test_replay.py` | Deterministic seed replay | SVF-DEV-110 |
 | `test_srdb_definitions.py` | SRDB parameter definition schema | SVF-DEV-090/091 |
@@ -83,15 +84,16 @@ no DDS, and no flight binary.
 | `test_verdict.py` | ECSS verdict mapping (PASS/FAIL/INCONCLUSIVE/ERROR) | SVF-DEV-044 |
 | `test_observable.py` | Observable assertion API, timeout, polling | SVF-DEV-043 |
 | `test_cli.py` | SVF CLI subcommands (run/campaign/check/profiles) | GAP-014 |
+| `test_thruster.py` | Thruster propellant burn, temperature rise, Isp | SVF-DEV-080/081 |
+| `test_gps.py` | GPS fix acquisition, noise, power-off | SVF-DEV-081 |
+| `test_aocs_models.py` | Multi-instance isolation; hardware profile physics application | SVF-DEV-080/081 |
+| `test_aocs_equipment.py` | CSS, gyroscope, MAG, MTQ, RW, star tracker, b-dot behaviors | SVF-DEV-139 through SVF-DEV-145 |
 | `pus/test_pus_tc.py` | PUS-C TC packet parser, CRC-16 | PUS-001/002/003 |
 | `pus/test_pus_tm.py` | PUS-C TM packet builder | PUS-004 |
 | `pus/test_pus_services.py` | S1/S3/S5/S6/S8/S17/S20 service handlers | PUS-005 through PUS-011 |
 | `pus/test_obc.py` | OBC Equipment model, port declarations | OBC-001 |
 | `pus/test_obc_dhs.py` | OBC DHS behaviour, mode FSM, watchdog | OBC-001 |
 | `pus/test_obc_stub.py` | OBC Stub rule engine | SVF-DEV-040 |
-
-**Coverage:** 94 of 126 BASELINED requirements. Remaining gaps are listed
-in `tools/check_coverage.py::KNOWN_GAPS` with explicit justifications.
 
 ---
 
@@ -105,8 +107,12 @@ wiring propagation, and equipment handshake.
 
 **Directory:** `tests/integration/`
 
+**Criterion:** May use compiled FMU binaries from `models/`. No real flight binary, no Renode, no QEMU.
+
 | Test file | What it validates | Requirements |
 |---|---|---|
+| `test_fmu_equipment.py` | FmuEquipment port declaration, step, parameter_map, teardown; SimulationMaster with FMU | SVF-DEV-014, SVF-DEV-063/065/066, EQP-007/008/009/012 |
+| `test_fixtures.py` | pytest fixture lifecycle: default FMU, custom stop time/dt, inject, ConditionNotMet | SVF-DEV-040/041/042/043 |
 | `test_lockstep_loop.py` | DDS tick/ready protocol, multi-model lockstep synchronisation | SVF-DEV-009/010/011/012/014/015/016/020/021/022/023/026 |
 | `test_wiring_integration.py` | WiringMap auto-propagation between Equipment instances | SVF-DEV-004 |
 | `test_dynamics_bridge.py` | KDE FMU ↔ sensor models data flow (MAG/GYRO truth pass-through) | KDE-001/002/003/004 |

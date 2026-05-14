@@ -1,13 +1,12 @@
 """
-Tests for SimulationMaster, FmuEquipment, NativeEquipment and CsvLogger.
-Implements: SVF-DEV-001, SVF-DEV-002, SVF-DEV-005, SVF-DEV-006, SVF-DEV-007,
-            SVF-DEV-010, SVF-DEV-013, SVF-DEV-014, SVF-DEV-015, SVF-DEV-016
+Tests for SimulationMaster, NativeEquipment and CsvLogger.
+FMU-dependent tests live in tests/integration/test_fmu_equipment.py.
+Implements: SVF-DEV-001, SVF-DEV-002, SVF-DEV-005, SVF-DEV-006,
+            SVF-DEV-007, SVF-DEV-010, SVF-DEV-013, SVF-DEV-015, SVF-DEV-016
 """
 
 import pytest
 from pathlib import Path
-
-from cyclonedds.domain import DomainParticipant
 
 from svf.sim.simulation import SimulationMaster, SimulationError
 from svf.core.abstractions import SyncProtocol
@@ -19,13 +18,16 @@ from svf.stores.parameter_store import ParameterStore
 from svf.stores.command_store import CommandStore
 from svf.logging import CsvLogger
 
-FMU_PATH = Path(__file__).parent.parent.parent / "models" / "SimpleCounter.fmu"
-
 
 class _PassthroughSync(SyncProtocol):
-    def reset(self) -> None: pass
-    def publish_ready(self, model_id: str, t: float) -> None: pass
-    def wait_for_ready(self, expected: list[str], timeout: float) -> bool: return True
+    def reset(self) -> None:
+        pass
+
+    def publish_ready(self, model_id: str, t: float) -> None:
+        pass
+
+    def wait_for_ready(self, expected: list[str], timeout: float) -> bool:
+        return True
 
 
 @pytest.fixture
@@ -73,58 +75,12 @@ def test_native_equipment_step(
     assert store.read("value").value == pytest.approx(0.1)  # type: ignore[union-attr]
 
 
-# ── FmuEquipment tests ────────────────────────────────────────────────────────
-
-@pytest.mark.requirement("SVF-DEV-014")
-@pytest.mark.requirement("SVF-DEV-063")
-def test_fmu_equipment_initialises(
-    store: ParameterStore,
-    cmd_store: CommandStore,
-    sync: _PassthroughSync,
-) -> None:
-    """FmuEquipment loads and initialises without error."""
-    eq = FmuEquipment(
-        fmu_path=FMU_PATH,
-        equipment_id="counter",
-        sync_protocol=sync,
-        store=store,
-        command_store=cmd_store,
-    )
-    eq.initialise()
-    assert "counter" in eq.ports
-    eq.teardown()
-
-
-@pytest.mark.requirement("SVF-DEV-014", "EQP-006")
-@pytest.mark.requirement("SVF-DEV-065")
-def test_fmu_equipment_on_tick_writes_store(
-    store: ParameterStore,
-    cmd_store: CommandStore,
-    sync: _PassthroughSync,
-) -> None:
-    """FmuEquipment on_tick writes output to ParameterStore."""
-    eq = FmuEquipment(
-        fmu_path=FMU_PATH,
-        equipment_id="counter",
-        sync_protocol=sync,
-        store=store,
-        command_store=cmd_store,
-    )
-    eq.initialise()
-    eq.on_tick(t=0.0, dt=0.1)
-    entry = store.read("counter")
-    assert entry is not None
-    assert entry.value == pytest.approx(0.1)
-    eq.teardown()
-
-
 @pytest.mark.requirement("SVF-DEV-007")
 def test_fmu_equipment_missing_fmu(
     store: ParameterStore,
-    cmd_store: CommandStore,
     sync: _PassthroughSync,
 ) -> None:
-    """FmuEquipment raises FileNotFoundError for missing FMU."""
+    """FmuEquipment raises FileNotFoundError for a non-existent path."""
     with pytest.raises(FileNotFoundError, match="FMU not found"):
         FmuEquipment(
             fmu_path="nonexistent.fmu",
@@ -136,7 +92,10 @@ def test_fmu_equipment_missing_fmu(
 
 # ── SimulationMaster tests ────────────────────────────────────────────────────
 
-@pytest.mark.requirement("SVF-DEV-009", "SVF-DEV-002", "SVF-DEV-006", "SVF-DEV-013", "SVF-DEV-016", "SVF-DEV-001")
+@pytest.mark.requirement(
+    "SVF-DEV-009", "SVF-DEV-002", "SVF-DEV-006",
+    "SVF-DEV-013", "SVF-DEV-016", "SVF-DEV-001",
+)
 def test_simulation_master_runs(
     store: ParameterStore,
     cmd_store: CommandStore,
@@ -166,28 +125,6 @@ def test_simulation_master_runs(
     master.run()
     assert len(results) == 10
     assert results[-1] == pytest.approx(1.0)
-
-
-@pytest.mark.requirement("SVF-DEV-002", "SVF-DEV-014")
-@pytest.mark.requirement("SVF-DEV-001", "SVF-DEV-002")
-def test_simulation_master_with_fmu(
-    store: ParameterStore,
-    cmd_store: CommandStore,
-    sync: _PassthroughSync,
-) -> None:
-    """SimulationMaster runs correctly with FmuEquipment."""
-    master = SimulationMaster(
-        tick_source=SoftwareTickSource(),
-        sync_protocol=sync,
-        models=[FmuEquipment(FMU_PATH, "counter", sync, store, cmd_store)],
-        dt=0.1,
-        stop_time=1.0,
-    )
-    master.run()
-    assert master.time == pytest.approx(0.9)
-    entry = store.read("counter")
-    assert entry is not None
-    assert entry.value == pytest.approx(1.0)
 
 
 @pytest.mark.requirement("SVF-DEV-016")

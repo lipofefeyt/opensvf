@@ -9,21 +9,7 @@ from svf.core.abstractions import SyncProtocol
 from svf.stores.parameter_store import ParameterStore
 from svf.stores.command_store import CommandStore
 from svf.core.equipment import Equipment, PortDefinition, PortDirection
-from svf.core.fmu_equipment import FmuEquipment
 from svf.core.native_equipment import NativeEquipment
-from pathlib import Path
-
-EPS_FMU = Path(__file__).parent.parent.parent.parent / "models" / "EpsFmu.fmu"
-
-EPS_MAP = {
-    "battery_soc":        "eps.battery.soc",
-    "solar_illumination": "eps.solar_array.illumination",
-    "load_power":         "eps.load.power",
-    "bus_voltage":        "eps.bus.voltage",
-    "generated_power":    "eps.solar_array.generated_power",
-    "battery_voltage":    "eps.battery.voltage",
-    "charge_current":     "eps.battery.charge_current",
-}
 
 
 class _NoSync(SyncProtocol):
@@ -137,7 +123,7 @@ def test_equipment_duplicate_port_raises(
         _DuplicatePort("bad", sync_protocol=sync, store=store)
 
 
-# ── EQP-002: write_port on IN port raises ─────────────────────────────────────
+# ── EQP-002: write_port / read_port ──────────────────────────────────────────
 
 @pytest.mark.requirement("EQP-002", "EQP-011")
 def test_write_port_out(sync: _NoSync, store: ParameterStore) -> None:
@@ -216,41 +202,6 @@ def test_bidirectional_equipment_step(
     assert eq.read_port("status") == pytest.approx(1.0)
 
 
-# ── EQP-007: parameter_map translation ───────────────────────────────────────
-
-@pytest.mark.requirement("EQP-007")
-def test_parameter_map_translates_port_names(
-    sync: _NoSync, store: ParameterStore, cmd_store: CommandStore
-) -> None:
-    """FmuEquipment translates FMU variable names to canonical port names."""
-    eq = FmuEquipment(
-        fmu_path=EPS_FMU,
-        equipment_id="eps",
-        sync_protocol=sync,
-        store=store,
-        command_store=cmd_store,
-        parameter_map=EPS_MAP,
-    )
-    assert "eps.battery.soc" in eq.ports
-    assert "battery_soc" not in eq.ports
-
-
-@pytest.mark.requirement("EQP-007")
-def test_parameter_map_fallback_to_raw_name(
-    sync: _NoSync, store: ParameterStore, cmd_store: CommandStore
-) -> None:
-    """Without parameter_map, raw FMU variable names are used as port names."""
-    eq = FmuEquipment(
-        fmu_path=EPS_FMU,
-        equipment_id="eps",
-        sync_protocol=sync,
-        store=store,
-        command_store=cmd_store,
-    )
-    assert "battery_soc" in eq.ports
-    assert "eps.battery.soc" not in eq.ports
-
-
 # ── EQP-011: default port value is 0.0 ───────────────────────────────────────
 
 @pytest.mark.requirement("EQP-011")
@@ -262,25 +213,9 @@ def test_port_default_value_is_zero(sync: _NoSync, store: ParameterStore) -> Non
 # ── EQP-012: teardown safe without initialise ─────────────────────────────────
 
 @pytest.mark.requirement("EQP-012")
-def test_teardown_safe_without_initialise(
-    sync: _NoSync, store: ParameterStore, cmd_store: CommandStore
-) -> None:
-    """teardown() is safe to call even if initialise() was never called."""
-    eq = FmuEquipment(
-        fmu_path=EPS_FMU,
-        equipment_id="eps",
-        sync_protocol=sync,
-        store=store,
-        command_store=cmd_store,
-    )
-    eq.teardown()  # should not raise
-
-
-@pytest.mark.requirement("EQP-012")
 def test_native_teardown_safe_without_initialise(
     sync: _NoSync, store: ParameterStore, cmd_store: CommandStore
 ) -> None:
-    """NativeEquipment teardown() is safe without initialise()."""
     def step(eq: NativeEquipment, t: float, dt: float) -> None:
         pass
 

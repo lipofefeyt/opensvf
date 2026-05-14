@@ -608,6 +608,31 @@ The platform shall provide start-yamcs.sh and stop-yamcs.sh scripts that downloa
 **SVF-DEV-138** `[GND]` `IMPLEMENTED`
 The YAMCS instance configuration shall use PusPacketPreprocessor with useLocalGenerationTime=true so TM packets are timestamped with reception time rather than the PUS secondary header time field.
 
+---
+
+## AOCS Equipment Model Requirements [MOD]
+
+**SVF-DEV-139** `[MOD]` `IMPLEMENTED`
+The CSS model shall output a normalised illumination value in [0, 1] when sun-facing and 0.0 when the sun vector is behind the panel or the unit is powered off.
+
+**SVF-DEV-140** `[MOD]` `IMPLEMENTED`
+The gyroscope model shall output angular rate equal to the true rate plus additive Gaussian noise when powered, and 0.0 when powered off. Bias shall accumulate over time.
+
+**SVF-DEV-141** `[MOD]` `IMPLEMENTED`
+The magnetometer model shall output the true magnetic field vector plus additive Gaussian noise when powered, and 0.0 on all axes when powered off.
+
+**SVF-DEV-142** `[MOD]` `IMPLEMENTED`
+The magnetorquer model shall accept a dipole moment command and output a magnetic torque proportional to the dipole command cross the local magnetic field vector. Output shall be 0.0 when powered off.
+
+**SVF-DEV-143** `[MOD]` `IMPLEMENTED`
+The reaction wheel model shall integrate angular momentum from torque commands, saturate at maximum speed, and report the current speed. Speed shall be independent across multiple instances.
+
+**SVF-DEV-144** `[MOD]` `IMPLEMENTED`
+The star tracker model shall output a valid quaternion within acquisition time when powered and sun-exclusion constraints are met, and output a no-fix flag during acquisition or when the sun is in the exclusion zone.
+
+**SVF-DEV-145** `[MOD]` `IMPLEMENTED`
+The b-dot controller model shall output a dipole moment command proportional to the negative time-derivative of the magnetic field measurement, implementing the b-dot detumbling law.
+
 
 **GAP-014** `[SYS]` `IMPLEMENTED`
 The platform shall provide a `svf` command-line entrypoint (registered
@@ -803,4 +828,11 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-136   | GND  | IMPLEMENTED | M25 | test_xtce_generation |
 | SVF-DEV-137   | GND  | IMPLEMENTED | M25 | test_yamcs_start_stop |
 | SVF-DEV-138   | GND  | IMPLEMENTED | M25 | test_bridge_receives_tc_from_yamcs |
+| SVF-DEV-139   | MOD  | IMPLEMENTED | M26 | test_css_illumination_facing_sun |
+| SVF-DEV-140   | MOD  | IMPLEMENTED | M26 | test_gyro_rate_output_with_noise |
+| SVF-DEV-141   | MOD  | IMPLEMENTED | M26 | test_magnetometer_powered_and_off |
+| SVF-DEV-142   | MOD  | IMPLEMENTED | M26 | test_magnetorquer_torque_output |
+| SVF-DEV-143   | MOD  | IMPLEMENTED | M26 | test_rw_speed_integration |
+| SVF-DEV-144   | MOD  | IMPLEMENTED | M26 | test_star_tracker_acquires_fix |
+| SVF-DEV-145   | MOD  | IMPLEMENTED | M26 | test_bdot_dipole_output |
 | GAP-014       | SYS  | IMPLEMENTED | M19 | test_check_valid_config_returns_zero |
