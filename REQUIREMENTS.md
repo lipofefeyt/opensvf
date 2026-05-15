@@ -698,6 +698,12 @@ The requirement coverage checker (`checkcov`) shall include a fidelity section r
 **SVF-DEV-156** `[SIM]` `IMPLEMENTED`
 `SimulationMaster` shall wrap each equipment `tick()` failure as an `EquipmentTickError` carrying `equipment_id`, `obt`, `cause`, and a structured `context` dict. An `on_tick_error` callback (default: re-raise as `SimulationError`) allows L3/L4 harnesses to choose record-and-continue behaviour without modifying `SimulationMaster`.
 
+**SVF-DEV-157** `[CAM]` `IMPLEMENTED`
+The campaign runner shall track `INCONCLUSIVE` verdicts separately from `PASS`, `FAIL`, and `ERROR`. A `Procedure` subclass may raise `ProcedureInconclusiveError` to produce an `INCONCLUSIVE` result. `CampaignReport` shall expose `n_inconclusive` and include the count in `to_dict()` and the HTML report summary.
+
+**SVF-DEV-158** `[CAM]` `IMPLEMENTED`
+A campaign YAML may declare a `requirements:` list of mission requirement IDs. `CampaignRunner` shall track which declared requirements have no covering procedure and expose them via `CampaignReport.uncovered_requirements`. The HTML report shall show each declared requirement's status as COVERED, FAILED, INCONCLUSIVE, or UNCOVERED.
+
 
 **GAP-014** `[SYS]` `IMPLEMENTED`
 The platform shall provide a `svf` command-line entrypoint (registered
@@ -912,6 +918,8 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-154   | TOOLS| IMPLEMENTED | M33 | test_check_srdb_namespace_passes_on_current_codebase |
 | SVF-DEV-155   | TOOLS| IMPLEMENTED | M34 | test_fidelity_report_returns_true_on_clean_srdb |
 | SVF-DEV-156   | SIM  | IMPLEMENTED | M35 | test_default_handler_reraises_as_simulation_error |
+| SVF-DEV-157   | CAM  | IMPLEMENTED | M36 | test_inconclusive_counted |
+| SVF-DEV-158   | CAM  | IMPLEMENTED | M36 | test_declared_requirements_uncovered |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
