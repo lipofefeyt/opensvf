@@ -6,7 +6,7 @@ Inspired by ECSS-E-TM-10-23 and the Astrium SRDB Next Generation.
 One data one source: every parameter has exactly one authoritative
 definition shared across all engineering disciplines.
 
-Implements: SVF-DEV-090
+Implements: SVF-DEV-090, SVF-DEV-096
 """
 
 from __future__ import annotations
@@ -51,6 +51,77 @@ class Dtype(enum.Enum):
     INT    = "int"
     BOOL   = "bool"
     STRING = "string"
+
+
+@dataclass(frozen=True)
+class CalibrationCurve:
+    """
+    Raw-to-engineering calibration for a telemetry parameter.
+
+    Two curve types are supported:
+
+    polynomial:
+        eng = coefficients[0] + coefficients[1]*raw + coefficients[2]*raw² + ...
+        The coefficient tuple length determines the polynomial degree.
+        At least one coefficient must be provided.
+
+    table:
+        Piecewise-linear interpolation over a list of (raw, eng) breakpoints.
+        Points are sorted ascending by raw value at construction time.
+        Values outside the table range are clamped to the nearest endpoint.
+        At least two breakpoints are required.
+
+    Attributes:
+        type:         "polynomial" or "table"
+        coefficients: Polynomial coefficients a0, a1, ..., aN (polynomial only)
+        table:        Breakpoints as ((raw0, eng0), (raw1, eng1), ...) (table only)
+    """
+    type: str
+    coefficients: tuple[float, ...] = ()
+    table: tuple[tuple[float, float], ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.type not in ("polynomial", "table"):
+            raise ValueError(
+                f"CalibrationCurve type must be 'polynomial' or 'table', "
+                f"got '{self.type}'"
+            )
+        if self.type == "polynomial":
+            if not self.coefficients:
+                raise ValueError(
+                    "CalibrationCurve polynomial requires at least one coefficient"
+                )
+        elif self.type == "table":
+            if len(self.table) < 2:
+                raise ValueError(
+                    "CalibrationCurve table requires at least two breakpoints"
+                )
+            # Normalise to ascending raw order; frozen dataclass requires this idiom
+            object.__setattr__(
+                self, "table",
+                tuple(sorted(self.table, key=lambda p: p[0]))
+            )
+
+    def apply(self, raw: float) -> float:
+        """Convert a raw sensor value to its engineering unit equivalent."""
+        if self.type == "polynomial":
+            result = 0.0
+            for i, coeff in enumerate(self.coefficients):
+                result += coeff * (raw ** i)
+            return result
+        # table — piecewise linear, clamped at extremes
+        pts = self.table
+        if raw <= pts[0][0]:
+            return pts[0][1]
+        if raw >= pts[-1][0]:
+            return pts[-1][1]
+        for i in range(len(pts) - 1):
+            r0, e0 = pts[i]
+            r1, e1 = pts[i + 1]
+            if r0 <= raw <= r1:
+                t = (raw - r0) / (r1 - r0)
+                return e0 + t * (e1 - e0)
+        return pts[-1][1]  # unreachable
 
 
 @dataclass(frozen=True)
@@ -115,6 +186,7 @@ class ParameterDefinition:
     model_id: str
     valid_range: Optional[tuple[float, float]] = None
     pus: Optional[PusMapping] = None
+    calibration: Optional[CalibrationCurve] = None
 
     def __post_init__(self) -> None:
         if not self.name:

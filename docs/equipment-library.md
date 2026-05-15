@@ -14,29 +14,56 @@ The contract is stable. If you replace a reference model with a higher-fidelity 
 
 ---
 
+## Fidelity Levels
+
+All SVF equipment models declare a fidelity level. The level determines what the model is validated against and what test plan is appropriate.
+
+| Level | Name | Definition | Validated Against |
+|---|---|---|---|
+| **F1** | Functional | Correct port names and directions; trivial or stub physics (fixed values, pass-through). Used for wiring tests and OBC integration. | Port contract only |
+| **F2** | Behavioural | Correct dynamics structure — noise, bias, saturation, parametric hardware profiles. Sufficient for OBSW algorithm testing. | Domain physics knowledge |
+| **F3** | High-fidelity | Detailed physical modelling — nonlinear effects, thermal coupling, dynamic power budgets. Appropriate for mission performance analysis. | Flight heritage data or simulation benchmark |
+| **F4** | Validated | Parameters derived from acceptance test measurements or hardware-in-the-loop runs. Suitable for qualification evidence. | Hardware test data |
+
+All reference models currently ship at **F2**. F3/F4 models are supplied by the mission team or via HIL adapters.
+
+---
+
 ## Equipment Contract Summary
 
-| Equipment | Factory / Class | Subsystem | Bus Interface | Milestone |
-|---|---|---|---|---|
-| OBC | `ObcEquipment` | DHS | 1553 BC | M7/M8 |
-| OBC Stub | `ObcStub` | DHS | — | M10 |
-| OBC Emulator | `OBCEmulatorAdapter` | DHS | binary pipe | M11 |
-| TTC | `TtcEquipment` | TTC | software | M7 |
-| YAMCS Bridge | `YamcsBridge` | GND | TCP | M12 |
-| KDE Dynamics | `make_kde_equipment()` | Dynamics | FMI 2.0 | M11.5 |
-| Magnetometer | `make_magnetometer()` | AOCS | — | M11.5 |
-| Magnetorquer | `make_magnetorquer()` | AOCS | — | M11.5 |
-| Gyroscope | `make_gyroscope()` | AOCS | — | M11.5 |
-| CSS | `make_css()` | AOCS | — | M11.5 |
-| B-dot Controller | `make_bdot_controller()` | AOCS | — | M11.5 |
-| Reaction Wheel | `make_reaction_wheel()` | AOCS | 1553 RT | M6/M8 |
-| Star Tracker | `make_star_tracker()` | AOCS | SpW/1553 | M8 |
-| Thruster | `make_thruster()` | AOCS/Prop | discrete | M17 |
-| GPS Receiver | `make_gps()` | NAV | UART/SPI | M17 |
-| Thermal Model | `make_thermal()` | THM | — | M17 |
-| S-Band Transponder | `make_sbt()` | TTC | UART | M8 |
-| PCDU | `make_pcdu()` | EPS | 1553/CAN | M9 |
-| EPS FMU | `FmuEquipment(EpsFmu)` | EPS | FMI 3.0 | M4 |
+| Equipment | Factory / Class | Subsystem | Bus Interface | Fidelity | Milestone |
+|---|---|---|---|---|---|
+| OBC | `ObcEquipment` | DHS | 1553 BC | F2 | M7/M8 |
+| OBC Stub | `ObcStub` | DHS | — | F1 | M10 |
+| OBC Emulator | `OBCEmulatorAdapter` | DHS | binary pipe | F4 | M11 |
+| TTC | `TtcEquipment` | TTC | software | F2 | M7 |
+| YAMCS Bridge | `YamcsBridge` | GND | TCP | F2 | M12 |
+| KDE Dynamics | `make_kde_equipment()` | Dynamics | FMI 2.0 | F3 | M11.5 |
+| Magnetometer | `make_magnetometer()` | AOCS | — | F2 | M11.5 |
+| Magnetorquer | `make_magnetorquer()` | AOCS | — | F2 | M11.5 |
+| Gyroscope | `make_gyroscope()` | AOCS | — | F2 | M11.5 |
+| CSS | `make_css()` | AOCS | — | F2 | M11.5 |
+| B-dot Controller | `make_bdot_controller()` | AOCS | — | F2 | M11.5 |
+| Reaction Wheel | `make_reaction_wheel()` | AOCS | 1553 RT | F2 | M6/M8 |
+| Star Tracker | `make_star_tracker()` | AOCS | SpW/1553 | F2 | M8 |
+| Thruster | `make_thruster()` | AOCS/Prop | discrete | F2 | M17 |
+| GPS Receiver | `make_gps()` | NAV | UART/SPI | F2 | M17 |
+| Thermal Model | `make_thermal()` | THM | — | F2 | M17 |
+| Solar Array | `make_solar_array()` | EPS | — | F2 | M26 |
+| Battery | `make_battery()` | EPS | — | F2 | M26 |
+| PCDU | `make_pcdu()` | EPS | 1553/CAN | F2 | M9 |
+
+> **EPS FMU** (`FmuEquipment(EpsFmu)`) was removed in M26. EPS is now fully covered by `make_solar_array()`, `make_battery()`, and `make_pcdu()`.
+
+### F3/F4 upgrade paths
+
+| Equipment | What F3 needs | What F4 needs |
+|---|---|---|
+| KDE Dynamics | Already F3 via FMI (6-DOF rigid body) | IMU mounting misalignment + flex modes from modal test |
+| Reaction Wheel | Speed-dependent friction model | Measured friction curve from bearing test |
+| Battery | Electro-chemical (e.g. SPKF) model | Discharge curves from acceptance test |
+| Thermal Model | Multi-node radiative coupling (Gebhart) | MLI effective emittance from thermal vacuum test |
+| GPS Receiver | Ionospheric/tropospheric delay model | Measured position noise from sky test |
 
 ---
 
@@ -375,19 +402,6 @@ Default 3 nodes: `panel_plus_x`, `panel_minus_x`, `internal`.
 | `eps.pcdu.lcl{1-8}.enable` | IN | — | Per-LCL enable |
 | `eps.pcdu.total_load` | OUT | W | Total load |
 | `eps.pcdu.uvlo_active` | OUT | — | 1=UVLO active |
-
----
-
-## 13. EPS FMU
-
-`FmuEquipment(EpsFmu)` — FMI 3.0 FMU
-
-| Port | Direction | Unit |
-|---|---|---|
-| `eps.solar_array.illumination` | IN | 0–1 |
-| `eps.battery.soc` | OUT | 0.05–1.0 |
-| `eps.battery.voltage` | OUT | V |
-| `eps.solar_array.generated_power` | OUT | W |
 
 ---
 

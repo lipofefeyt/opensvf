@@ -14,6 +14,7 @@ from typing import Any, Optional
 import yaml
 
 from svf.srdb.definitions import (
+    CalibrationCurve,
     Classification,
     Domain,
     Dtype,
@@ -314,6 +315,56 @@ class SrdbLoader:
                     f"mapping: {e}"
                 ) from e
 
+        calibration: Optional[CalibrationCurve] = None
+        if "calibration" in fields and fields["calibration"] is not None:
+            cal = fields["calibration"]
+            if not isinstance(cal, dict):
+                raise SrdbLoadError(
+                    f"{source}: parameter '{name}' calibration must be a mapping"
+                )
+            cal_type = cal.get("type")
+            try:
+                if cal_type == "polynomial":
+                    raw_coeffs = cal.get("coefficients", [])
+                    if not isinstance(raw_coeffs, list) or len(raw_coeffs) == 0:
+                        raise SrdbLoadError(
+                            f"{source}: parameter '{name}' polynomial calibration "
+                            f"requires a non-empty 'coefficients' list"
+                        )
+                    calibration = CalibrationCurve(
+                        type="polynomial",
+                        coefficients=tuple(float(c) for c in raw_coeffs),
+                    )
+                elif cal_type == "table":
+                    raw_pts = cal.get("table", [])
+                    if not isinstance(raw_pts, list) or len(raw_pts) < 2:
+                        raise SrdbLoadError(
+                            f"{source}: parameter '{name}' table calibration "
+                            f"requires at least two breakpoints"
+                        )
+                    pts: list[tuple[float, float]] = []
+                    for pt in raw_pts:
+                        if not (isinstance(pt, (list, tuple)) and len(pt) == 2):
+                            raise SrdbLoadError(
+                                f"{source}: parameter '{name}' calibration table "
+                                f"breakpoints must each be [raw, eng] pairs"
+                            )
+                        pts.append((float(pt[0]), float(pt[1])))
+                    pts.sort(key=lambda p: p[0])
+                    calibration = CalibrationCurve(
+                        type="table",
+                        table=tuple(pts),
+                    )
+                else:
+                    raise SrdbLoadError(
+                        f"{source}: parameter '{name}' calibration type must be "
+                        f"'polynomial' or 'table', got '{cal_type}'"
+                    )
+            except (KeyError, TypeError, ValueError) as e:
+                raise SrdbLoadError(
+                    f"{source}: parameter '{name}' calibration error: {e}"
+                ) from e
+
         try:
             return ParameterDefinition(
                 name=name,
@@ -325,6 +376,7 @@ class SrdbLoader:
                 model_id=str(fields["model_id"]),
                 valid_range=valid_range,
                 pus=pus,
+                calibration=calibration,
             )
         except ValueError as e:
             raise SrdbLoadError(
@@ -351,4 +403,16 @@ class SrdbLoader:
                 "subservice": defn.pus.subservice,
                 "parameter_id": defn.pus.parameter_id,
             }
+        if defn.calibration is not None:
+            cal = defn.calibration
+            if cal.type == "polynomial":
+                d["calibration"] = {
+                    "type": "polynomial",
+                    "coefficients": list(cal.coefficients),
+                }
+            else:
+                d["calibration"] = {
+                    "type": "table",
+                    "table": [list(pt) for pt in cal.table],
+                }
         return d
