@@ -683,14 +683,21 @@ The OBT parameter file loader shall parse a tab/space-delimited file with three 
 **SVF-DEV-151** `[SIM]` `IMPLEMENTED`
 The spacecraft configuration loader shall accept `simulation.obt_init_file` as a path (resolved relative to the spacecraft YAML directory) and load it as an `ObtParamFile` passed to `SimulationMaster`.
 
+**SVF-DEV-152** `[CFG]` `IMPLEMENTED`
+The spacecraft pre-flight validator (`SpacecraftValidator`) shall detect and report duplicate equipment IDs, wiring overrides that reference undefined equipment, and OBT parameter init file problems (missing file, parse errors) — all without instantiating DDS, models, or a tick source.
+
+**SVF-DEV-153** `[CFG]` `IMPLEMENTED`
+The spacecraft pre-flight validator shall detect bus address conflicts within each declared bus: duplicate CAN message IDs (CAN 2.0B), duplicate SpaceWire logical addresses, and duplicate MIL-STD-1553 RT/SA pairs.
+
 
 **GAP-014** `[SYS]` `IMPLEMENTED`
 The platform shall provide a `svf` command-line entrypoint (registered
 as a console_scripts entry point in pyproject.toml) with the following
-subcommands: `run <spacecraft.yaml>` (run a simulation), `campaign
+subcommands: `run <spacecraft.yaml>` (run a simulation), `validate
+<spacecraft.yaml>` (fast pre-flight check, no DDS), `campaign
 <campaign.yaml>` (run a test campaign), `campaign --report` (run and
 generate an HTML report), `profiles` (list available hardware profiles),
-`check <spacecraft.yaml>` (validate a spacecraft config without running).
+`check <spacecraft.yaml>` (full config load without running).
 
 ---
  
@@ -891,6 +898,8 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-149   | SIM  | IMPLEMENTED | M29 | test_obt_parse_happy_path |
 | SVF-DEV-150   | SIM  | IMPLEMENTED | M29 | test_simulation_master_injects_obt_entries_at_correct_time |
 | SVF-DEV-151   | SIM  | IMPLEMENTED | M29 | test_obt_parse_happy_path |
+| SVF-DEV-152   | CFG  | IMPLEMENTED | M32 | test_clean_config_no_issues |
+| SVF-DEV-153   | CFG  | IMPLEMENTED | M32 | test_can_duplicate_id_raises_error |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
