@@ -3,10 +3,11 @@ SVF Command Line Interface
 
 Usage:
     svf run spacecraft.yaml              # run simulation
+    svf validate spacecraft.yaml         # pre-flight check (fast, no DDS)
     svf campaign campaign.yaml           # run test campaign
     svf campaign campaign.yaml --report  # run + generate HTML report
     svf profiles                         # list available hardware profiles
-    svf check spacecraft.yaml            # validate config without running
+    svf check spacecraft.yaml            # full config load (DDS + models), no run
 
 Implements: GAP-014
 """
@@ -101,8 +102,45 @@ def cmd_profiles(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_validate(args: argparse.Namespace) -> int:
+    """
+    Pre-flight configuration validator (fast, no DDS, no model instantiation).
+    Checks: duplicate equipment IDs, bus address conflicts, wiring references,
+    OBT parameter file existence and parse validity.
+    Exits 0 if clean, 1 if any errors are found.
+    Implements: SVF-DEV-152, SVF-DEV-153
+    """
+    from svf.config.validator import SpacecraftValidator
+    path = Path(args.config)
+    if not path.exists():
+        print(f"[svf] Not found: {path}", file=sys.stderr)
+        return 1
+
+    issues = SpacecraftValidator.from_file(path)
+    errors   = [i for i in issues if i.severity == "error"]
+    warnings = [i for i in issues if i.severity == "warning"]
+
+    for issue in issues:
+        stream = sys.stderr if issue.severity == "error" else sys.stdout
+        print(f"[svf validate] {issue}", file=stream)
+
+    if errors:
+        print(
+            f"\n[svf validate] FAIL — {len(errors)} error(s), "
+            f"{len(warnings)} warning(s).",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(
+        f"[svf validate] OK — {path.name} "
+        f"({len(warnings)} warning(s))."
+    )
+    return 0
+
+
 def cmd_check(args: argparse.Namespace) -> int:
-    """Validate a spacecraft YAML config without running."""
+    """Full config load (DDS + models) without running the simulation."""
     from svf.config.spacecraft import SpacecraftLoader, SpacecraftConfigError
     try:
         master = SpacecraftLoader.load(args.config)
@@ -165,8 +203,16 @@ def main() -> None:
     p_prof = sub.add_parser("profiles", help="List available hardware profiles")
     p_prof.set_defaults(func=cmd_profiles)
 
+    # svf validate
+    p_val = sub.add_parser(
+        "validate",
+        help="Pre-flight config check (fast, no DDS). Exits 0 if clean.",
+    )
+    p_val.add_argument("config", help="Path to spacecraft.yaml")
+    p_val.set_defaults(func=cmd_validate)
+
     # svf check
-    p_check = sub.add_parser("check", help="Validate spacecraft config")
+    p_check = sub.add_parser("check", help="Full config load (DDS + models) without running")
     p_check.add_argument("config", help="Path to spacecraft.yaml")
     p_check.set_defaults(func=cmd_check)
 
