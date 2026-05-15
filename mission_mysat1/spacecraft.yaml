@@ -1,49 +1,62 @@
 version: 1
 spacecraft: MySat-1
 
+# OBC runs in stub mode — no compiled binary required.
+# Swap to 'pipe' or 'socket' when you have an openobsw binary.
 obsw:
   type: stub
 
 equipment:
-  - id: kde
-    model: dynamics
+  # Dynamics (FMI 2.0 FMU from opensvf-kde — comment out if binary unavailable)
+  # - id: kde
+  #   model: dynamics
+
+  # AOCS sensors
   - id: mag1
     model: magnetometer
     hardware_profile: mag_default
+
   - id: gyro1
     model: gyroscope
     hardware_profile: gyro_default
-  - id: mtq1
-    model: magnetorquer
+
   - id: str1
     model: star_tracker
+    hardware_profile: str_default
+
   - id: css1
     model: css
-  # Added the missing Reaction Wheel!
+
+  # AOCS actuators
   - id: rw1
     model: reaction_wheel
     hardware_profile: rw_default
 
-# Added the missing 1553 Bus!
-buses:
-  - id: aocs_bus
-    type: mil1553
-    rt_count: 8
-    mappings:
-      - rt: 5
-        sa: 1
-        parameter: aocs.rw1.torque_cmd
-        direction: BC_to_RT
-      - rt: 5
-        sa: 2
-        parameter: aocs.rw1.speed
-        direction: RT_to_BC
+  - id: mtq1
+    model: magnetorquer
+    hardware_profile: mtq_default
+
+# 1553 bus — uncomment for bus-level integration tests (platform_campaign.yaml).
+# The quickstart campaign uses direct CommandStore injection — no bus needed.
+# buses:
+#   - id: aocs_bus
+#     type: mil1553
+#     rt_count: 8
+#     mappings:
+#       - rt: 5
+#         sa: 1
+#         parameter: aocs.rw1.torque_cmd
+#         direction: BC_to_RT
+#       - rt: 5
+#         sa: 2
+#         parameter: aocs.rw1.speed
+#         direction: RT_to_BC
 
 wiring:
   auto: true
 
 simulation:
   dt: 0.1
-  stop_time: 3600.0
+  stop_time: 300.0   # safety limit; campaign runner stops each procedure early
   seed: 42
   realtime: false
