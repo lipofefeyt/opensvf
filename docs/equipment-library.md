@@ -65,6 +65,33 @@ All reference models currently ship at **F2**. F3/F4 models are supplied by the 
 | Thermal Model | Multi-node radiative coupling (Gebhart) | MLI effective emittance from thermal vacuum test |
 | GPS Receiver | Ionospheric/tropospheric delay model | Measured position noise from sky test |
 
+### Promoting a model from F2 to F3 with CalibrationCurve (M31)
+
+The SRDB supports polynomial and piecewise-linear calibration curves on TM
+parameters. Adding a `CalibrationCurve` to a parameter signals that raw ADC
+counts are converted to engineering units before being written to
+`ParameterStore`.
+
+```yaml
+# srdb/baseline/aocs_sensors.yaml
+parameters:
+  mag.field_x:
+    description: "Magnetometer X field"
+    unit: T
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: mag
+    calibration:
+      type: polynomial
+      coefficients: [0.0, 4.882813e-7]   # raw counts → Tesla (16-bit ADC, ±16 Gauss)
+```
+
+`checkcov` detects inconsistencies: if a model is listed as F2 in
+`EQUIPMENT_FIDELITY` but its SRDB parameters have `CalibrationCurve` entries,
+the tool reports an `INCONSISTENCY` error and exits 1. Update the fidelity
+level in `tools/check_coverage.py` when you add calibration data.
+
 ---
 
 ## Port Name Convention
