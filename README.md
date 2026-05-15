@@ -68,7 +68,7 @@ git clone https://github.com/lipofefeyt/opensvf
 cd opensvf
 pip install -e ".[dev]"                                           # install SVF and dev dependencies
 
-testosvf                                                          # ~351 unit + integration tests
+testosvf                                                          # ~390 unit + integration tests
 checkcov                                                          # requirement coverage report
 svf profiles                                                      # list bundled hardware profiles
 svf check mission_mysat1/spacecraft.yaml
@@ -82,6 +82,21 @@ To start the YAMCS ground station:
 ```bash
 bash scripts/start-yamcs.sh     # downloads YAMCS 5.12.6 if not present, starts on port 8090
 ```
+
+---
+
+## Validation pyramid
+
+OpenSVF is structured around a four-level validation pyramid:
+
+| Level | Name | Requires | What it covers |
+|---|---|---|---|
+| L1 | Unit | No FMU binaries | Equipment physics, bus logic, stores, PUS packets |
+| L2 | Integration | SimpleCounter.fmu | Closed-loop wiring, FmuEquipment adapter, simulation master |
+| L3 | System | SpacecraftDynamics.fmu + OBSW binary | Full SIL: flight software in the loop, dynamics, PUS over YAMCS |
+| L4 | Campaign | Mission spacecraft.yaml | Operator-level test procedures with HTML verdict reports |
+
+CI runs L1 + L2 (no compiled flight software needed). L3 and L4 require the `openobsw` binary and `opensvf-kde` FMU.
 
 ---
 
@@ -246,7 +261,7 @@ TM pipeline: obsw_sim → SVF → UDP port 10015 → YAMCS packet viewer
 ## Developer tools
 
 ```bash
-testosvf        # full test suite (~341 tests)
+testosvf        # full test suite (~390 tests, L1+L2)
 checkosvf       # mypy strict type check
 checkcov        # requirement coverage (REQUIREMENTS.md → traceability.txt)
 checkcons       # SRDB cross-repo consistency (wire protocol, orphan requirements)
@@ -282,8 +297,8 @@ src/svf/
 ├── models/
 │   ├── aocs/       magnetometer, gyroscope, star_tracker, magnetorquer,
 │   │               reaction_wheel, css, bdot_controller, thruster, gps
-│   ├── dynamics/   KDE FMU wrapper (6-DOF physics)
-│   ├── eps/        PCDU, battery, solar array FMUs
+│   ├── dynamics/   KDE FMU wrapper (6-DOF physics, external C++ project)
+│   ├── eps/        solar_array, battery, pcdu  (NativeEquipment factories)
 │   ├── dhs/        OBCStub, OBCEmulatorAdapter (pipe + socket)
 │   └── ttc/        TTC, S-band transponder
 ├── bus/            MIL-STD-1553B, SpaceWire, CAN
@@ -320,8 +335,12 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 | M23 — Temporal assertions + equipment fault engine | ✅ Done |
 | M24 — ZynqMP SIL (aarch64 QEMU + Renode socket transport) | ✅ Done |
 | M25 — YAMCS ground segment integration (TM/TC pipeline, XTCE MDB) | ✅ Done |
-| M26 — Dev container + local WSL2 development environment | ✅ Done |
+| M26 — EPS/AOCS/thermal native models + full test pyramid restructure | ✅ Done |
 | M27 — Dual-OBC topology (ZynqMP + MSP430 Renode lockstep) | 🔄 Planned |
+| M28 — UART/serial wire protocol transport (MSP430, STM32H750 HIL) | 🔄 Planned |
+| M29 — Time-tagged parameter init file (OBT-format startup state) | 🔄 Planned |
+| M30 — CAN 2.0B full validation + SpaceWire RMAP completion | 🔄 Planned |
+| M31 — Equipment fidelity levels documentation + SRDB calibration curves | 🔄 Planned |
 
 ---
 

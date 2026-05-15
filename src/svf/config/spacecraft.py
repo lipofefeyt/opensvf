@@ -150,6 +150,17 @@ class SpacecraftLoader:
         seed       = sim_cfg.get("seed", None)
         realtime   = bool(sim_cfg.get("realtime", False))
 
+        obt_param_file = None
+        obt_init_path  = sim_cfg.get("obt_init_file")
+        if obt_init_path is not None:
+            from svf.sim.obt_param_file import ObtParamFile
+            resolved = path.parent / obt_init_path
+            obt_param_file = ObtParamFile.load(resolved)
+            logger.info(
+                f"[spacecraft] OBT init file: {resolved} "
+                f"({len(obt_param_file)} entries)"
+            )
+
         # Build equipment
         equipment_map: dict[str, Any] = {}
         models: list[Any] = []
@@ -212,6 +223,7 @@ class SpacecraftLoader:
             param_store=store,
             wiring=wiring,
             seed=seed,
+            obt_param_file=obt_param_file,
         )
 
         logger.info(

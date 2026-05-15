@@ -642,6 +642,15 @@ The thermal model shall add equipment dissipation power to the cavity temperatur
 **SVF-DEV-148** `[MOD]` `IMPLEMENTED`
 The thermal model shall maintain the radiator panel temperature strictly below the sun-facing panel temperature during steady-state illumination, reflecting the radiator's cooler thermal environment.
 
+**SVF-DEV-149** `[SIM]` `IMPLEMENTED`
+The OBT parameter file loader shall parse a tab/space-delimited file with three columns (OBT, PARAM_NAME, VALUE); blank lines and lines beginning with `#` shall be ignored; lines with wrong column count or non-numeric OBT/VALUE shall raise `ValueError` with the offending line number.
+
+**SVF-DEV-150** `[SIM]` `IMPLEMENTED`
+`SimulationMaster` shall accept an `ObtParamFile` and, on each simulation tick, inject all entries whose OBT is less than or equal to the current simulation time into the `CommandStore`, with each entry injected exactly once in OBT-ascending order.
+
+**SVF-DEV-151** `[SIM]` `IMPLEMENTED`
+The spacecraft configuration loader shall accept `simulation.obt_init_file` as a path (resolved relative to the spacecraft YAML directory) and load it as an `ObtParamFile` passed to `SimulationMaster`.
+
 
 **GAP-014** `[SYS]` `IMPLEMENTED`
 The platform shall provide a `svf` command-line entrypoint (registered
@@ -847,4 +856,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-146   | MOD  | IMPLEMENTED | M26 | test_sun_facing_panel_heats_up |
 | SVF-DEV-147   | MOD  | IMPLEMENTED | M26 | test_equipment_dissipation_heats_internal |
 | SVF-DEV-148   | MOD  | IMPLEMENTED | M26 | test_radiator_panel_cooler_than_sun_panel |
+| SVF-DEV-149   | SIM  | IMPLEMENTED | M29 | test_obt_parse_happy_path |
+| SVF-DEV-150   | SIM  | IMPLEMENTED | M29 | test_simulation_master_injects_obt_entries_at_correct_time |
+| SVF-DEV-151   | SIM  | IMPLEMENTED | M29 | test_obt_parse_happy_path |
 | GAP-014       | SYS  | IMPLEMENTED | M19 | test_check_valid_config_returns_zero |
