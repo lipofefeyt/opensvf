@@ -356,6 +356,38 @@ The OBC Equipment model shall act as 1553 Bus Controller, receiving PUS TC packe
 
 ---
 
+## CAN Bus Requirements [CAN]
+
+**CAN-001** `[CAN]` `IMPLEMENTED`
+The platform shall provide a CAN 2.0B bus adapter (CanBus) supporting standard 11-bit identifiers (range 0x000–0x7FF) and extended 29-bit identifiers (range 0x00000000–0x1FFFFFFF); identifiers outside the respective range shall raise `ValueError`.
+
+**CAN-002** `[CAN]` `IMPLEMENTED`
+CanBus shall route TX messages (direction="tx") from ParameterStore to CommandStore by CAN identifier; RX messages (direction="rx") shall be written to the canonical OBC telemetry parameter `can.{bus_id}.{node_id}.{parameter}`.
+
+**CAN-003** `[CAN]` `IMPLEMENTED`
+A BUS_ERROR fault targeting "all" shall put CanBus in bus-off state, suspending all TX and RX message routing for the duration of the fault.
+
+**CAN-004** `[CAN]` `IMPLEMENTED`
+NO_RESPONSE and BAD_PARITY faults shall block only the affected node's messages; unaffected nodes shall continue to route normally. Time-limited faults shall auto-expire. Faults shall be injectable via CommandStore using the convention `bus.{bus_id}.fault.{target}.{fault_type}`.
+
+---
+
+## SpaceWire Bus Requirements [SPW]
+
+**SPW-001** `[SPW]` `IMPLEMENTED`
+The platform shall provide a SpaceWire bus adapter (SpwBus) with RMAP read and write transaction routing by logical address; logical addresses outside the valid range 32–254 shall raise `ValueError`.
+
+**SPW-002** `[SPW]` `IMPLEMENTED`
+SpwBus RMAP write transactions shall route parameter values from ParameterStore to CommandStore for the target node.
+
+**SPW-003** `[SPW]` `IMPLEMENTED`
+SpwBus RMAP read transactions shall route node telemetry to the canonical OBC parameter `spw.{bus_id}.{node_id}.{parameter}`.
+
+**SPW-004** `[SPW]` `IMPLEMENTED`
+A BUS_ERROR fault targeting a node_id or "all" shall block all RMAP transactions to the affected node(s). Faults shall be injectable via CommandStore using the convention `bus.{bus_id}.fault.{target}.{fault_type}`.
+
+---
+
 ## PUS TM/TC Requirements [PUS]
 
 **PUS-001** `[PUS]` `IMPLEMENTED`
@@ -859,4 +891,12 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-149   | SIM  | IMPLEMENTED | M29 | test_obt_parse_happy_path |
 | SVF-DEV-150   | SIM  | IMPLEMENTED | M29 | test_simulation_master_injects_obt_entries_at_correct_time |
 | SVF-DEV-151   | SIM  | IMPLEMENTED | M29 | test_obt_parse_happy_path |
+| CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
+| CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
+| CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
+| CAN-004       | CAN  | IMPLEMENTED | M30 | test_fault_injected_via_command_store |
+| SPW-001       | SPW  | IMPLEMENTED | M30 | test_logical_address_below_minimum_raises |
+| SPW-002       | SPW  | IMPLEMENTED | M30 | test_rmap_write_routes_to_command_store |
+| SPW-003       | SPW  | IMPLEMENTED | M30 | test_rmap_read_routes_to_canonical_telemetry |
+| SPW-004       | SPW  | IMPLEMENTED | M30 | test_fault_injected_via_command_store |
 | GAP-014       | SYS  | IMPLEMENTED | M19 | test_check_valid_config_returns_zero |
