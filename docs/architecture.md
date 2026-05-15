@@ -172,23 +172,18 @@ The C reference implementation lives in `contrib/svf_protocol/` in the openobsw 
 src/svf/models/
 ├── aocs/       reaction_wheel, magnetometer, magnetorquer, gyroscope,
 │               star_tracker, css, bdot_controller, thruster, gps
-├── dynamics/   kde_equipment
-│   └── fmu/    DynamicsFmu.py (Python wrapper)
-├── eps/        pcdu
-│   └── fmu/    EpsFmu.py, BatteryFmu.py, SolarArrayFmu.py, PcduFmu.py
+├── dynamics/   kde_equipment (FmuEquipment adapter for SpacecraftDynamics.fmu)
+├── eps/        solar_array, battery, pcdu  (all NativeEquipment factories)
 ├── dhs/        obc, obc_stub, obc_emulator
 ├── ttc/        ttc, sbt
 └── thermal/    thermal
 
-models/fmu/     FMU binaries (data, not code)
-├── SpacecraftDynamics.fmu
-├── EpsFmu.fmu
-├── BatteryFmu.fmu
-├── SolarArrayFmu.fmu
-└── PcduFmu.fmu
+models/         FMU binaries (data, not code — external models only)
+├── SpacecraftDynamics.fmu   (from opensvf-kde C++ project)
+└── SimpleCounter.fmu        (test double for FmuEquipment infrastructure tests)
 ```
 
-The `.fmu` files are binary data committed at `models/fmu/`. The Python wrappers in `src/svf/models/*/fmu/` load them at runtime. This separation keeps code and data in different locations. Use `scripts/download_fmu.sh` to download updated FMU binaries from opensvf-kde releases.
+All SVF reference models are implemented as `NativeEquipment` factories — pure Python closures with no compiled binaries. `FmuEquipment` is an adapter reserved for operator-supplied external physics (Modelica, Simulink, C++) and the `SpacecraftDynamics.fmu` from `opensvf-kde`. Use `scripts/download_fmu.sh` to download updated FMU binaries from opensvf-kde releases.
 
 ---
 

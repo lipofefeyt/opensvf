@@ -633,6 +633,15 @@ The star tracker model shall output a valid quaternion within acquisition time w
 **SVF-DEV-145** `[MOD]` `IMPLEMENTED`
 The b-dot controller model shall output a dipole moment command proportional to the negative time-derivative of the magnetic field measurement, implementing the b-dot detumbling law.
 
+**SVF-DEV-146** `[MOD]` `IMPLEMENTED`
+The thermal model shall increase panel temperature when the solar illumination input is non-zero (sun-facing heating), and decrease panel temperature when illumination is zero (eclipse cooling), converging towards the respective equilibrium temperature.
+
+**SVF-DEV-147** `[MOD]` `IMPLEMENTED`
+The thermal model shall add equipment dissipation power to the cavity temperature node, raising cavity temperature proportionally to the sum of active equipment dissipation.
+
+**SVF-DEV-148** `[MOD]` `IMPLEMENTED`
+The thermal model shall maintain the radiator panel temperature strictly below the sun-facing panel temperature during steady-state illumination, reflecting the radiator's cooler thermal environment.
+
 
 **GAP-014** `[SYS]` `IMPLEMENTED`
 The platform shall provide a `svf` command-line entrypoint (registered
@@ -835,4 +844,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-143   | MOD  | IMPLEMENTED | M26 | test_rw_speed_integration |
 | SVF-DEV-144   | MOD  | IMPLEMENTED | M26 | test_star_tracker_acquires_fix |
 | SVF-DEV-145   | MOD  | IMPLEMENTED | M26 | test_bdot_dipole_output |
+| SVF-DEV-146   | MOD  | IMPLEMENTED | M26 | test_sun_facing_panel_heats_up |
+| SVF-DEV-147   | MOD  | IMPLEMENTED | M26 | test_equipment_dissipation_heats_internal |
+| SVF-DEV-148   | MOD  | IMPLEMENTED | M26 | test_radiator_panel_cooler_than_sun_panel |
 | GAP-014       | SYS  | IMPLEMENTED | M19 | test_check_valid_config_returns_zero |

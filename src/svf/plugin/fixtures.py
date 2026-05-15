@@ -204,17 +204,10 @@ def svf_session(
     ]
 
     if not models:
-        default_fmu = (
-            Path(__file__).parent.parent.parent.parent
-            / "models" / "SimpleCounter.fmu"
+        raise ValueError(
+            "svf_session requires at least one @pytest.mark.svf_fmus([...]) entry. "
+            "Decorate your test with an FmuConfig specifying the FMU path and model_id."
         )
-        models = [FmuEquipment(
-            fmu_path=default_fmu,
-            equipment_id="counter",
-            sync_protocol=sync,
-            store=store,
-            command_store=cmd_store,
-        )]
 
     master = SimulationMaster(
         tick_source=SoftwareTickSource(),
