@@ -24,7 +24,7 @@ def thermal() -> NativeEquipment:
 
 class TestThermalSuite:
 
-    @pytest.mark.requirement("SVF-DEV-082")
+    @pytest.mark.requirement("SVF-DEV-146")
     def test_sun_facing_panel_heats_up(self, thermal: NativeEquipment) -> None:
         """Sun-facing panel temperature increases in sunlight."""
         initial = thermal.read_port("thermal.panel_plus_x.temp_degc")
@@ -35,7 +35,7 @@ class TestThermalSuite:
         final = thermal.read_port("thermal.panel_plus_x.temp_degc")
         assert final > initial
 
-    @pytest.mark.requirement("SVF-DEV-082")
+    @pytest.mark.requirement("SVF-DEV-146")
     def test_eclipse_panel_cools(self, thermal: NativeEquipment) -> None:
         """Panel cools in eclipse (no solar input)."""
         # First heat up
@@ -52,7 +52,7 @@ class TestThermalSuite:
         cold_temp = thermal.read_port("thermal.panel_plus_x.temp_degc")
         assert cold_temp < hot_temp
 
-    @pytest.mark.requirement("SVF-DEV-082")
+    @pytest.mark.requirement("SVF-DEV-147")
     def test_equipment_dissipation_heats_internal(
         self, thermal: NativeEquipment
     ) -> None:
@@ -74,7 +74,7 @@ class TestThermalSuite:
         powered = thermal2.read_port("thermal.internal.temp_degc")
         assert powered > baseline
 
-    @pytest.mark.requirement("SVF-DEV-082")
+    @pytest.mark.requirement("SVF-DEV-147")
     def test_cavity_temp_equals_internal(self, thermal: NativeEquipment) -> None:
         """Cavity temperature tracks internal node."""
         thermal.receive("thermal.solar_illumination", 0.0)
@@ -84,7 +84,7 @@ class TestThermalSuite:
         cavity   = thermal.read_port("thermal.cavity.temp_degc")
         assert internal == pytest.approx(cavity)
 
-    @pytest.mark.requirement("SVF-DEV-082")
+    @pytest.mark.requirement("SVF-DEV-146")
     def test_min_max_temps(self, thermal: NativeEquipment) -> None:
         """Min/max temperatures span all nodes."""
         thermal.receive("thermal.solar_illumination", 1.0)
@@ -95,7 +95,7 @@ class TestThermalSuite:
         t_max = thermal.read_port("thermal.max_temp_degc")
         assert t_min <= t_max
 
-    @pytest.mark.requirement("SVF-DEV-082")
+    @pytest.mark.requirement("SVF-DEV-148")
     def test_radiator_panel_cooler_than_sun_panel(
         self, thermal: NativeEquipment
     ) -> None:

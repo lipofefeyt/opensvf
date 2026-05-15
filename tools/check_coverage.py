@@ -30,31 +30,6 @@ KNOWN_GAPS: dict[str, str] = {
     "1553-008": "Verified by test_fault_expires_after_duration in test_bus.py",
     "1553-009": "Verified by test_fault_injected_via_command_store in test_bus.py and test_mil1553.py",
 
-    # EPS FMU — tested in tests/unit/ via FMU integration tests.
-    # Markers pending on EPS-specific test suite.
-    "EPS-001":  "Verified by test_fmu_equipment_step (SolarArrayFmu)",
-    "EPS-002":  "Verified by test_fmu_equipment_step (SolarArrayFmu zero illumination)",
-    "EPS-003":  "Verified by test_fmu_equipment_step (SolarArrayFmu full illumination)",
-    "EPS-004":  "Verified by test_fmu_equipment_step (BatteryFmu discharging)",
-    "EPS-005":  "Verified by test_fmu_equipment_step (BatteryFmu charging)",
-    "EPS-006":  "Verified by test_fmu_equipment_step (BatteryFmu voltage curve)",
-    "EPS-007":  "Verified by test_fmu_equipment_step (BatteryFmu SoC clamp)",
-    "EPS-008":  "Verified by test_fmu_equipment_step (PcduFmu positive current)",
-    "EPS-009":  "Verified by test_fmu_equipment_step (PcduFmu negative current)",
-    "EPS-010":  "Verified by test_fmu_equipment_step (PcduFmu bus voltage)",
-    "EPS-011":  "Verified by test_fmu_equipment_step (EpsFmu charging scenario)",
-    "EPS-012":  "Verified by test_fmu_equipment_step (EpsFmu discharging scenario)",
-    "EPS-013":  "Verified by test_fmu_equipment_step (EpsFmu bus voltage)",
-    "EPS-014":  "Verified by test_fmu_equipment_step (decomposed EPS charging)",
-    "EPS-015":  "Verified by test_fmu_equipment_step (decomposed EPS discharging)",
-    "EPS-016":  "Verified by test_fmu_equipment_step (decomposed EPS power)",
-
-    # PCDU native model — tested in tests/equipment/test_pcdu.py
-    "PCDU-001": "Verified by test_pcdu_lcl_switching",
-    "PCDU-002": "Verified by test_pcdu_mppt_efficiency",
-    "PCDU-003": "Verified by test_pcdu_uvlo_disconnects_loads",
-    "PCDU-004": "Verified by test_pcdu_power_balance",
-
     # svf_command_schedule — implemented, test marker pending
     "SVF-DEV-048": "Verified by test_tc_pwr_003_charging_in_sunlight (uses svf_command_schedule)",
 
