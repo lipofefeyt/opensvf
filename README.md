@@ -68,7 +68,7 @@ git clone https://github.com/lipofefeyt/opensvf
 cd opensvf
 pip install -e ".[dev]"                                           # install SVF and dev dependencies
 
-testosvf                                                          # ~390 unit + integration tests
+testosvf                                                          # ~453 unit + integration tests
 checkcov                                                          # requirement coverage report
 svf profiles                                                      # list bundled hardware profiles
 svf check mission_mysat1/spacecraft.yaml
@@ -261,11 +261,12 @@ TM pipeline: obsw_sim → SVF → UDP port 10015 → YAMCS packet viewer
 ## Developer tools
 
 ```bash
-testosvf        # full test suite (~390 tests, L1+L2)
-checkosvf       # mypy strict type check
-checkcov        # requirement coverage (REQUIREMENTS.md → traceability.txt)
-checkcons       # SRDB cross-repo consistency (wire protocol, orphan requirements)
-regen-xtce      # regenerate YAMCS XTCE database from SRDB
+testosvf                              # full test suite (~453 tests, L1+L2)
+checkosvf                             # mypy strict type check
+svf validate spacecraft.yaml          # fast pre-flight config check (no DDS, no FMU)
+checkcov                              # requirement coverage + equipment fidelity report
+checkcons                             # SRDB consistency: 7 checks including namespace lint
+regen-xtce                            # regenerate YAMCS XTCE database from SRDB
 ```
 
 ---
@@ -338,9 +339,14 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 | M26 — EPS/AOCS/thermal native models + full test pyramid restructure | ✅ Done |
 | M27 — Dual-OBC topology (ZynqMP + MSP430 Renode lockstep) | 🔄 Planned |
 | M28 — UART/serial wire protocol transport (MSP430, STM32H750 HIL) | 🔄 Planned |
-| M29 — Time-tagged parameter init file (OBT-format startup state) | 🔄 Planned |
-| M30 — CAN 2.0B full validation + SpaceWire RMAP completion | 🔄 Planned |
-| M31 — Equipment fidelity levels documentation + SRDB calibration curves | 🔄 Planned |
+| M29 — Time-tagged parameter init file (OBT-format startup state) | ✅ Done |
+| M30 — CAN 2.0B full validation + SpaceWire RMAP completion | ✅ Done |
+| M31 — Equipment fidelity levels + SRDB calibration curves (raw→engineering) | ✅ Done |
+| M32 — SpacecraftValidator: pre-flight config check without DDS (`svf validate`) | ✅ Done |
+| M33 — SRDB namespace linting (checkcons check [7/7]) | ✅ Done |
+| M34 — Equipment fidelity coverage in checkcov (F1–F4 per model, upgrade paths) | ✅ Done |
+| M35 — EquipmentTickError + on_tick_error callback (record-and-continue) | ✅ Done |
+| M36 — Campaign L4 scaffolding (HTML verdict, traceability) | 🔄 Planned |
 
 ---
 

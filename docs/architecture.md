@@ -289,13 +289,80 @@ Per-model seeds derived deterministically from master seed via SHA-256.
 
 ---
 
-## 12. Checks
+## 12. Equipment Tick Error Handling (M35)
+
+When an equipment model raises during a simulation tick, `SimulationMaster`
+wraps the exception in an `EquipmentTickError` and dispatches it to the
+configured handler.
+
+```python
+from svf.sim.simulation import EquipmentTickError, SimulationMaster
+
+# Default behaviour: re-raise as SimulationError (abort the run)
+master = SimulationMaster(..., models=[...])
+
+# Record-and-continue: collect errors, let other models keep ticking
+errors: list[EquipmentTickError] = []
+master = SimulationMaster(..., on_tick_error=errors.append)
+master.run()
+for e in errors:
+    print(e.equipment_id, e.obt, e.cause)
+
+# Strict custom handler: abort with a domain-specific message
+def strict(err: EquipmentTickError) -> None:
+    if err.equipment_id == "mag":
+        raise SimulationError(f"Critical sensor failure: {err}")
+    # otherwise swallow and continue
+master = SimulationMaster(..., on_tick_error=strict)
+```
+
+`EquipmentTickError` fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `equipment_id` | `str` | The failing model's ID |
+| `obt` | `float` | On-board time when the fault occurred (seconds) |
+| `cause` | `Exception` | The original exception raised by the model |
+| `context` | `dict` | Structured dict with `equipment_id`, `obt`, `cause_type`, `cause_message` |
+
+## 13. Checks
+
+### Pre-flight validation
+
+```bash
+svf validate spacecraft.yaml   # fast config check — no DDS, no FMU, no model imports
+```
+
+`SpacecraftValidator` (`src/svf/config/validator.py`) runs before any simulation
+infrastructure is instantiated and catches:
+
+- Duplicate equipment IDs
+- Bus address conflicts (CAN node-id, SpaceWire logical address, 1553 RT address)
+- Wiring overrides referencing non-existent equipment IDs or ports
+- OBT parameter file missing on disk or containing malformed YAML
+
+Exits 0 if clean; lists all issues (not just the first) on failure.
 
 ### Coverage check
 
 ```bash
-checkcov   # cross-references BASELINED requirements vs traceability matrix
+checkcov   # BASELINED requirement coverage + equipment fidelity report (F1–F4)
 ```
+
+`checkcov` (`tools/check_coverage.py`) cross-references `REQUIREMENTS.md`
+against `results/traceability.txt` and also prints a per-model fidelity table:
+
+```
+  Equipment fidelity coverage
+  ─────────────────────────────────────────────────────────────────────────
+  Model                Level  TM params  Calibrated  Note
+  Magnetometer         F2             3           0  → F3: Add polynomial calibration ...
+  Gyroscope            F2             4           0  → F3: Add Allan-variance noise model ...
+  KDE Dynamics (FMI)   F3             0           0  Add flex modes from modal test data for F4
+  ...
+```
+
+An inconsistency error (F2 model with CalibrationCurve entries) causes exit 1.
 
 ### Cross-repository consistency check
 
@@ -307,17 +374,17 @@ checkcons
 checkcons-full lipofefeyt-openobsw-*.txt
 ```
 
-`checkcons` (`tools/srdb_consistency_check.py`) catches failure modes invisible
-to `checkcov` and `testosvf`:
+`checkcons` (`tools/srdb_consistency_check.py`) runs 7 checks:
 
 | Check | What it catches |
 |---|---|
-| Struct sizes | `_SENSOR_FMT` / `_ACTUATOR_FMT` drift from C struct layout |
-| Python-side mapping | `obc_emulator.py` store keys diverging from mapping table |
-| C struct fields | Field renames in openobsw not propagated to SVF packer |
-| Producer/consumer | Sensor model port renames that produce silent zeros in the OBSW |
-| Requirement orphans | `@pytest.mark.requirement` IDs absent from `REQUIREMENTS.md` |
-| Profile symmetry | Mission hardware profiles missing from bundled directory |
+| [1/7] Struct sizes | `_SENSOR_FMT` / `_ACTUATOR_FMT` drift from C struct layout |
+| [2/7] Python-side mapping | `obc_emulator.py` store keys diverging from mapping table |
+| [3/7] C struct fields | Field renames in openobsw not propagated to SVF packer |
+| [4/7] Producer/consumer | Sensor model port renames that produce silent zeros in the OBSW |
+| [5/7] Requirement orphans | `@pytest.mark.requirement` IDs absent from `REQUIREMENTS.md` |
+| [6/7] Profile symmetry | Mission hardware profiles missing from bundled directory |
+| [7/7] SRDB namespace | OUT ports declared by equipment models but absent from SRDB baseline |
 
 The C struct check accepts either a real openobsw checkout (directory) or a
 gitingest snapshot (`.txt` file), which is the correct approach in
@@ -339,3 +406,14 @@ repos cannot coexist on the same filesystem.
 | M20 — Structured Test Procedure API | Done |
 | M21 — Mission-Level Results Reporting | Done |
 | M22 — OBSW Integration Guide | Done |
+| M23 — Temporal assertions + equipment fault engine | Done |
+| M24 — ZynqMP SIL (aarch64 QEMU + Renode socket transport) | Done |
+| M25 — YAMCS ground segment integration (TM/TC pipeline, XTCE MDB) | Done |
+| M26 — EPS/AOCS/thermal native models + full test pyramid restructure | Done |
+| M29 — Time-tagged parameter init file (OBT-format startup state) | Done |
+| M30 — CAN 2.0B full validation + SpaceWire RMAP completion | Done |
+| M31 — Equipment fidelity levels + SRDB calibration curves | Done |
+| M32 — SpacecraftValidator: pre-flight config check (`svf validate`) | Done |
+| M33 — SRDB namespace linting (checkcons check [7/7]) | Done |
+| M34 — Equipment fidelity coverage in checkcov | Done |
+| M35 — EquipmentTickError + on_tick_error callback | Done |
