@@ -13,6 +13,7 @@ from typing import Optional
 
 from svf.core.abstractions import TickSource, SyncProtocol, ModelAdapter
 from svf.config.wiring import WiringMap
+from svf.sim.obt_param_file import ObtParamFile
 from svf.sim.replay import SeedManager
 from svf.stores.command_store import CommandStore
 from svf.stores.parameter_store import ParameterStore
@@ -62,6 +63,7 @@ class SimulationMaster:
         command_store: Optional[CommandStore] = None,
         param_store: Optional[ParameterStore] = None,
         seed: Optional[int] = None,
+        obt_param_file: Optional[ObtParamFile] = None,
     ) -> None:
         if not models:
             raise SimulationError("SimulationMaster requires at least one ModelAdapter.")
@@ -75,6 +77,7 @@ class SimulationMaster:
         self._wiring = wiring
         self._command_store = command_store
         self._param_store = param_store
+        self._obt_param_file = obt_param_file
         self._time: float = 0.0
         self._running = False
         self._model_ids = [m.model_id for m in models]
@@ -189,6 +192,16 @@ class SimulationMaster:
 
         self._time = t
         self._sync_protocol.reset()
+
+        # Inject time-tagged entries from OBT parameter file
+        if self._obt_param_file is not None and self._command_store is not None:
+            for entry in self._obt_param_file.entries_due(t):
+                self._command_store.inject(
+                    name=entry.name,
+                    value=entry.value,
+                    t=t,
+                    source_id="obt_param_file",
+                )
 
         for model in self._models:
             try:
