@@ -9,7 +9,7 @@ Implements: SVF-DEV-016
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Any, Callable, Optional
 
 from svf.core.abstractions import TickSource, SyncProtocol, ModelAdapter
 from svf.config.wiring import WiringMap
@@ -24,6 +24,46 @@ logger = logging.getLogger(__name__)
 class SimulationError(Exception):
     """Raised when the simulation master encounters a non-recoverable error."""
     pass
+
+
+class EquipmentTickError(Exception):
+    """
+    Raised (or passed to on_tick_error) when an equipment model fails during
+    a simulation tick. Carries structured context so harnesses and reporters
+    can log exactly what failed without parsing exception messages.
+
+    Implements: SVF-DEV-156
+    """
+
+    def __init__(
+        self,
+        equipment_id: str,
+        obt: float,
+        cause: Exception,
+    ) -> None:
+        self.equipment_id = equipment_id
+        self.obt = obt
+        self.cause = cause
+        self.context: dict[str, Any] = {
+            "equipment_id": equipment_id,
+            "obt": obt,
+            "cause_type": type(cause).__name__,
+            "cause_message": str(cause),
+        }
+        super().__init__(
+            f"Equipment '{equipment_id}' failed at OBT {obt:.3f}s: "
+            f"{type(cause).__name__}: {cause}"
+        )
+
+
+# Callback type: receives an EquipmentTickError; may raise to abort the run,
+# or return to record-and-continue.
+OnTickError = Callable[[EquipmentTickError], None]
+
+
+def _default_on_tick_error(err: EquipmentTickError) -> None:
+    """Default handler: re-raise as SimulationError (existing behaviour)."""
+    raise SimulationError(str(err)) from err.cause
 
 
 class SimulationMaster:
@@ -64,6 +104,7 @@ class SimulationMaster:
         param_store: Optional[ParameterStore] = None,
         seed: Optional[int] = None,
         obt_param_file: Optional[ObtParamFile] = None,
+        on_tick_error: Optional[OnTickError] = None,
     ) -> None:
         if not models:
             raise SimulationError("SimulationMaster requires at least one ModelAdapter.")
@@ -82,6 +123,7 @@ class SimulationMaster:
         self._running = False
         self._model_ids = [m.model_id for m in models]
         self._seed_manager: SeedManager = SeedManager(seed)
+        self._on_tick_error: OnTickError = on_tick_error or _default_on_tick_error
 
     def run(self, start_time: float = 0.0) -> None:
         """
@@ -207,9 +249,7 @@ class SimulationMaster:
             try:
                 model.on_tick(t=t, dt=self._effective_dt())
             except Exception as e:
-                raise SimulationError(
-                    f"Model '{model.model_id}' failed on tick t={t:.3f}: {e}"
-                ) from e
+                self._on_tick_error(EquipmentTickError(model.model_id, t, e))
 
         all_ready = self._sync_protocol.wait_for_ready(
             expected=self._model_ids,
