@@ -219,8 +219,8 @@ The ParameterStore shall optionally accept an Srdb instance and warn when values
 **SVF-DEV-095** `[SDB]` `IMPLEMENTED`
 The platform shall warn when a model writes to a TC-classified parameter or a test procedure injects to a TM-classified parameter.
 
-**SVF-DEV-096** `[SDB]` `DEFERRED`
-The SRDB shall support raw-to-engineering calibration definitions.
+**SVF-DEV-096** `[SDB]` `IMPLEMENTED`
+The SRDB shall support raw-to-engineering calibration definitions. Two curve types are supported: polynomial (Horner evaluation of coefficient tuple) and table (piecewise-linear interpolation with endpoint clamping). Calibration is an optional field on ParameterDefinition; SrdbLoader parses calibration blocks from YAML and preserves them through mission override merges.
 
 **SVF-DEV-097** `[SDB]` `DEFERRED`
 The platform shall provide an XTCE 1.2 export adapter. Assigned to M10.
@@ -767,7 +767,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-093 | SDB | IMPLEMENTED | M3.5 | test_mission_override_description |
 | SVF-DEV-094 | SDB | IMPLEMENTED | M3.5 | test_parameter_store_range_violation_warns |
 | SVF-DEV-095 | SDB | IMPLEMENTED | M3.5 | test_command_store_tm_inject_warns |
-| SVF-DEV-096 | SDB | DEFERRED | — | — |
+| SVF-DEV-096 | SDB | IMPLEMENTED | M31 | test_srdb_calibration |
 | SVF-DEV-097 | SDB | DEFERRED | M10 | — |
 | SVF-DEV-098 | SDB | DEFERRED | M10 | — |
 | EQP-001 | EQP | IMPLEMENTED | M3.6 | test_equipment_construction |
