@@ -72,7 +72,7 @@ testosvf                                                          # ~453 unit + 
 checkcov                                                          # requirement coverage report
 svf profiles                                                      # list bundled hardware profiles
 svf check mission_mysat1/spacecraft.yaml
-svf campaign mission_mysat1/campaigns/aocs_campaign.yaml --report
+svf campaign mission_mysat1/campaigns/quickstart_campaign.yaml --report
 ```
 
 The campaign produces `results/report.html` — open it in a browser.
@@ -346,7 +346,8 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 | M33 — SRDB namespace linting (checkcons check [7/7]) | ✅ Done |
 | M34 — Equipment fidelity coverage in checkcov (F1–F4 per model, upgrade paths) | ✅ Done |
 | M35 — EquipmentTickError + on_tick_error callback (record-and-continue) | ✅ Done |
-| M36 — Campaign L4 scaffolding (HTML verdict, traceability) | 🔄 Planned |
+| M36 — Campaign L4 scaffolding: INCONCLUSIVE verdict + declared requirements | ✅ Done |
+| M37 — MySat-1 reference mission: narrative example project | ✅ Done |
 
 ---
 
