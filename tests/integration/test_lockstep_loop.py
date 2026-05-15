@@ -172,7 +172,7 @@ def test_lockstep_model_failure(
         stop_time=1.0,
         sync_timeout=5.0,
     )
-    with pytest.raises(SimulationError, match="failed on tick"):
+    with pytest.raises(SimulationError, match="failed at OBT"):
         master.run()
 
 
