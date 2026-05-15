@@ -48,8 +48,8 @@ class CampaignReport:
     Aggregated results from a complete campaign run.
 
     Produced by ``CampaignRunner.run()``. Contains per-procedure verdicts,
-    pass/fail/error counts, total duration, and a ``to_dict()`` method for
-    JSON serialisation.
+    pass/fail/error/inconclusive counts, total duration, declared mission
+    requirements, and a ``to_dict()`` method for JSON serialisation.
 
     Use ``print_summary()`` to print a formatted table to stdout, or pass
     to ``generate_html_report()`` to produce a self-contained HTML report.
@@ -61,11 +61,19 @@ class CampaignReport:
     n_fail:         int
     n_error:        int
     duration_s:     float
-    results:        list[ProcedureResult] = field(default_factory=list)
+    n_inconclusive: int = 0
+    results:              list[ProcedureResult] = field(default_factory=list)
+    declared_requirements: list[str]            = field(default_factory=list)
 
     @property
     def pass_rate(self) -> float:
         return self.n_pass / self.n_procedures if self.n_procedures > 0 else 0.0
+
+    @property
+    def uncovered_requirements(self) -> list[str]:
+        """Declared requirements with no covering procedure (any verdict)."""
+        attempted = {r.requirement for r in self.results if r.requirement}
+        return [req for req in self.declared_requirements if req not in attempted]
 
     def print_summary(self) -> None:
         print(f"\n{'='*60}")
@@ -73,18 +81,23 @@ class CampaignReport:
         print(f"Spacecraft: {self.spacecraft}")
         print(f"{'='*60}")
         print(f"Procedures: {self.n_procedures}")
-        print(f"PASS:  {self.n_pass}")
-        print(f"FAIL:  {self.n_fail}")
-        print(f"ERROR: {self.n_error}")
+        print(f"PASS:          {self.n_pass}")
+        print(f"FAIL:          {self.n_fail}")
+        print(f"ERROR:         {self.n_error}")
+        print(f"INCONCLUSIVE:  {self.n_inconclusive}")
         print(f"Pass rate: {self.pass_rate*100:.1f}%")
         print(f"Duration: {self.duration_s:.1f}s")
+        if self.uncovered_requirements:
+            print(f"\nUNCOVERED requirements ({len(self.uncovered_requirements)}):")
+            for req in self.uncovered_requirements:
+                print(f"  {req}")
         print(f"{'='*60}")
-        print(f"\n{'ID':<20} {'Verdict':<12} {'Requirement':<20} Title")
+        print(f"\n{'ID':<20} {'Verdict':<14} {'Requirement':<20} Title")
         print("-"*72)
         for r in self.results:
             print(
                 f"{r.procedure_id:<20} "
-                f"{r.verdict.value:<12} "
+                f"{r.verdict.value:<14} "
                 f"{r.requirement:<20} "
                 f"{r.title}"
             )
@@ -94,8 +107,11 @@ class CampaignReport:
             "campaign": self.campaign_name,
             "spacecraft": self.spacecraft,
             "n_procedures": self.n_procedures,
+            "n_inconclusive": self.n_inconclusive,
             "pass_rate": self.pass_rate,
             "duration_s": self.duration_s,
+            "declared_requirements": self.declared_requirements,
+            "uncovered_requirements": self.uncovered_requirements,
             "results": [
                 {
                     "id": r.procedure_id,
@@ -104,6 +120,14 @@ class CampaignReport:
                     "verdict": r.verdict.value,
                     "duration_s": r.duration_s,
                     "error": r.error,
+                    "steps": [
+                        {
+                            "name": s.step_name,
+                            "verdict": s.verdict.value,
+                            "detail": s.detail,
+                        }
+                        for s in r.steps
+                    ],
                 }
                 for r in self.results
             ],
@@ -138,10 +162,12 @@ class CampaignRunner:
         campaign_name:  str,
         spacecraft_cfg: str | Path,
         procedures:     list[Type[Procedure]],
+        declared_requirements: Optional[list[str]] = None,
     ) -> None:
         self._campaign_name  = campaign_name
         self._spacecraft_cfg = Path(spacecraft_cfg)
         self._procedures     = procedures
+        self._declared_requirements: list[str] = declared_requirements or []
 
     @classmethod
     def from_yaml(cls, campaign_path: str | Path) -> "CampaignRunner":
@@ -188,6 +214,7 @@ class CampaignRunner:
         campaign_name  = cfg.get("campaign", "Unnamed Campaign")
         spacecraft_cfg = cfg.get("spacecraft", "spacecraft.yaml")
         procedure_files = cfg.get("procedures", [])
+        declared_requirements: list[str] = cfg.get("requirements", [])
 
         # Resolve spacecraft path relative to campaign file
         sc_path = path.parent / spacecraft_cfg
@@ -203,7 +230,7 @@ class CampaignRunner:
                 f"from {proc_path.name}"
             )
 
-        return cls(campaign_name, sc_path, procedures)
+        return cls(campaign_name, sc_path, procedures, declared_requirements)
 
     @staticmethod
     def _load_procedures_from_file(
@@ -274,17 +301,6 @@ class CampaignRunner:
             f"[campaign] Starting: {self._campaign_name} "
             f"({len(self._procedures)} procedures)"
         )
-
-        # Load spacecraft — creates master, store, cmd_store
-        master = SpacecraftLoader.load(self._spacecraft_cfg)
-
-        # Extract store and cmd_store from master — same objects used by models
-        store     = master._param_store
-        cmd_store = master._command_store
-        if store is None:
-            store = ParameterStore()
-        if cmd_store is None:
-            cmd_store = CommandStore()
 
         results: list[ProcedureResult] = []
         t_start = time.monotonic()
@@ -366,8 +382,10 @@ class CampaignRunner:
             n_pass=sum(1 for r in results if r.verdict == Verdict.PASS),
             n_fail=sum(1 for r in results if r.verdict == Verdict.FAIL),
             n_error=sum(1 for r in results if r.verdict == Verdict.ERROR),
+            n_inconclusive=sum(1 for r in results if r.verdict == Verdict.INCONCLUSIVE),
             duration_s=duration,
             results=results,
+            declared_requirements=list(self._declared_requirements),
         )
 
         report.print_summary()

@@ -88,6 +88,11 @@ class MonitorResult:
 class ProcedureError(Exception):
     pass
 
+
+class ProcedureInconclusiveError(Exception):
+    """Raise from Procedure.run() to mark the result INCONCLUSIVE."""
+    pass
+
 # ── Background Monitoring ───────────────────────────────────────────────────
 
 class ParameterMonitor:
@@ -409,6 +414,12 @@ class Procedure:
             self.run(self._ctx)
             if self._steps and self._ctx._events:
                 self._steps[-1].events.extend(self._ctx._events)
+        except ProcedureInconclusiveError as e:
+            verdict = Verdict.INCONCLUSIVE
+            error_msg = str(e)
+            if self._steps:
+                self._steps[-1].verdict = Verdict.INCONCLUSIVE
+                self._steps[-1].detail = str(e)
         except ProcedureError as e:
             verdict = Verdict.FAIL
             error_msg = str(e)

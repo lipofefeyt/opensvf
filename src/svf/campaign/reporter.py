@@ -23,6 +23,7 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
         --bg: #f8fafc; --card-bg: #ffffff; --text: #1e293b;
         --primary: #1e293b; --secondary: #64748b;
         --pass: #22c55e; --fail: #ef4444; --error: #f59e0b;
+        --uncovered: #94a3b8; --inconclusive: #a855f7;
         --tc: #3b82f6; --tm: #10b981; --inject: #8b5cf6;
     }
     body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 2rem; line-height: 1.5; }
@@ -42,6 +43,7 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
     
     .badge { padding: 0.25rem 0.6rem; border-radius: 6px; font-weight: 700; font-size: 0.7rem; color: white; text-transform: uppercase; }
     .bg-pass { background: var(--pass); } .bg-fail { background: var(--fail); } .bg-error { background: var(--error); }
+    .bg-inconclusive { background: var(--inconclusive); } .bg-uncovered { background: var(--uncovered); }
     
     .proc-content { display: none; padding: 1.5rem; border-top: 1px solid #e2e8f0; background: #fafafa; }
     .proc-card.open .proc-content { display: block; }
@@ -77,6 +79,7 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
         <div class="stat-card"><span class="stat-val">{{ record.n_procedures }}</span><span class="stat-label">Total Procedures</span></div>
         <div class="stat-card"><span class="stat-val" style="color:var(--pass)">{{ record.n_pass }}</span><span class="stat-label">Passed</span></div>
         <div class="stat-card"><span class="stat-val" style="color:var(--fail)">{{ record.n_fail }}</span><span class="stat-label">Failed</span></div>
+        <div class="stat-card"><span class="stat-val" style="color:var(--inconclusive)">{{ record.n_inconclusive }}</span><span class="stat-label">Inconclusive</span></div>
         <div class="stat-card"><span class="stat-val">{{ "%.1f"|format(record.pass_rate * 100) }}%</span><span class="stat-label">Pass Rate</span></div>
     </div>
 
@@ -126,7 +129,12 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
             {% for req_id, status in req_summary.items() %}
             <tr>
                 <td style="font-family: monospace; font-weight: 700;">{{ req_id }}</td>
-                <td><span class="badge bg-{{ 'pass' if status == 'COVERED' else 'fail' }}">{{ status }}</span></td>
+                <td>
+                    {% if status == 'COVERED' %}<span class="badge bg-pass">{{ status }}</span>
+                    {% elif status == 'FAILED' %}<span class="badge bg-fail">{{ status }}</span>
+                    {% elif status == 'INCONCLUSIVE' %}<span class="badge bg-inconclusive">{{ status }}</span>
+                    {% else %}<span class="badge bg-uncovered">{{ status }}</span>{% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -142,14 +150,21 @@ class CampaignReporter:
     def generate(self, report: CampaignReport, output_path: Path) -> Path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
-        req_summary: Dict[str, str] = {}
+        # Seed with declared requirements as UNCOVERED; update from results
+        req_summary: Dict[str, str] = {
+            req: "UNCOVERED" for req in report.declared_requirements
+        }
         for r in report.results:
-            if r.requirement:
-                current = req_summary.get(r.requirement, "COVERED")
-                if r.verdict != Verdict.PASS:
-                    req_summary[r.requirement] = "FAILED"
-                else:
-                    req_summary[r.requirement] = current
+            if not r.requirement:
+                continue
+            if r.verdict == Verdict.PASS:
+                if req_summary.get(r.requirement) != "FAILED":
+                    req_summary[r.requirement] = "COVERED"
+            elif r.verdict in (Verdict.FAIL, Verdict.ERROR):
+                req_summary[r.requirement] = "FAILED"
+            elif r.verdict == Verdict.INCONCLUSIVE:
+                if r.requirement not in req_summary:
+                    req_summary[r.requirement] = "INCONCLUSIVE"
 
         template = Template(REPORT_TEMPLATE)
         html = template.render(
