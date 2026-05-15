@@ -773,6 +773,195 @@ def check_hardware_profile_symmetry(
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Check 7: SRDB namespace linting
+# Implements: SVF-DEV-154
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Model OUT ports that exist in code but have no SRDB ParameterDefinition.
+# Each entry needs a justification. New orphans not listed here are errors.
+KNOWN_NAMESPACE_GAPS: dict[str, str] = {
+    # Internal physics coupling — simulation bus signals, not TM observables.
+    # These are written by the dynamics model and read by sensor models; they
+    # carry truth physics and are intentionally absent from the SRDB.
+    "aocs.mag.true_x":   "Internal dynamics→magnetometer coupling; not a TM parameter",
+    "aocs.mag.true_y":   "Internal dynamics→magnetometer coupling; not a TM parameter",
+    "aocs.mag.true_z":   "Internal dynamics→magnetometer coupling; not a TM parameter",
+    # GPS SRDB baseline not yet written (no milestone assigned yet).
+    "gps.position_x":    "GPS SRDB baseline not yet written",
+    "gps.position_y":    "GPS SRDB baseline not yet written",
+    "gps.position_z":    "GPS SRDB baseline not yet written",
+    "gps.velocity_x":    "GPS SRDB baseline not yet written",
+    "gps.velocity_y":    "GPS SRDB baseline not yet written",
+    "gps.velocity_z":    "GPS SRDB baseline not yet written",
+    "gps.fix":           "GPS SRDB baseline not yet written",
+    "gps.altitude_km":   "GPS SRDB baseline not yet written",
+    "gps.status":        "GPS SRDB baseline not yet written",
+    # Thruster SRDB baseline not yet written.
+    "aocs.thr1.thrust":      "Thruster SRDB baseline not yet written",
+    "aocs.thr1.temperature": "Thruster SRDB baseline not yet written",
+    "aocs.thr1.propellant":  "Thruster SRDB baseline not yet written",
+    "aocs.thr1.status":      "Thruster SRDB baseline not yet written",
+    # bdot controller internal outputs not yet in SRDB baseline.
+    "aocs.bdot.bdot_x":  "bdot SRDB baseline not yet written",
+    "aocs.bdot.bdot_y":  "bdot SRDB baseline not yet written",
+    "aocs.bdot.bdot_z":  "bdot SRDB baseline not yet written",
+    "aocs.bdot.active":  "bdot SRDB baseline not yet written",
+    # Magnetorquer physical outputs: torques and power dissipation.
+    # The SRDB defines commanded dipoles (TC) and status (TM), but not the
+    # computed torques (internal physics) or power draw.
+    "aocs.mtq.torque_x": "Internal physics output; add to SRDB when thruster model matures",
+    "aocs.mtq.torque_y": "Internal physics output; add to SRDB when thruster model matures",
+    "aocs.mtq.torque_z": "Internal physics output; add to SRDB when thruster model matures",
+    "aocs.mtq.power_w":  "MTQ power dissipation TM; SRDB entry not yet written",
+    # Thermal model publishes panel-level temperatures using model-internal
+    # node IDs (panel_plus_x etc.). The SRDB thermal section uses physical
+    # sensor locations (battery, OBC, solar panel, structure). These will be
+    # reconciled when the thermal model is refactored to match sensor placement.
+    "thermal.panel_plus_x.temp_degc":  "Thermal model uses model-internal node IDs; SRDB uses physical sensor locations",
+    "thermal.panel_minus_x.temp_degc": "Thermal model uses model-internal node IDs; SRDB uses physical sensor locations",
+    "thermal.internal.temp_degc":      "Thermal model uses model-internal node IDs; SRDB uses physical sensor locations",
+    "thermal.cavity.temp_degc":        "Thermal cavity is a simulation aggregate; map to physical sensor in future milestone",
+    "thermal.min_temp_degc":           "Aggregate telemetry; not yet in SRDB baseline",
+    "thermal.max_temp_degc":           "Aggregate telemetry; not yet in SRDB baseline",
+    # SBT temperature sensor not yet in TTC SRDB baseline.
+    "ttc.sbt.temperature": "SBT temperature TM not yet in SRDB baseline",
+}
+
+# All model factories to instantiate for port extraction.
+# Models that require a binary (FMU) at instantiation are excluded — they
+# declare their ports without loading the FMU so all work with mocks.
+_NAMESPACE_CHECK_MODELS: dict[str, tuple[str, str]] = {
+    "magnetometer":    ("svf.models.aocs.magnetometer",   "make_magnetometer"),
+    "magnetorquer":    ("svf.models.aocs.magnetorquer",   "make_magnetorquer"),
+    "gyroscope":       ("svf.models.aocs.gyroscope",      "make_gyroscope"),
+    "reaction_wheel":  ("svf.models.aocs.reaction_wheel", "make_reaction_wheel"),
+    "star_tracker":    ("svf.models.aocs.star_tracker",   "make_star_tracker"),
+    "css":             ("svf.models.aocs.css",             "make_css"),
+    "gps":             ("svf.models.aocs.gps",             "make_gps"),
+    "thruster":        ("svf.models.aocs.thruster",        "make_thruster"),
+    "bdot_controller": ("svf.models.aocs.bdot_controller", "make_bdot_controller"),
+    "dynamics":        ("svf.models.dynamics.kde_equipment", "make_kde_equipment"),
+    "thermal":         ("svf.models.thermal.thermal",      "make_thermal"),
+    "pcdu":            ("svf.models.eps.pcdu",              "make_pcdu"),
+    "battery":         ("svf.models.eps.battery",           "make_battery"),
+    "solar_array":     ("svf.models.eps.solar_array",       "make_solar_array"),
+    "sbt":             ("svf.models.ttc.sbt",               "make_sbt"),
+}
+
+
+def check_srdb_namespace(svf_root: Path, result: CheckResult) -> None:
+    """
+    Verify that every OUT port declared by a NativeEquipment model factory
+    has a corresponding ParameterDefinition in the SRDB baseline.
+
+    OUT ports are telemetry outputs — they should always be governed by the
+    SRDB. Missing definitions are flagged as errors unless listed in
+    KNOWN_NAMESPACE_GAPS with a justification.
+
+    Also reports SRDB TM parameters that no model OUT port writes (dead
+    definitions) as warnings, since they may be obsolete.
+
+    Implements: SVF-DEV-154
+    """
+    import importlib
+    import sys as _sys
+
+    svf_src = svf_root / "src"
+    if str(svf_src) not in _sys.path:
+        _sys.path.insert(0, str(svf_src))
+
+    # Load SRDB baseline
+    srdb_dir = svf_root / "srdb" / "baseline"
+    if not srdb_dir.exists():
+        result.warn("[SRDB-NS] srdb/baseline/ not found — skipping namespace check")
+        return
+
+    try:
+        from svf.srdb.loader import SrdbLoader
+        from svf.srdb.definitions import Classification
+        loader = SrdbLoader()
+        for f in sorted(srdb_dir.glob("*.yaml")):
+            loader.load_baseline(f)
+        srdb = loader.build()
+    except Exception as e:
+        result.warn(f"[SRDB-NS] Could not load SRDB: {e} — skipping namespace check")
+        return
+
+    srdb_names = set(srdb._parameters)
+    srdb_tm_names = {
+        name for name, defn in srdb._parameters.items()
+        if defn.classification == Classification.TM
+    }
+
+    # Instantiate each model with mock infra and collect OUT port names
+    try:
+        from svf.core.abstractions import SyncProtocol
+        from svf.stores.parameter_store import ParameterStore
+        from svf.stores.command_store import CommandStore
+
+        class _MockSync(SyncProtocol):
+            def reset(self) -> None: pass
+            def publish_ready(self, model_id: str, t: float) -> None: pass
+            def wait_for_ready(self, expected: list, timeout: float) -> bool: return True
+
+        mock_sync  = _MockSync()
+        mock_store = ParameterStore()
+        mock_cmd   = CommandStore()
+    except Exception as e:
+        result.warn(f"[SRDB-NS] Could not create mock infra: {e} — skipping namespace check")
+        return
+
+    all_model_out_ports: set[str] = set()
+    n_orphan_errors   = 0
+    n_orphan_known    = 0
+
+    for model_name, (mod_path, factory_name) in _NAMESPACE_CHECK_MODELS.items():
+        try:
+            mod     = importlib.import_module(mod_path)
+            factory = getattr(mod, factory_name)
+            eq      = factory(mock_sync, mock_store, mock_cmd)
+            out_ports = [p.name for p in eq.out_ports()]
+            all_model_out_ports.update(out_ports)
+        except Exception as e:
+            result.warn(f"[SRDB-NS] Could not instantiate '{model_name}': {e}")
+            continue
+
+        for port in out_ports:
+            if port in srdb_names:
+                continue
+            if port in KNOWN_NAMESPACE_GAPS:
+                n_orphan_known += 1
+                result.note(
+                    f"[SRDB-NS] '{port}' (model: {model_name}): "
+                    f"no SRDB definition — known gap: {KNOWN_NAMESPACE_GAPS[port]}"
+                )
+            else:
+                n_orphan_errors += 1
+                result.error(
+                    f"[SRDB-NS] '{port}' (model: {model_name}) is declared as "
+                    f"an OUT port but has no ParameterDefinition in the SRDB. "
+                    f"Add a definition in srdb/baseline/, or add to "
+                    f"KNOWN_NAMESPACE_GAPS with a justification."
+                )
+
+    # Dead TM definitions: in SRDB as TM, but no model writes them
+    dead_tm = srdb_tm_names - all_model_out_ports
+    for name in sorted(dead_tm):
+        result.warn(
+            f"[SRDB-NS] '{name}' is defined in SRDB as TM but no model "
+            f"declares it as an OUT port. It may be obsolete or owned by an "
+            f"external model (e.g. OBCEmulatorAdapter)."
+        )
+
+    result.note(
+        f"[SRDB-NS] {len(all_model_out_ports)} total model OUT ports checked; "
+        f"{n_orphan_errors} new orphans (errors), "
+        f"{n_orphan_known} known gaps (notes), "
+        f"{len(dead_tm)} dead TM definitions (warnings)."
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Main
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -815,31 +1004,34 @@ def main() -> int:
         print(f"openobsw {obsw_label}: {Path(args.obsw).resolve()}")
     print()
 
-    print("  [1/6] Struct sizes...")
+    print("  [1/7] Struct sizes...")
     check_struct_sizes(result)
 
-    print("  [2/6] Python-side wire protocol mapping vs. obc_emulator.py...")
+    print("  [2/7] Python-side wire protocol mapping vs. obc_emulator.py...")
     check_wire_protocol_python_side(svf_root, result)
 
     if args.obsw:
-        print("  [3/6] C struct field names vs. mapping table...")
+        print("  [3/7] C struct field names vs. mapping table...")
         check_wire_protocol_c_side(Path(args.obsw).resolve(), result)
     else:
-        print("  [3/6] C struct check skipped (pass --obsw <repo-or-txt> to enable)")
+        print("  [3/7] C struct check skipped (pass --obsw <repo-or-txt> to enable)")
         result.note(
             "[WIRE/C] Skipped. In single-workspace environments (Firebase IDX, "
             "Codespaces) pass a gitingest snapshot: "
             "--obsw path/to/lipofefeyt-openobsw-*.txt"
         )
 
-    print("  [4/6] Sensor producer/consumer symmetry...")
+    print("  [4/7] Sensor producer/consumer symmetry...")
     check_sensor_producer_consumer_symmetry(svf_root, result)
 
-    print("  [5/6] Requirement orphan detection...")
+    print("  [5/7] Requirement orphan detection...")
     check_requirement_orphans(svf_root, result)
 
-    print("  [6/6] Hardware profile symmetry...")
+    print("  [6/7] Hardware profile symmetry...")
     check_hardware_profile_symmetry(svf_root, result)
+
+    print("  [7/7] SRDB namespace linting...")
+    check_srdb_namespace(svf_root, result)
 
     print()
     result.print_report(verbose=args.verbose)
