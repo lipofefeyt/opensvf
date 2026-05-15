@@ -692,6 +692,9 @@ The spacecraft pre-flight validator shall detect bus address conflicts within ea
 **SVF-DEV-154** `[TOOLS]` `IMPLEMENTED`
 The SRDB consistency checker (`checkcons`) shall verify that every OUT port declared by a NativeEquipment model factory has a corresponding `ParameterDefinition` in the SRDB baseline. Ports absent from the SRDB and not listed in `KNOWN_NAMESPACE_GAPS` shall be reported as errors. SRDB TM parameters with no model OUT port shall be reported as warnings.
 
+**SVF-DEV-155** `[TOOLS]` `IMPLEMENTED`
+The requirement coverage checker (`checkcov`) shall include a fidelity section reporting the F1–F4 fidelity level for each equipment model and the count of TM parameters with and without a `CalibrationCurve`. Models with F2 fidelity and uncalibrated TM parameters shall be flagged as F2→F3 upgrade candidates. Models where a `CalibrationCurve` exists in the SRDB but the declared fidelity level is F1 or F2 shall cause `checkcov` to exit non-zero as an inconsistency error.
+
 
 **GAP-014** `[SYS]` `IMPLEMENTED`
 The platform shall provide a `svf` command-line entrypoint (registered
@@ -904,6 +907,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-152   | CFG  | IMPLEMENTED | M32 | test_clean_config_no_issues |
 | SVF-DEV-153   | CFG  | IMPLEMENTED | M32 | test_can_duplicate_id_raises_error |
 | SVF-DEV-154   | TOOLS| IMPLEMENTED | M33 | test_check_srdb_namespace_passes_on_current_codebase |
+| SVF-DEV-155   | TOOLS| IMPLEMENTED | M34 | test_fidelity_report_returns_true_on_clean_srdb |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
