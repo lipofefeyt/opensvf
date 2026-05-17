@@ -36,7 +36,11 @@ docs = [
 ]
 
 [project.scripts]
-svf = "svf.campaign.cli:main"
+svf       = "svf.campaign.cli:main"
+checkcov  = "svf.tools.checkcov:main"
+checkcons = "svf.tools.checkcons:main"
+testosvf  = "svf.tools.testosvf:main"
+checkosvf = "svf.tools.checkosvf:main"
 
 [project.entry-points."pytest11"]
 svf = "svf.plugin"
