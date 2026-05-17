@@ -51,6 +51,9 @@ svf = "svf.plugin"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"svf.data.hardware_profiles" = ["*.yaml"]
+
 [tool.mypy]
 strict = true
 exclude = ["examples/", "setup_issues.py"]

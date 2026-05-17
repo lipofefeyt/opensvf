@@ -21,10 +21,8 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-# Path to bundled hardware profiles (relative to this file)
-_BUNDLED_PROFILES_DIR = (
-    Path(__file__).parent.parent.parent.parent / "mission_mysat1" / "hardware_profiles"
-)
+# Path to bundled hardware profiles — inside the package so pip install works
+_BUNDLED_PROFILES_DIR = Path(__file__).parent.parent / "data" / "hardware_profiles"
 
 
 def load_hardware_profile(

@@ -1,0 +1,32 @@
+hardware_id: thermal_default
+type: thermal_node
+description: "Simple 3-node spacecraft thermal model"
+vendor: generic
+params:
+  nodes:
+    - id: panel_plus_x
+      mass_kg: 0.5
+      specific_heat_j_kg_k: 900.0
+      area_m2: 0.01
+      absorptivity: 0.9
+      emissivity: 0.85
+      initial_temp_degc: -20.0
+    - id: panel_minus_x
+      mass_kg: 0.5
+      specific_heat_j_kg_k: 900.0
+      area_m2: 0.01
+      absorptivity: 0.1
+      emissivity: 0.85
+      initial_temp_degc: -20.0
+    - id: internal
+      mass_kg: 1.0
+      specific_heat_j_kg_k: 900.0
+      area_m2: 0.0
+      absorptivity: 0.0
+      emissivity: 0.0
+      initial_temp_degc: 20.0
+  solar_flux_w_m2: 1361.0
+  stefan_boltzmann: 5.67e-8
+  conductance_w_k:
+    panel_plus_x_to_internal: 0.1
+    panel_minus_x_to_internal: 0.1
