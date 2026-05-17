@@ -1,0 +1,15 @@
+hardware_id: rw_default
+type: reaction_wheel
+description: "Generic reaction wheel — representative smallsat parameters"
+vendor: generic
+params:
+  max_speed_rpm: 6000.0
+  max_torque_nm: 0.2
+  moment_of_inertia_kgm2: 0.001
+  friction_coulomb_rpm_s: 5.0
+  friction_viscous_rpm_s_per_rpm: 0.01
+  temp_rise_coeff: 0.1
+  temp_ambient_degc: 20.0
+  temp_max_degc: 80.0
+  temp_derate_above_degc: 70.0
+  bus_interface: mil1553

@@ -1,0 +1,9 @@
+hardware_id: mtq_default
+type: magnetorquer
+description: "Generic magnetorquer — representative smallsat parameters"
+vendor: generic
+params:
+  max_dipole_am2: 10.0
+  resistance_ohm: 5.0
+  temp_rise_coeff: 0.002
+  axis: xyz
