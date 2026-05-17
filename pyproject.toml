@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "opensvf"
-version = "0.1.0"
-description = "Standards-based validation platform for aerospace software"
+version = "0.7.0"
+description = "Open-source spacecraft software validation facility — SIL campaigns, physics-in-the-loop, HTML reports"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
@@ -19,12 +19,20 @@ dependencies = [
     "jinja2>=3.1",
 ]
 
+[project.urls]
+Homepage = "https://github.com/lipofefeyt/opensvf"
+Documentation = "https://opensvf.readthedocs.io"
+Repository = "https://github.com/lipofefeyt/opensvf"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4",
     "pytest-xdist",
     "mypy>=1.8",
     "types-PyYAML>=6.0",
+]
+docs = [
+    "mkdocs-material>=9.5",
 ]
 
 [project.scripts]

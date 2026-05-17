@@ -13,6 +13,11 @@ __pycache__/
 .firebase/
 firebaselog.txt
 
+# Build outputs
+site/
+dist/
+*.egg-info/
+
 # Artifacts (Binaries & FMUs stay out of git)
 bin/obsw_sim*
 
