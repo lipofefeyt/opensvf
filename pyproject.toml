@@ -56,7 +56,7 @@ where = ["src"]
 
 [tool.mypy]
 strict = true
-exclude = ["examples/", "setup_issues.py"]
+exclude = ["tools/"]
 mypy_path = "src"
 explicit_package_bases = true
 
