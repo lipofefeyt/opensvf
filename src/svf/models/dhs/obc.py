@@ -19,7 +19,8 @@ from typing import Optional
 
 from svf.core.abstractions import SyncProtocol
 from svf.stores.command_store import CommandStore
-from svf.core.equipment import Equipment, PortDefinition, PortDirection
+from svf.core.equipment import PortDefinition, PortDirection
+from svf.models.dhs.hil_adapter import HilAdapter
 from svf.stores.parameter_store import ParameterStore
 from svf.pus.tc import PusTcPacket, PusTcParser, PusTcError
 from svf.pus.tm import PusTmPacket, PusTmBuilder
@@ -72,7 +73,7 @@ class ObcConfig:
     initial_mode: int = MODE_SAFE
 
 
-class ObcEquipment(Equipment):
+class ObcEquipment(HilAdapter):
     """
     On-Board Computer Equipment.
 
@@ -278,6 +279,18 @@ class ObcEquipment(Equipment):
         logger.info(
             f"[obc] Mode transition: {old_mode} -> {new_mode} at t={t:.1f}s"
         )
+
+    # ── HilAdapter interface ──────────────────────────────────────────────────
+
+    def connect(self) -> None:
+        """No-op — software stub requires no external connection."""
+
+    def disconnect(self) -> None:
+        """No-op — software stub has no connection to close."""
+
+    def is_connected(self) -> bool:
+        """Always True — software stub is always ready."""
+        return True
 
     # ── PUS TC routing (unchanged from M7) ───────────────────────────────────
 

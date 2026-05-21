@@ -10,33 +10,62 @@ import pytest
 import time
 import threading
 from svf.campaign.procedure import Procedure, ProcedureContext, ProcedureError
+from svf.core.abstractions import SyncProtocol
+from svf.core.equipment import PortDefinition
+from svf.models.dhs.hil_adapter import HilAdapter
+from svf.pus.tm import PusTmPacket
 from svf.stores.parameter_store import ParameterStore
 from svf.stores.command_store import CommandStore
+
+
+class _NoSync(SyncProtocol):
+    def reset(self) -> None: pass
+    def publish_ready(self, m: str, t: float) -> None: pass
+    def wait_for_ready(self, e: list[str], t: float) -> bool: return True
+
+
+class _FakeHil(HilAdapter):
+    """Minimal HilAdapter test double that records received TCs."""
+
+    def __init__(self, store: ParameterStore, cmd_store: CommandStore) -> None:
+        super().__init__("obc", _NoSync(), store, cmd_store)
+        self.received: list[bytes] = []
+
+    def _declare_ports(self) -> list[PortDefinition]:
+        return []
+
+    def do_step(self, t: float, dt: float) -> None:
+        pass
+
+    def initialise(self, start_time: float = 0.0) -> None: pass
+    def connect(self) -> None: pass
+    def disconnect(self) -> None: pass
+    def is_connected(self) -> bool: return True
+
+    def receive_tc(self, raw_tc: bytes, t: float = 0.0) -> list[PusTmPacket]:
+        self.received.append(raw_tc)
+        return []
+
+    def get_tm_queue(self) -> list[PusTmPacket]:
+        return []
 
 
 class TestProcedureTcTmSuite:
 
     @pytest.mark.requirement("SVF-DEV-120")
     def test_tc_reaches_model_with_receive_tc(self) -> None:
-        """ctx.tc() calls receive_tc() on the first model that has it."""
+        """ctx.tc() calls receive_tc() on the first HilAdapter model found."""
         store     = ParameterStore()
         cmd_store = CommandStore()
-        received  = []
-
-        class FakeObc:
-            equipment_id = "obc"
-            _models      = []
-            def receive_tc(self, raw: bytes) -> None:
-                received.append(raw)
+        fake_obc  = _FakeHil(store, cmd_store)
 
         class FakeMaster:
-            _models = [FakeObc()]
+            _models = [fake_obc]
 
         ctx = ProcedureContext(FakeMaster(), store, cmd_store)
         ctx.tc(17, 1)
-        assert len(received) == 1
-        # Check service and subservice bytes in the packet
-        pkt = received[0]
+        assert len(fake_obc.received) == 1
+        pkt = fake_obc.received[0]
         assert pkt[7] == 17
         assert pkt[8] == 1
 

@@ -33,7 +33,8 @@ from typing import Optional, Any
 
 from svf.core.abstractions import SyncProtocol
 from svf.stores.command_store import CommandStore
-from svf.core.equipment import Equipment, PortDefinition, PortDirection
+from svf.core.equipment import PortDefinition, PortDirection
+from svf.models.dhs.hil_adapter import HilAdapter
 from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE
 from svf.stores.parameter_store import ParameterStore
 from svf.pus.tm import PusTmPacket
@@ -97,7 +98,7 @@ _ACTUATOR_FMT = "<6fBf"
 _ACTUATOR_LEN = struct.calcsize(_ACTUATOR_FMT)
 
 
-class OBCEmulatorAdapter(Equipment):
+class OBCEmulatorAdapter(HilAdapter):
     """
     Drop-in replacement for ``ObcStub`` using a real openobsw binary.
 
@@ -637,9 +638,19 @@ class OBCEmulatorAdapter(Equipment):
         elif event_id == 0x0003:
             self._mode = MODE_NOMINAL
 
-    # ------------------------------------------------------------------ #
-    # ObcInterface compatibility                                           #
-    # ------------------------------------------------------------------ #
+    # ── HilAdapter interface ──────────────────────────────────────────────────
+
+    def connect(self) -> None:
+        """Connection is established in initialise() — no-op here."""
+
+    def disconnect(self) -> None:
+        """Disconnection is handled in teardown() — no-op here."""
+
+    def is_connected(self) -> bool:
+        """Return True if the subprocess or socket is alive."""
+        if self._sock is not None:
+            return True
+        return self._proc is not None and self._proc.poll() is None
 
     def receive_tc(self, raw_tc: bytes, t: float = 0.0) -> list[PusTmPacket]:
         self._write_typed_frame(FRAME_TC, raw_tc)
