@@ -1,0 +1,8 @@
+campaign: MySat-1 Ground Contact Pass Validation
+spacecraft: ../spacecraft.yaml
+requirements:
+  - SBT-001
+  - SBT-003
+  - PUS-007
+procedures:
+  - ../procedures/ttc_pus_procedures.py
