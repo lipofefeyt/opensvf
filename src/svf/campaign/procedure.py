@@ -216,12 +216,13 @@ class ProcedureContext:
         self._seq = (self._seq + 1) % 16384
         tc_bytes = PusTcBuilder().build(pkt)
 
+        from svf.models.dhs.hil_adapter import HilAdapter
         target = "CommandStore"
         if self._master is not None:
             for model in self._master._models:
-                if hasattr(model, "receive_tc"):
+                if isinstance(model, HilAdapter):
                     model.receive_tc(tc_bytes)
-                    target = getattr(model, "equipment_id", "obc")
+                    target = model.model_id
                     break
                     
         self._log_event(EventType.COMMAND, f"Sent TC({service},{subservice}) to {target}", details=tc_bytes.hex())
