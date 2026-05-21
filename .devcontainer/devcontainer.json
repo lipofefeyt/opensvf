@@ -38,7 +38,10 @@
                 "ms-python.python",
                 "ms-python.mypy-type-checker",
                 "ms-python.pylint",
-                "charliermarsh.ruff"
+                "charliermarsh.ruff",
+                "anthropic.claude-code",
+                "WakaTime.vscode-wakatime",
+                "george-alisson.html-preview-vscode"
             ],
             "settings": {
                 "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python3",
