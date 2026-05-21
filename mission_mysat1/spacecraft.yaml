@@ -36,6 +36,10 @@ equipment:
     model: magnetorquer
     hardware_profile: mtq_default
 
+  # TTC
+  - id: sbt
+    model: sbt
+
 # 1553 bus — uncomment for bus-level integration tests (platform_campaign.yaml).
 # The quickstart campaign uses direct CommandStore injection — no bus needed.
 # buses:
