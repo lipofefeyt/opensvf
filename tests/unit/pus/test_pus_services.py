@@ -1,6 +1,6 @@
 """
-Tests for PUS service catalogue S1, S3, S5, S17, S20.
-Implements: PUS-005, PUS-006, PUS-007, PUS-008, PUS-009
+Tests for PUS service catalogue S1, S3, S5, S9, S17, S20.
+Implements: PUS-005, PUS-006, PUS-007, PUS-008, PUS-009, SVF-DEV-162
 """
 
 import pytest
@@ -8,7 +8,7 @@ import struct
 from svf.pus.tc import PusTcPacket, PusTcBuilder, PusTcParser
 from svf.pus.tm import PusTmPacket, PusTmBuilder, PusTmParser
 from svf.pus.services import (
-    PusService1, PusService3, PusService5, PusService17, PusService20,
+    PusService1, PusService3, PusService5, PusService9, PusService17, PusService20,
     HkReportDefinition, EventSeverity,
 )
 
@@ -244,6 +244,72 @@ def test_s20_parameter_value_report() -> None:
     param_id, value = struct.unpack_from(">Hf", tm.app_data)
     assert param_id == 0x2021
     assert value == pytest.approx(1500.0, abs=0.1)
+
+
+# ── Service 9 tests ───────────────────────────────────────────────────────────
+
+@pytest.mark.requirement("SVF-DEV-162")
+def test_s9_is_set_obt_detects_correct_tc() -> None:
+    """is_set_obt() correctly identifies TC(9,128)."""
+    tc = PusTcPacket(apid=0x100, sequence_count=1, service=9, subservice=128,
+                     app_data=struct.pack(">IH", 1000, 0))
+    assert PusService9.is_set_obt(tc) is True
+
+
+@pytest.mark.requirement("SVF-DEV-162")
+def test_s9_is_set_obt_rejects_other_tc() -> None:
+    """is_set_obt() returns False for non-S9 TCs."""
+    tc = PusTcPacket(apid=0x100, sequence_count=1, service=17, subservice=1)
+    assert PusService9.is_set_obt(tc) is False
+
+
+@pytest.mark.requirement("SVF-DEV-162")
+def test_s9_parse_set_obt_integer_seconds() -> None:
+    """TC(9,128) with zero fine component parses to exact integer seconds."""
+    tc = PusTcPacket(apid=0x100, sequence_count=1, service=9, subservice=128,
+                     app_data=struct.pack(">IH", 3600, 0))
+    assert PusService9.parse_set_obt(tc) == pytest.approx(3600.0)
+
+
+@pytest.mark.requirement("SVF-DEV-162")
+def test_s9_parse_set_obt_fractional_seconds() -> None:
+    """TC(9,128) CUC fine component (0.5 s = 0x8000) parsed correctly."""
+    tc = PusTcPacket(apid=0x100, sequence_count=1, service=9, subservice=128,
+                     app_data=struct.pack(">IH", 100, 0x8000))
+    assert PusService9.parse_set_obt(tc) == pytest.approx(100.5, abs=1e-4)
+
+
+@pytest.mark.requirement("SVF-DEV-162")
+def test_s9_parse_set_obt_short_app_data_raises() -> None:
+    """TC(9,128) with fewer than 6 bytes raises ValueError."""
+    tc = PusTcPacket(apid=0x100, sequence_count=1, service=9, subservice=128,
+                     app_data=b"\x00\x00\x00")
+    with pytest.raises(ValueError, match="too short"):
+        PusService9.parse_set_obt(tc)
+
+
+@pytest.mark.requirement("SVF-DEV-162")
+def test_s9_build_and_parse_roundtrip() -> None:
+    """build_set_obt → parse_set_obt round-trip preserves OBT to 1/65536 s."""
+    obt = 86400.75
+    tc = PusService9.build_set_obt(obt, tc_apid=0x100, sequence_count=5)
+    assert tc.service == 9
+    assert tc.subservice == 128
+    recovered = PusService9.parse_set_obt(tc)
+    assert recovered == pytest.approx(obt, abs=1 / 65536)
+
+
+@pytest.mark.requirement("SVF-DEV-162")
+def test_s9_build_survives_wire_encode_decode() -> None:
+    """TC(9,128) survives PusTcBuilder serialisation and PusTcParser parse."""
+    builder = PusTcBuilder()
+    parser = PusTcParser()
+    obt = 1234.5
+    tc = PusService9.build_set_obt(obt, tc_apid=0x100, sequence_count=7)
+    raw = builder.build(tc)
+    parsed = parser.parse(raw)
+    recovered = PusService9.parse_set_obt(parsed)
+    assert recovered == pytest.approx(obt, abs=1 / 65536)
 
 
 @pytest.mark.requirement("PUS-008")
