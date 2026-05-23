@@ -17,7 +17,7 @@ parameters:
       apid: 0x103
       service: 3
       subservice: 25
-      parameter_id: 0x4001
+      parameter_id: 0x4040
 
   obdh.obc.memory_free:
     description: OBC free memory
@@ -40,11 +40,12 @@ parameters:
     classification: TM
     domain: OBDH
     model_id: obdh
+    valid_range: [0.0, 3.156e7]
     pus:
       apid: 0x103
       service: 3
       subservice: 25
-      parameter_id: 0x4003
+      parameter_id: 0x4042
 
   # ── Mode management ────────────────────────────────────────────────────────
 
@@ -99,6 +100,7 @@ parameters:
     classification: TM
     domain: OBDH
     model_id: obdh
+    valid_range: [0.0, 255.0]
     pus:
       apid: 0x103
       service: 3
