@@ -37,7 +37,9 @@ from svf.core.equipment import PortDefinition, PortDirection
 from svf.models.dhs.hil_adapter import HilAdapter
 from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE
 from svf.stores.parameter_store import ParameterStore
+from svf.pus.tc import PusTcBuilder
 from svf.pus.tm import PusTmPacket, PusTmParser
+from svf.pus.services import PusService9
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +179,8 @@ class OBCEmulatorAdapter(HilAdapter):
             store=store,
             command_store=command_store,
         )
-        self._port_values["dhs.obc.mode_cmd"] = -1.0
+        self._port_values["dhs.obc.mode_cmd"]     = -1.0
+        self._port_values["dhs.obc.time_sync_cmd"] = -1.0
 
     # ------------------------------------------------------------------ #
     # Equipment interface                                                  #
@@ -185,21 +188,23 @@ class OBCEmulatorAdapter(HilAdapter):
 
     def _declare_ports(self) -> list[PortDefinition]:
         return [
-            PortDefinition("obc.tc_input",            PortDirection.IN),
-            PortDefinition("dhs.obc.mode_cmd",        PortDirection.IN),
-            PortDefinition("dhs.obc.watchdog_kick",   PortDirection.IN),
-            PortDefinition("dhs.obc.memory_dump_cmd", PortDirection.IN),
-            PortDefinition("dhs.obc.mode",            PortDirection.OUT),
+            PortDefinition("obc.tc_input",             PortDirection.IN),
+            PortDefinition("dhs.obc.mode_cmd",         PortDirection.IN),
+            PortDefinition("dhs.obc.watchdog_kick",    PortDirection.IN),
+            PortDefinition("dhs.obc.memory_dump_cmd",  PortDirection.IN),
+            PortDefinition("dhs.obc.time_sync_cmd",
+                           PortDirection.IN, unit="s"),
+            PortDefinition("dhs.obc.mode",             PortDirection.OUT),
             PortDefinition("dhs.obc.obt",
                            PortDirection.OUT, unit="s"),
-            PortDefinition("dhs.obc.watchdog_status", PortDirection.OUT),
+            PortDefinition("dhs.obc.watchdog_status",  PortDirection.OUT),
             PortDefinition("dhs.obc.memory_used_pct",
                            PortDirection.OUT, unit="%"),
-            PortDefinition("dhs.obc.health",          PortDirection.OUT),
-            PortDefinition("dhs.obc.reset_count",     PortDirection.OUT),
+            PortDefinition("dhs.obc.health",           PortDirection.OUT),
+            PortDefinition("dhs.obc.reset_count",      PortDirection.OUT),
             PortDefinition("dhs.obc.cpu_load",
                            PortDirection.OUT, unit="%"),
-            PortDefinition("obc.tm_output",           PortDirection.OUT),
+            PortDefinition("obc.tm_output",            PortDirection.OUT),
         ]
 
     def _check_srdb_version(self, srdb_version: str) -> None:
@@ -456,11 +461,20 @@ class OBCEmulatorAdapter(HilAdapter):
             frames.append(self._build_s17_ping())
             self._port_values["dhs.obc.watchdog_kick"] = 0.0
 
+        time_sync = self.read_port("dhs.obc.time_sync_cmd")
+        if time_sync >= 0.0:
+            frames.append(self._build_s9_set_obt(time_sync))
+            self._port_values["dhs.obc.time_sync_cmd"] = -1.0
+
         if not frames:
             frames.append(self._build_s17_ping())
 
         for frame in frames:
             self._write_typed_frame(FRAME_TC, frame)
+
+    def _build_s9_set_obt(self, obt_seconds: float) -> bytes:
+        tc = PusService9.build_set_obt(obt_seconds, tc_apid=self._apid)
+        return PusTcBuilder().build(tc)
 
     def _build_s17_ping(self) -> bytes:
         return bytes.fromhex("1801c0000003201101" + "00")

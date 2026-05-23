@@ -26,7 +26,7 @@ from svf.pus.tc import PusTcPacket, PusTcParser, PusTcError
 from svf.pus.tm import PusTmPacket, PusTmBuilder
 from svf.pus.services import (
     PusService1, PusService3, PusService5,
-    PusService17, PusService20, HkReportDefinition,
+    PusService9, PusService17, PusService20, HkReportDefinition,
     EventSeverity,
 )
 
@@ -127,8 +127,9 @@ class ObcEquipment(HilAdapter):
             command_store=command_store,
         )
 
-        # Specific for mode
-        self._port_values["dhs.obc.mode_cmd"] = -1.0
+        # Idle sentinels for command ports
+        self._port_values["dhs.obc.mode_cmd"]     = -1.0
+        self._port_values["dhs.obc.time_sync_cmd"] = -1.0
 
     def _declare_ports(self) -> list[PortDefinition]:
         return [
@@ -142,6 +143,8 @@ class ObcEquipment(HilAdapter):
                            description="Watchdog kick (write 1)"),
             PortDefinition("dhs.obc.memory_dump_cmd", PortDirection.IN,
                            description="Memory dump command"),
+            PortDefinition("dhs.obc.time_sync_cmd", PortDirection.IN,
+                           unit="s", description="OBT sync: write target OBT seconds (-1 = idle)"),
             # DHS TM outputs
             PortDefinition("dhs.obc.mode", PortDirection.OUT,
                            description="Current OBC mode"),
@@ -176,6 +179,13 @@ class ObcEquipment(HilAdapter):
         """Advance OBC by one tick — DHS state + PUS routing."""
         # ── On-board time ──────────────────────────────────────────────
         self._obt += dt
+
+        # ── OBT sync (port-based, for test procedures / stub mode) ─────
+        time_sync = self.read_port("dhs.obc.time_sync_cmd")
+        if time_sync >= 0.0:
+            self._obt = time_sync
+            self.receive("dhs.obc.time_sync_cmd", -1.0)
+            logger.info(f"[obc] OBT sync: set to {time_sync:.3f}s at t={t:.1f}s")
 
         # ── Mode transitions ───────────────────────────────────────────
         mode_cmd = self.read_port("dhs.obc.mode_cmd")
@@ -336,7 +346,14 @@ class ObcEquipment(HilAdapter):
     def _route_tc(self, tc: PusTcPacket, t: float) -> list[PusTmPacket]:
         responses: list[PusTmPacket] = []
 
-        if PusService17.is_are_you_alive(tc):
+        if PusService9.is_set_obt(tc):
+            try:
+                new_obt = PusService9.parse_set_obt(tc)
+                self._obt = new_obt
+                logger.info(f"[obc] S9 OBT sync: {new_obt:.3f}s at t={t:.1f}s")
+            except ValueError as e:
+                logger.warning(f"[obc] S9 parse error: {e}")
+        elif PusService17.is_are_you_alive(tc):
             responses.append(PusService17.are_you_alive_response(
                 tm_apid=self._config.apid,
                 sequence_count=self._next_tm_seq(),
