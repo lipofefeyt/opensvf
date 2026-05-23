@@ -10,8 +10,19 @@ sudo apt-get update -qq
 sudo apt-get install -y \
     wget curl git default-jdk \
     python3-pip \
+    pandoc texlive-xetex texlive-fonts-recommended texlive-fonts-extra texlive-latex-extra \
     2>/dev/null
 echo "[1/4] System packages installed"
+
+# ── Eisvogel PDF template ─────────────────────────────────────────────
+EISVOGEL_TARGET="$OPENSVF_REPO/docs/datapack/eisvogel.latex"
+if [ ! -f "$EISVOGEL_TARGET" ]; then
+    echo "    Downloading Eisvogel 2.4.2..."
+    mkdir -p "$OPENSVF_REPO/docs/datapack"
+    wget -q https://github.com/Wandmalfarbe/pandoc-latex-template/releases/download/2.4.2/Eisvogel-2.4.2.tar.gz -O /tmp/eisvogel.tar.gz
+    tar -xzf /tmp/eisvogel.tar.gz -C "$OPENSVF_REPO/docs/datapack" --wildcards "*.latex"
+    rm /tmp/eisvogel.tar.gz
+fi
 
 # ── Python venv ───────────────────────────────────────────────────────
 cd $OPENSVF_REPO

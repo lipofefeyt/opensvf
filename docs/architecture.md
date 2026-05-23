@@ -1,7 +1,7 @@
 # SVF Architecture
 
-> **Status:** v2.2
-> **Last updated:** 2026-04
+> **Status:** v2.3
+> **Last updated:** 2026-05
 > **Author:** lipofefeyt
 
 ---
@@ -417,3 +417,15 @@ repos cannot coexist on the same filesystem.
 | M33 — SRDB namespace linting (checkcons check [7/7]) | Done |
 | M34 — Equipment fidelity coverage in checkcov | Done |
 | M35 — EquipmentTickError + on_tick_error callback | Done |
+| M36 — Campaign L4 scaffolding: INCONCLUSIVE verdict + declared requirements | Done |
+| M37 — S9 Time Management: OBT sync via TC | In progress |
+| M38 — S11 Time-Based Scheduling: time-tagged command sequences | Planned |
+| M39 — S12 On-Board Monitoring: parameter OOL events | Planned |
+| M40 — S19 Event-Action Service: FDIR reaction chains | Planned |
+| M41 — SharedMemorySyncProtocol: sub-ms tick sync | Planned |
+| M42 — Orbital environment (SGP4 + eclipse + solar) | Backlog |
+| M43 — F3 sensor fidelity | Backlog |
+| M44 — SRDB control layer (AOCS gains, FDIR thresholds) | Backlog |
+| M45 — FDIR supervisor model | Backlog |
+| M46 — Live YAMCS dashboards | Backlog |
+| M47 — Multi-spacecraft / constellation | Backlog |

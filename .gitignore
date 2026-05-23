@@ -27,3 +27,10 @@ results/*
 bin/obsw_zynqmp.bin
 *.cast
 lipofefeyt-*.txt
+
+# Datapack: fetched template + generated PDFs
+docs/datapack/eisvogel.latex
+docs/datapack/out/
+
+# Claude Code guidance (local only)
+CLAUDE.md
