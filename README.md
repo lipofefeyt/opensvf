@@ -42,7 +42,7 @@ opensvf-kde (C++/Eigen3)        openobsw (C11)
 
 | Package | Version | Notes |
 |---|---|---|
-| opensvf | v0.6.0 | Python 3.12 |
+| opensvf | v0.7.1 | Python 3.12 |
 | openobsw | v0.7.0+ | C11 |
 | opensvf-kde | v0.1.0 | C++ / Eigen3 |
 | YAMCS | 5.12.6 | Java 21+ |
@@ -254,7 +254,7 @@ bash scripts/stop-yamcs.sh      # stop YAMCS
 The YAMCS UI is available at `http://localhost:8090` (default credentials: `admin` / `password`).
 
 TC pipeline: YAMCS UI → UDP port 10025 → SVF → obsw_sim
-TM pipeline: obsw_sim → SVF → UDP port 10015 → YAMCS packet viewer
+TM pipeline: obsw_sim → SVF → TCP port 10015 → YAMCS packet viewer
 
 ---
 
@@ -337,8 +337,6 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 | M24 — ZynqMP SIL (aarch64 QEMU + Renode socket transport) | ✅ Done |
 | M25 — YAMCS ground segment integration (TM/TC pipeline, XTCE MDB) | ✅ Done |
 | M26 — EPS/AOCS/thermal native models + full test pyramid restructure | ✅ Done |
-| M27 — Dual-OBC topology (ZynqMP + MSP430 Renode lockstep) | 🔄 Planned |
-| M28 — UART/serial wire protocol transport (MSP430, STM32H750 HIL) | 🔄 Planned |
 | M29 — Time-tagged parameter init file (OBT-format startup state) | ✅ Done |
 | M30 — CAN 2.0B full validation + SpaceWire RMAP completion | ✅ Done |
 | M31 — Equipment fidelity levels + SRDB calibration curves (raw→engineering) | ✅ Done |
@@ -347,7 +345,19 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 | M34 — Equipment fidelity coverage in checkcov (F1–F4 per model, upgrade paths) | ✅ Done |
 | M35 — EquipmentTickError + on_tick_error callback (record-and-continue) | ✅ Done |
 | M36 — Campaign L4 scaffolding: INCONCLUSIVE verdict + declared requirements | ✅ Done |
-| M37 — MySat-1 reference mission: narrative example project | ✅ Done |
+| **M37 — S9 Time Management: OBT sync via TC** | 🔄 In progress |
+| M38 — S11 Time-Based Scheduling: time-tagged command sequences | 📋 Planned |
+| M39 — S12 On-Board Monitoring: parameter OOL events | 📋 Planned |
+| M40 — S19 Event-Action Service: automated FDIR reaction chains | 📋 Planned |
+| M41 — SharedMemorySyncProtocol: sub-ms tick sync for RT HIL | 📋 Planned |
+| M27 — Dual-OBC topology (ZynqMP + MSP430 Renode lockstep) | 📋 Planned |
+| M28 — UART/serial wire protocol transport (MSP430, STM32H750 HIL) | 📋 Planned |
+| M42 — Orbital environment: SGP4 propagator + eclipse + solar model | 🗂 Backlog |
+| M43 — F3 sensor fidelity: Allan-variance, calibration curves, I-V | 🗂 Backlog |
+| M44 — SRDB control layer: AOCS gains and FDIR thresholds as S20 parameters | 🗂 Backlog |
+| M45 — FDIR supervisor model | 🗂 Backlog |
+| M46 — Live YAMCS dashboards | 🗂 Backlog |
+| M47 — Multi-spacecraft / constellation | 🗂 Backlog |
 
 ---
 
