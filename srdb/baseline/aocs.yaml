@@ -359,6 +359,7 @@ parameters:
     classification: TM
     domain: AOCS
     model_id: aocs
+    valid_range: [0.0, 3.0]
     pus:
       apid: 0x101
       service: 3

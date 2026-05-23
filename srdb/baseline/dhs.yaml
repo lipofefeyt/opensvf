@@ -41,6 +41,7 @@ parameters:
     classification: TM
     domain: OBDH
     model_id: obc
+    valid_range: [0.0, 3.156e7]
     pus:
       apid: 0x103
       service: 3
@@ -124,6 +125,7 @@ parameters:
     classification: TM
     domain: OBDH
     model_id: obc
+    valid_range: [0.0, 65535.0]
     pus:
       apid: 0x103
       service: 3

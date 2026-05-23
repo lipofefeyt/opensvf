@@ -12,7 +12,7 @@ The generated XTCE contains:
   - TC definitions for S17/1 and S20/1
 """
 
-from svf.srdb.definitions import Classification
+from svf.srdb.definitions import Classification, Dtype
 from svf.srdb.loader import SrdbLoader
 import sys
 from pathlib import Path
@@ -55,6 +55,10 @@ def generate_xtce(srdb) -> str:
         '        <IntegerDataEncoding sizeInBits="16" encoding="unsigned"/>',
         '        <UnitSet/>',
         '      </IntegerParameterType>',
+        '      <IntegerParameterType name="int32" signed="true">',
+        '        <IntegerDataEncoding sizeInBits="32" encoding="twosComplement"/>',
+        '        <UnitSet/>',
+        '      </IntegerParameterType>',
         '    </ParameterTypeSet>',
         '',
         '    <ParameterSet>',
@@ -68,8 +72,9 @@ def generate_xtce(srdb) -> str:
         param = srdb.get(name)
         safe_name = name.replace(".", "_").replace("-", "_")
         desc = getattr(param, "description", name) or name
+        type_ref = "int32" if param.dtype == Dtype.INT else "float32"
         lines.append(
-            f'      <Parameter name="{safe_name}" parameterTypeRef="float32">')
+            f'      <Parameter name="{safe_name}" parameterTypeRef="{type_ref}">')
         lines.append(f'        <LongDescription>{desc}</LongDescription>')
         lines.append(f'      </Parameter>')
 
