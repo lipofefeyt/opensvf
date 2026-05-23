@@ -197,6 +197,15 @@ The platform shall provide a PUS TM/TC adapter implementing ECSS-E-ST-70-41C. As
 **SVF-DEV-038** `[BUS]` `IMPLEMENTED`
 The platform shall provide bus protocol adapters. MIL-STD-1553 implemented in M6. SpaceWire and CAN deferred to M10.
 
+**SVF-DEV-159** `[BUS]` `IMPLEMENTED`
+`OBCEmulatorAdapter._parse_tm()` shall append each successfully parsed `PusTmPacket` to a thread-safe internal queue. `get_tm_queue()` shall atomically drain and return all queued packets, leaving the queue empty after the call.
+
+**SVF-DEV-160** `[BUS]` `IMPLEMENTED`
+`OBCEmulatorAdapter` shall parse incoming TM(3,25) housekeeping packets (set_id=3) and update the `dhs.obc.watchdog_status`, `dhs.obc.memory_used_pct`, `dhs.obc.health`, `dhs.obc.reset_count`, and `dhs.obc.cpu_load` OUT ports from the HK fields.
+
+**SVF-DEV-161** `[BUS]` `IMPLEMENTED`
+`OBCEmulatorAdapter` shall raise `RuntimeError` after `MAX_DESYNC` (3) consecutive simulation ticks where the 0xFF sync byte is not received within `sync_timeout`. The desync counter shall reset to zero on any tick where sync is achieved.
+
 ---
 
 ## Spacecraft Reference Database Requirements [SDB]
@@ -920,6 +929,9 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-156   | SIM  | IMPLEMENTED | M35 | test_default_handler_reraises_as_simulation_error |
 | SVF-DEV-157   | CAM  | IMPLEMENTED | M36 | test_inconclusive_counted |
 | SVF-DEV-158   | CAM  | IMPLEMENTED | M36 | test_declared_requirements_uncovered |
+| SVF-DEV-159   | BUS  | IMPLEMENTED | M38 | test_get_tm_queue_returns_and_drains_parsed_packet |
+| SVF-DEV-160   | BUS  | IMPLEMENTED | M38 | test_on_s3_25_updates_hk_ports |
+| SVF-DEV-161   | BUS  | IMPLEMENTED | M38 | test_consecutive_desync_raises_after_max_desync |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
