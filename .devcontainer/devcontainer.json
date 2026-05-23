@@ -27,6 +27,7 @@
         10025
     ],
     "remoteEnv": {
+        "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
         "OPENSVF_REPO": "${containerWorkspaceFolder}",
         "OPENOBSW_REPO": "/workspace/openobsw",
         "OPENSVF_KDE_REPO": "/workspace/opensvf-kde",

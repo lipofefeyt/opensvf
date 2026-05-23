@@ -37,11 +37,19 @@ from svf.core.equipment import PortDefinition, PortDirection
 from svf.models.dhs.hil_adapter import HilAdapter
 from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE
 from svf.stores.parameter_store import ParameterStore
-from svf.pus.tm import PusTmPacket
+from svf.pus.tm import PusTmPacket, PusTmParser
 
 logger = logging.getLogger(__name__)
 
 SYNC_BYTE = 0xFF
+
+_APP_DATA_OFFSET = 17          # bytes: 6 primary + 11 secondary header
+_DHS_OBC_HK_SID = 3
+_DHS_OBC_HK_FMT = ">BIBBBHB"  # mode, obt, wd, mem, health, reset, cpu
+_DHS_OBC_HK_MIN_PKT_LEN = (
+    _APP_DATA_OFFSET + 1 + struct.calcsize(_DHS_OBC_HK_FMT) + 2  # +2 CRC
+)
+MAX_DESYNC = 3
 
 
 def _detect_qemu_prefix(sim_path: Path) -> list[str]:
@@ -147,6 +155,16 @@ class OBCEmulatorAdapter(HilAdapter):
         self._mode:   int = MODE_SAFE
         self._tm_seq: int = 0
         self._yamcs_bridge: "Optional[Any]" = None  # set externally
+
+        self._obc_watchdog_status: int = 0
+        self._obc_memory_used_pct: int = 0
+        self._obc_health:          int = 0
+        self._obc_reset_count:     int = 0
+        self._obc_cpu_load:        int = 0
+        self._tm_queue:   list[PusTmPacket] = []
+        self._tm_lock     = threading.Lock()
+        self._tm_parser   = PusTmParser()
+        self._consecutive_desync: int = 0
 
         self._proc:   Optional[subprocess.Popen[bytes]] = None
         self._reader: Optional[threading.Thread] = None
@@ -344,18 +362,29 @@ class OBCEmulatorAdapter(HilAdapter):
 
         tm_packets, synced = self._collect_until_sync(self._sync_timeout)
         if not synced:
-            logger.warning(f"[obc-emu] No sync at t={t:.3f}")
+            self._consecutive_desync += 1
+            logger.warning(
+                f"[obc-emu] No sync at t={t:.3f} "
+                f"(missed={self._consecutive_desync})"
+            )
+            if self._consecutive_desync >= MAX_DESYNC:
+                raise RuntimeError(
+                    f"Lost sync: {self._consecutive_desync} consecutive "
+                    "ticks without 0xFF"
+                )
+        else:
+            self._consecutive_desync = 0
 
         for pkt in tm_packets:
             self._parse_tm(pkt, t)
 
         self.write_port("dhs.obc.mode",            float(self._mode))
         self.write_port("dhs.obc.obt",             self._obt)
-        self.write_port("dhs.obc.watchdog_status", 0.0)
-        self.write_port("dhs.obc.memory_used_pct", 0.0)
-        self.write_port("dhs.obc.health",          0.0)
-        self.write_port("dhs.obc.reset_count",     0.0)
-        self.write_port("dhs.obc.cpu_load",        0.0)
+        self.write_port("dhs.obc.watchdog_status", float(self._obc_watchdog_status))
+        self.write_port("dhs.obc.memory_used_pct", float(self._obc_memory_used_pct))
+        self.write_port("dhs.obc.health",          float(self._obc_health))
+        self.write_port("dhs.obc.reset_count",     float(self._obc_reset_count))
+        self.write_port("dhs.obc.cpu_load",        float(self._obc_cpu_load))
         self.write_port("obc.tm_output",           float(self._tm_seq))
 
     # ------------------------------------------------------------------ #
@@ -614,8 +643,19 @@ class OBCEmulatorAdapter(HilAdapter):
                 self._yamcs_bridge.send_tm(pkt)
             except Exception:
                 pass
+
+        # Queue for campaign procedures (Gap 1)
+        try:
+            parsed = self._tm_parser.parse(pkt)
+            with self._tm_lock:
+                self._tm_queue.append(parsed)
+        except Exception:
+            pass
+
         if svc == 1:
             self._on_s1(subsvc, pkt, t)
+        elif svc == 3 and subsvc == 25:
+            self._on_s3_25(pkt, t)
         elif svc == 5:
             self._on_s5(subsvc, pkt, t)
         elif svc == 17 and subsvc == 2:
@@ -638,6 +678,41 @@ class OBCEmulatorAdapter(HilAdapter):
         elif event_id == 0x0003:
             self._mode = MODE_NOMINAL
 
+    def _on_s3_25(self, pkt: bytes, t: float) -> None:
+        """Parse TM(3,25) DHS OBC HK set_id=3 and update instance state."""
+        if len(pkt) < _DHS_OBC_HK_MIN_PKT_LEN:
+            return
+        app = pkt[_APP_DATA_OFFSET:]
+        if app[0] != _DHS_OBC_HK_SID:
+            return
+        mode, obt, wd, mem, health, reset, cpu = struct.unpack_from(
+            _DHS_OBC_HK_FMT, app, 1
+        )
+        self._mode                 = mode
+        self._obc_watchdog_status  = wd
+        self._obc_memory_used_pct  = mem
+        self._obc_health           = health
+        self._obc_reset_count      = reset
+        self._obc_cpu_load         = cpu
+        if self._store is not None:
+            for name, val in (
+                ("obc_mode",            mode),
+                ("obc_obt",             obt),
+                ("obc_watchdog_status", wd),
+                ("obc_memory_used_pct", mem),
+                ("obc_health",          health),
+                ("obc_reset_count",     reset),
+                ("obc_cpu_load",        cpu),
+            ):
+                self._store.write(
+                    name=name, value=float(val),
+                    t=t, model_id=self.equipment_id,
+                )
+        logger.debug(
+            f"[obc-emu] TM(3,25) mode={mode} obt={obt} wd={wd} "
+            f"mem={mem}% health={health} reset={reset} cpu={cpu}%"
+        )
+
     # ── HilAdapter interface ──────────────────────────────────────────────────
 
     def connect(self) -> None:
@@ -657,7 +732,14 @@ class OBCEmulatorAdapter(HilAdapter):
         return []
 
     def get_tm_queue(self) -> list[PusTmPacket]:
-        return []
+        with self._tm_lock:
+            packets = list(self._tm_queue)
+            self._tm_queue.clear()
+            return packets
 
     def get_tm_by_service(self, service: int, subservice: int) -> list[PusTmPacket]:
-        return []
+        with self._tm_lock:
+            return [
+                p for p in self._tm_queue
+                if p.service == service and p.subservice == subservice
+            ]
