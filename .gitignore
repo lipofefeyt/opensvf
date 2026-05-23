@@ -32,5 +32,6 @@ lipofefeyt-*.txt
 docs/datapack/eisvogel.latex
 docs/datapack/out/
 
-# Claude Code guidance (local only)
-CLAUDE.md
+# Local guidance and context files
+CONTEXT.md
+OBSW_CONTEXT.md
