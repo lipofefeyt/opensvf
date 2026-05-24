@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from svf.sim.simulation import SimulationMaster
 
 from svf.pus.tc import PusTcBuilder, PusTcPacket
+from svf.pus.services import PusService11
 
 logger = logging.getLogger(__name__)
 
@@ -228,6 +229,54 @@ class ProcedureContext:
         self._log_event(EventType.COMMAND, f"Sent TC({service},{subservice}) to {target}", details=tc_bytes.hex())
         if target == "CommandStore":
             self._cmd_store.inject(f"svf.tc.{service}.{subservice}", float(len(tc_bytes)), source_id="procedure")
+
+    def schedule_tc(
+        self,
+        obt: float,
+        service: int,
+        subservice: int,
+        data: bytes = b"",
+        apid: Optional[int] = None,
+    ) -> None:
+        """
+        Schedule a TC for future execution via TC(11,4).
+
+        The OBC fires the embedded TC when its OBT clock reaches *obt* seconds.
+
+        Args:
+            obt:        On-board time (seconds) at which to fire the TC.
+            service:    PUS service of the TC to schedule.
+            subservice: PUS subservice of the TC to schedule.
+            data:       Optional application data for the scheduled TC.
+            apid:       APID override (defaults to procedure APID).
+        """
+        _apid = apid if apid is not None else self._apid
+        embedded = PusTcBuilder().build(
+            PusTcPacket(
+                apid=_apid,
+                sequence_count=self._seq,
+                service=service,
+                subservice=subservice,
+                app_data=data,
+            )
+        )
+        self._seq = (self._seq + 1) % 16384
+        insert_tc = PusService11.build_insert(obt, embedded, tc_apid=_apid,
+                                               sequence_count=self._seq)
+        self._seq = (self._seq + 1) % 16384
+        insert_bytes = PusTcBuilder().build(insert_tc)
+
+        from svf.models.dhs.hil_adapter import HilAdapter
+        if self._master is not None:
+            for model in self._master._models:
+                if isinstance(model, HilAdapter):
+                    model.receive_tc(insert_bytes)
+                    break
+
+        self._log_event(
+            EventType.COMMAND,
+            f"Scheduled TC({service},{subservice}) at OBT={obt:.1f}s",
+        )
 
     def expect_tm(self, service: int, subservice: int, timeout: float = 5.0) -> None:
         start_wait = time.monotonic()

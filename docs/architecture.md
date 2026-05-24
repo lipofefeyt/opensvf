@@ -418,8 +418,8 @@ repos cannot coexist on the same filesystem.
 | M34 — Equipment fidelity coverage in checkcov | Done |
 | M35 — EquipmentTickError + on_tick_error callback | Done |
 | M36 — Campaign L4 scaffolding: INCONCLUSIVE verdict + declared requirements | Done |
-| M37 — S9 Time Management: OBT sync via TC | In progress |
-| M38 — S11 Time-Based Scheduling: time-tagged command sequences | Planned |
+| M37 — S9 Time Management: OBT sync via TC | Done |
+| M38 — S11 Time-Based Scheduling: time-tagged command sequences | Done |
 | M39 — S12 On-Board Monitoring: parameter OOL events | Planned |
 | M40 — S19 Event-Action Service: FDIR reaction chains | Planned |
 | M41 — SharedMemorySyncProtocol: sub-ms tick sync | Planned |
