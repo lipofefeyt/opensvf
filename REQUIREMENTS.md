@@ -432,6 +432,9 @@ The platform shall implement PUS Service 9 (Time Management): TC(9,128) Set OBT 
 **SVF-DEV-163** `[PUS]` `IMPLEMENTED`
 The platform shall implement PUS Service 11 (Time-Based Scheduling): TC(11,4) Insert Activity, TC(11,5) Delete Activity, TC(11,6) Delete All, TC(11,17) Enable Schedule, TC(11,18) Disable Schedule. A `TimeBasedScheduler` shall hold a sorted list of `ScheduledActivity` items; on each OBC tick the scheduler shall fire all activities with `time_tag <= obt` by routing them through the normal `receive_tc()` path. `ProcedureContext.schedule_tc()` shall provide a convenience API for test procedures. Assigned to M38.
 
+**SVF-DEV-165** `[PUS]` `IMPLEMENTED`
+The platform shall implement PUS Service 19 (Event-Action Service): TC(19,1) Add, TC(19,2) Delete, TC(19,3) Delete All, TC(19,4) Enable, TC(19,5) Disable. An `EventActionService` shall hold one `EventActionDefinition` per event_id (last write wins). When `ObcEquipment._enqueue_tm()` enqueues a TM(5,x) event, matching action TCs shall be collected into a pending list and dispatched at the start of the following `do_step()` tick, enabling fully automated FDIR reaction chains without re-entrant `receive_tc()` calls. Assigned to M40.
+
 **SVF-DEV-164** `[PUS]` `IMPLEMENTED`
 The platform shall implement PUS Service 12 (On-Board Monitoring): TC(12,1) Enable, TC(12,2) Disable, TC(12,3) Add/Replace Monitoring Definition, TC(12,4) Delete, TC(12,5) Delete All. An `OnBoardMonitor` shall evaluate each enabled `MonitoringDefinition` on every OBC tick and generate a PUS S5 event report on the first tick a parameter crosses a low or high limit (latching — no repeat until recovery). TC(12,3) app_data: 2B param_id, 4B low_limit (IEEE754 float, NaN=none), 4B high_limit, 2B event_id_low, 2B event_id_high, 1B severity. Assigned to M39.
 
@@ -944,6 +947,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-162   | PUS  | IMPLEMENTED | M37 | test_s9_build_and_parse_roundtrip |
 | SVF-DEV-163   | PUS  | IMPLEMENTED | M38 | test_scheduler_due_returns_tc_at_correct_obt |
 | SVF-DEV-164   | PUS  | IMPLEMENTED | M39 | test_monitor_high_limit_fires_once_on_entry |
+| SVF-DEV-165   | PUS  | IMPLEMENTED | M40 | test_obc_tc_19_1_registers_reaction_fired_next_tick |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
