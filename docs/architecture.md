@@ -421,7 +421,7 @@ repos cannot coexist on the same filesystem.
 | M37 — S9 Time Management: OBT sync via TC | Done |
 | M38 — S11 Time-Based Scheduling: time-tagged command sequences | Done |
 | M39 — S12 On-Board Monitoring: parameter OOL events | Done |
-| M40 — S19 Event-Action Service: FDIR reaction chains | Planned |
+| M40 — S19 Event-Action Service: FDIR reaction chains | Done |
 | M41 — SharedMemorySyncProtocol: sub-ms tick sync | Planned |
 | M42 — Orbital environment (SGP4 + eclipse + solar) | Backlog |
 | M43 — F3 sensor fidelity | Backlog |

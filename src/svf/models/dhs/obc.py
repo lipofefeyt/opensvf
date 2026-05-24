@@ -26,8 +26,9 @@ from svf.pus.tc import PusTcPacket, PusTcParser, PusTcError
 from svf.pus.tm import PusTmPacket, PusTmBuilder
 from svf.pus.services import (
     PusService1, PusService3, PusService5,
-    PusService9, PusService11, PusService12, PusService17, PusService20,
-    TimeBasedScheduler, OnBoardMonitor, HkReportDefinition, EventSeverity,
+    PusService9, PusService11, PusService12, PusService17, PusService19, PusService20,
+    TimeBasedScheduler, OnBoardMonitor, EventActionService, EventActionDefinition,
+    HkReportDefinition, EventSeverity,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,6 +105,8 @@ class ObcEquipment(HilAdapter):
         self._s3 = PusService3()
         self._s11 = TimeBasedScheduler()
         self._s12 = OnBoardMonitor()
+        self._s19 = EventActionService()
+        self._pending_reactions: list[bytes] = []
         self._tm_queue: list[PusTmPacket] = []
         self._tm_seq: int = 0
         self._lock = threading.Lock()
@@ -179,6 +182,11 @@ class ObcEquipment(HilAdapter):
 
     def do_step(self, t: float, dt: float) -> None:
         """Advance OBC by one tick — DHS state + PUS routing."""
+        # ── S19 reactions deferred from previous tick ─────────────────
+        pending, self._pending_reactions = self._pending_reactions, []
+        for tc_bytes in pending:
+            self.receive_tc(tc_bytes, t)
+
         # ── On-board time ──────────────────────────────────────────────
         self._obt += dt
 
@@ -430,6 +438,35 @@ class ObcEquipment(HilAdapter):
         elif PusService12.is_disable(tc):
             self._s12.disable()
             logger.info("[obc] S12 monitoring disabled")
+        elif PusService19.is_add(tc):
+            try:
+                event_id, action_tc = PusService19.parse_add(tc)
+                self._s19.add(EventActionDefinition(event_id=event_id, action_tc=action_tc))
+                logger.info(
+                    f"[obc] S19 add: event 0x{event_id:04X} → "
+                    f"{len(action_tc)}B action TC"
+                )
+            except ValueError as e:
+                logger.warning(f"[obc] S19 add error: {e}")
+        elif PusService19.is_delete(tc):
+            try:
+                event_id = PusService19.parse_delete(tc)
+                found = self._s19.delete(event_id)
+                logger.info(
+                    f"[obc] S19 delete 0x{event_id:04X}: "
+                    f"{'removed' if found else 'not found'}"
+                )
+            except ValueError as e:
+                logger.warning(f"[obc] S19 delete error: {e}")
+        elif PusService19.is_delete_all(tc):
+            n = self._s19.delete_all()
+            logger.info(f"[obc] S19 delete all: removed {n} definitions")
+        elif PusService19.is_enable(tc):
+            self._s19.enable()
+            logger.info("[obc] S19 event-action enabled")
+        elif PusService19.is_disable(tc):
+            self._s19.disable()
+            logger.info("[obc] S19 event-action disabled")
         elif PusService17.is_are_you_alive(tc):
             responses.append(PusService17.are_you_alive_response(
                 tm_apid=self._config.apid,
@@ -569,4 +606,12 @@ class ObcEquipment(HilAdapter):
             self._tm_queue.extend(packets)
         if self._store is not None:
             for p in packets:
-                self._store.write(f"svf.tm.{p.service}.{p.subservice}.received", float(self._tm_seq), self._obt, self.equipment_id)
+                self._store.write(
+                    f"svf.tm.{p.service}.{p.subservice}.received",
+                    float(self._tm_seq), self._obt, self.equipment_id,
+                )
+        # Collect S19 reactions for S5 events — dispatched next tick
+        for p in packets:
+            if p.service == 5 and len(p.app_data) >= 2:
+                event_id = struct.unpack_from(">H", p.app_data)[0]
+                self._pending_reactions.extend(self._s19.react(event_id))
