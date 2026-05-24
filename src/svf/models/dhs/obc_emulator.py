@@ -15,7 +15,7 @@ obsw_sensor_frame_t (packed, little-endian floats):
 obsw_sim stdout (unchanged):
   [uint16 BE length][TM packet bytes] ... [0xFF sync]
 
-Implements: SVF-DEV-029, SVF-DEV-034, SVF-DEV-037
+Implements: SVF-DEV-029, SVF-DEV-034, SVF-DEV-037, SVF-DEV-169
 """
 
 from __future__ import annotations
@@ -30,6 +30,13 @@ import threading
 import time
 from pathlib import Path
 from typing import Optional, Any
+
+try:
+    import serial as _pyserial
+    _HAS_PYSERIAL = True
+except ImportError:
+    _pyserial = None  # type: ignore[assignment]
+    _HAS_PYSERIAL = False
 
 from svf.core.abstractions import SyncProtocol
 from svf.stores.command_store import CommandStore
@@ -144,12 +151,17 @@ class OBCEmulatorAdapter(HilAdapter):
         sync_timeout: float = 5.0,
         qemu_prefix: Optional[list[str]] = None,
         socket_addr: Optional[tuple[str, int]] = None,
+        serial_port: Optional[str] = None,
+        baud_rate: int = 115200,
         apid: int = 0x010,
     ) -> None:
         self._sim_path = Path(sim_path) if sim_path is not None else None
         self._qemu_prefix = qemu_prefix or []
         self._socket_addr = socket_addr
+        self._serial_port = serial_port
+        self._baud_rate = baud_rate
         self._sock: Optional[socket.socket] = None
+        self._serial_dev: Optional[Any] = None
         self._sync_timeout = sync_timeout
         self._apid = apid
 
@@ -245,6 +257,39 @@ class OBCEmulatorAdapter(HilAdapter):
                 self._check_srdb_version(srdb_version)
 
     # ------------------------------------------------------------------ #
+    # Serial reader (UART mode — MSP430, STM32H750)                       #
+    # ------------------------------------------------------------------ #
+
+    def _start_serial_reader(self) -> None:
+        """Start background thread reading bytes from UART into _rx_q."""
+        self._alive = True
+        self._reader = threading.Thread(
+            target=self._serial_reader_thread,
+            name="obc-emulator-serial-reader",
+            daemon=True,
+        )
+        self._reader.start()
+
+    def _serial_reader_thread(self) -> None:
+        dev = self._serial_dev
+        if dev is None:
+            return
+        try:
+            while self._alive:
+                try:
+                    chunk = dev.read(4096)
+                except Exception as e:
+                    logger.debug(f"[obc-emu] serial read: {e}")
+                    break
+                if not chunk:
+                    continue
+                for byte in chunk:
+                    self._rx_q.put(bytes([byte]))
+        finally:
+            self._rx_q.put(None)
+            logger.debug("[obc-emu] serial reader exited")
+
+    # ------------------------------------------------------------------ #
     # Socket reader (Renode mode)                                          #
     # ------------------------------------------------------------------ #
 
@@ -278,6 +323,24 @@ class OBCEmulatorAdapter(HilAdapter):
             logger.debug("[obc-emu] socket reader exited")
 
     def initialise(self, start_time: float = 0.0) -> None:
+        if self._serial_port is not None:
+            # Serial mode — connect to hardware UART (MSP430, STM32H750)
+            if not _HAS_PYSERIAL:
+                raise ImportError(
+                    "pyserial is required for UART transport. "
+                    "Install with: pip install 'opensvf[uart]'"
+                )
+            self._serial_dev = _pyserial.Serial(  # type: ignore[union-attr]
+                port=self._serial_port,
+                baudrate=self._baud_rate,
+                timeout=0,  # non-blocking reads; reader thread polls
+            )
+            logger.info(
+                f"[obc-emu] Serial mode: {self._serial_port} @ {self._baud_rate} baud"
+            )
+            self._start_serial_reader()
+            return
+
         if self._socket_addr is not None:
             # Socket mode — connect to Renode UART TCP terminal
             self._sock = socket.create_connection(
@@ -335,6 +398,12 @@ class OBCEmulatorAdapter(HilAdapter):
 
     def teardown(self) -> None:
         self._alive = False
+        if self._serial_dev is not None:
+            try:
+                self._serial_dev.close()
+            except Exception:
+                pass
+            self._serial_dev = None
         if self._sock is not None:
             try:
                 self._sock.close()
@@ -494,7 +563,12 @@ class OBCEmulatorAdapter(HilAdapter):
             struct.pack(">H", len(frame)) +
             frame
         )
-        if self._sock is not None:
+        if self._serial_dev is not None:
+            try:
+                self._serial_dev.write(payload)
+            except Exception as e:
+                logger.error(f"[obc-emu] serial write failed: {e}")
+        elif self._sock is not None:
             try:
                 self._sock.sendall(payload)
             except Exception as e:
@@ -736,7 +810,9 @@ class OBCEmulatorAdapter(HilAdapter):
         """Disconnection is handled in teardown() — no-op here."""
 
     def is_connected(self) -> bool:
-        """Return True if the subprocess or socket is alive."""
+        """Return True if the subprocess, socket, or serial port is alive."""
+        if self._serial_dev is not None:
+            return bool(self._serial_dev.is_open)
         if self._sock is not None:
             return True
         return self._proc is not None and self._proc.poll() is None

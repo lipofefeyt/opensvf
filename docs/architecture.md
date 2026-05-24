@@ -424,7 +424,7 @@ repos cannot coexist on the same filesystem.
 | M40 — S19 Event-Action Service: FDIR reaction chains | Done |
 | M41 — SharedMemorySyncProtocol: sub-ms tick sync | Done |
 | M27 — Dual-OBC topology (DualObcAdapter: primary/secondary + auto-failover) | Done |
-| M28 — UART/serial wire protocol transport (MSP430, STM32H750 HIL) | Planned |
+| M28 — UART/serial wire protocol transport (MSP430, STM32H750 HIL) | Done |
 | M42 — Orbital environment (SGP4 + eclipse + solar) | Backlog |
 | M43 — F3 sensor fidelity | Backlog |
 | M44 — SRDB control layer (AOCS gains, FDIR thresholds) | Backlog |
