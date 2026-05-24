@@ -425,7 +425,8 @@ repos cannot coexist on the same filesystem.
 | M41 — SharedMemorySyncProtocol: sub-ms tick sync | Done |
 | M27 — Dual-OBC topology (DualObcAdapter: primary/secondary + auto-failover) | Done |
 | M28 — UART/serial wire protocol transport (MSP430, STM32H750 HIL) | Done |
-| M42 — Orbital environment (SGP4 + eclipse + solar) | Backlog |
+| M42 — Orbital environment: SGP4 + eclipse + dipole mag field (Python) | Done |
+| M48 — Migrate orbital environment into opensvf-kde FMU (SVF-DEV-175) | Backlog |
 | M43 — F3 sensor fidelity | Backlog |
 | M44 — SRDB control layer (AOCS gains, FDIR thresholds) | Backlog |
 | M45 — FDIR supervisor model | Backlog |

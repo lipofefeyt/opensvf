@@ -87,8 +87,9 @@ _MODEL_REGISTRY: dict[str, tuple[str, str]] = {
     "gps":            ("svf.models.aocs.gps",            "make_gps"),
     "thruster":       ("svf.models.aocs.thruster",       "make_thruster"),
     "bdot_controller":("svf.models.aocs.bdot_controller","make_bdot_controller"),
-    "dynamics":       ("svf.models.dynamics.kde_equipment","make_kde_equipment"),
-    "thermal":        ("svf.models.thermal.thermal",     "make_thermal"),
+    "dynamics":            ("svf.models.dynamics.kde_equipment",             "make_kde_equipment"),
+    "orbital_environment": ("svf.models.environment.orbital_environment", "make_orbital_environment"),
+    "thermal":             ("svf.models.thermal.thermal",                 "make_thermal"),
     "pcdu":           ("svf.models.eps.pcdu",            "make_pcdu"),
     "sbt":            ("svf.models.ttc.sbt",             "make_sbt"),
 }
