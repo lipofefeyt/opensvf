@@ -133,8 +133,8 @@ The SimulationMaster shall accept TickSource, SyncProtocol, and a list of ModelA
 **SVF-DEV-017** `[ABS]` `DEFERRED`
 The platform shall provide a RealtimeTickSource driven by RT_PREEMPT timer. Assigned to M9.
 
-**SVF-DEV-018** `[ABS]` `DEFERRED`
-The platform shall provide a SharedMemorySyncProtocol using a lock-free ring buffer. Assigned to M9.
+**SVF-DEV-018** `[ABS]` `IMPLEMENTED`
+The platform shall provide a SharedMemorySyncProtocol using a lock-free shared memory layout. Implemented in M41.
 
 ---
 
@@ -948,6 +948,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-163   | PUS  | IMPLEMENTED | M38 | test_scheduler_due_returns_tc_at_correct_obt |
 | SVF-DEV-164   | PUS  | IMPLEMENTED | M39 | test_monitor_high_limit_fires_once_on_entry |
 | SVF-DEV-165   | PUS  | IMPLEMENTED | M40 | test_obc_tc_19_1_registers_reaction_fired_next_tick |
+| SVF-DEV-018   | ABS  | IMPLEMENTED | M41 | test_shm_sync_drives_simulation_master |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |

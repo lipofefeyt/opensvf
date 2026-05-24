@@ -75,9 +75,26 @@ sync = DdsSyncProtocol(participant)
 
 All DDS writers/readers use `KEEP_ALL` QoS to ensure late-joining models receive the last tick.
 
-### SharedMemorySyncProtocol (M11)
+### SharedMemorySyncProtocol (M41)
 
-Lock-free ring buffer for zero-copy inter-process synchronisation. Required for real-time HIL.
+One-byte-per-model POSIX shared memory segment with a pure spinwait. Single-byte writes are atomic on all architectures — no locks needed. Sub-ms latency for real-time HIL.
+
+```python
+from svf.ground.shm_sync import SharedMemorySyncProtocol
+
+# SVF master process — creates and owns the segment
+sync = SharedMemorySyncProtocol(model_ids=["mag", "gyro", "obc"])
+
+# Worker process — attach by name
+sync = SharedMemorySyncProtocol(
+    model_ids=["mag", "gyro", "obc"],
+    name=shared_name,
+    create=False,
+)
+
+# Drop-in for DdsSyncProtocol — same interface
+master = SimulationMaster(sync_protocol=sync, ...)
+```
 
 ---
 
@@ -316,7 +333,7 @@ bus = Mil1553Bus("platform_1553", rt_count=5,
 # 3. Simulation
 master = SimulationMaster(
     tick_source=SoftwareTickSource(),   # ← swap for RealtimeTickSource (M11)
-    sync_protocol=sync,                 # ← swap for SharedMemorySync (M11)
+    sync_protocol=sync,                 # ← swap for SharedMemorySyncProtocol (M41)
     models=[ttc, obc, bus, rw, st, sbt],
     dt=0.1,
     stop_time=30.0,
@@ -327,4 +344,4 @@ master = SimulationMaster(
 master.run()
 ```
 
-Switching to real-time execution (M11): change `SoftwareTickSource` to `RealtimeTickSource` and `DdsSyncProtocol` to `SharedMemorySyncProtocol`. Everything else is unchanged.
+Switching to real-time HIL (M41): swap `DdsSyncProtocol` for `SharedMemorySyncProtocol` (`svf.ground.shm_sync`). Everything else is unchanged — same `SyncProtocol` interface.
