@@ -456,6 +456,18 @@ Each simulation tick, `DualObcAdapter` shall drive only the active OBC via `on_t
 **SVF-DEV-169** `[DHS]` `IMPLEMENTED`
 `OBCEmulatorAdapter` shall support a UART serial transport mode via an optional `serial_port` parameter. When set, the adapter shall open the port at the specified `baud_rate`, start a background reader thread that feeds received bytes into the shared `_rx_q`, and use the same wire protocol v3 framing as pipe and socket modes. The `pyserial` package shall be an optional dependency declared under the `uart` extras group; if not installed, `initialise()` shall raise `ImportError` with a clear installation hint. Assigned to M28.
 
+**SVF-DEV-170** `[SIM]` `IMPLEMENTED`
+The platform shall provide an `OrbitalEnvironment` equipment model that propagates a two-line element set (TLE) using SGP4 each simulation tick, publishing spacecraft position and velocity in ECI (TEME frame) together with geodetic latitude, longitude, and altitude. The `sgp4` package shall be an optional dependency under the `orbital` extras group; if not installed, `initialise()` shall raise `ImportError` with a clear installation hint. Assigned to M42.
+
+**SVF-DEV-171** `[SIM]` `IMPLEMENTED`
+`OrbitalEnvironment` shall compute a cylindrical Earth shadow model each tick and publish `orbital.eclipse` (0/1) and `orbital.illumination` (0–1) to ParameterStore, together with `orbital.solar_irradiance` (W/m²) that is zero in eclipse and 1361 W/m² in full sunlight. Assigned to M42.
+
+**SVF-DEV-172** `[SIM]` `IMPLEMENTED`
+`OrbitalEnvironment` shall compute the IGRF-13 first-degree tilted-dipole magnetic field at the spacecraft's sub-satellite point each tick and publish `orbital.mag_field_n/e/d` (T, NED frame) for use as truth input to sensor models. The field shall be accurate to within 10 % of full IGRF for LEO orbits; higher-degree IGRF terms are deferred to M43. Assigned to M42.
+
+**SVF-DEV-175** `[SIM]` `DEFERRED`
+The SGP4 propagator and IGRF dipole model implemented in Python for M42 shall be migrated into the opensvf-kde C++ FMU so that orbital environment and spacecraft dynamics share a common reference frame and time base. Migration shall preserve the ParameterStore port interface. Assigned to M48.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -965,6 +977,10 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-167   | DHS  | IMPLEMENTED | M27 | test_dual_obc_only_active_obc_is_ticked |
 | SVF-DEV-168   | DHS  | IMPLEMENTED | M27 | test_dual_obc_auto_failover_when_primary_disconnects |
 | SVF-DEV-169   | DHS  | IMPLEMENTED | M28 | test_initialise_opens_serial_port |
+| SVF-DEV-170   | SIM  | IMPLEMENTED | M42 | test_orbital_tick_publishes_all_ports |
+| SVF-DEV-171   | SIM  | IMPLEMENTED | M42 | test_orbital_tick_eclipse_zero_irradiance |
+| SVF-DEV-172   | SIM  | IMPLEMENTED | M42 | test_dipole_field_magnitude_leo |
+| SVF-DEV-175   | SIM  | DEFERRED    | M48 | — |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |

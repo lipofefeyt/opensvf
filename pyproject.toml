@@ -25,6 +25,9 @@ Documentation = "https://opensvf.readthedocs.io"
 Repository = "https://github.com/lipofefeyt/opensvf"
 
 [project.optional-dependencies]
+orbital = [
+    "sgp4>=2.21",
+]
 uart = [
     "pyserial>=3.5",
 ]
@@ -74,6 +77,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["serial", "serial.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["sgp4", "sgp4.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

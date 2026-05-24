@@ -1,0 +1,34 @@
+# Orbital environment wiring
+# Connects OrbitalEnvironment truth outputs to sensor model inputs.
+# Use this wiring when OrbitalEnvironment replaces the KDE FMU as the
+# magnetic field and eclipse truth source (i.e. pure-Python SIL runs).
+# M48 will migrate propagation into opensvf-kde and this file will be
+# superseded by an updated kde_wiring.yaml.
+
+connections:
+  # Magnetic field (NED frame) → MAG truth input
+  - from: orbital.orbital.mag_field_n
+    to:   mag.aocs.mag.true_x
+    description: True B-field north (NED) to MAG truth X
+
+  - from: orbital.orbital.mag_field_e
+    to:   mag.aocs.mag.true_y
+    description: True B-field east (NED) to MAG truth Y
+
+  - from: orbital.orbital.mag_field_d
+    to:   mag.aocs.mag.true_z
+    description: True B-field down (NED) to MAG truth Z
+
+  # Solar illumination → CSS, solar array
+  - from: orbital.orbital.illumination
+    to:   css.aocs.css.illumination
+    description: Solar illumination fraction to CSS
+
+  - from: orbital.orbital.illumination
+    to:   solar_array.eps.solar_array.illumination
+    description: Solar illumination to EPS solar array
+
+  # Eclipse flag → GPS
+  - from: orbital.orbital.eclipse
+    to:   gps.aocs.gps.eclipse
+    description: Eclipse flag to GPS

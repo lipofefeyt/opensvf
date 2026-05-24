@@ -68,7 +68,7 @@ git clone https://github.com/lipofefeyt/opensvf
 cd opensvf
 pip install -e ".[dev]"                                           # install SVF and dev dependencies
 
-testosvf                                                          # 588 unit + integration tests
+testosvf                                                          # 606 unit + integration tests
 checkcov                                                          # requirement coverage report
 svf profiles                                                      # list bundled hardware profiles
 svf check mission_mysat1/spacecraft.yaml
@@ -261,7 +261,7 @@ TM pipeline: obsw_sim → SVF → TCP port 10015 → YAMCS packet viewer
 ## Developer tools
 
 ```bash
-testosvf                              # full test suite (588 tests, L1+L2)
+testosvf                              # full test suite (606 tests, L1+L2)
 checkosvf                             # mypy strict type check
 svf validate spacecraft.yaml          # fast pre-flight config check (no DDS, no FMU)
 checkcov                              # requirement coverage + equipment fidelity report
@@ -352,12 +352,13 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 | M41 — SharedMemorySyncProtocol: sub-ms tick sync for RT HIL | ✅ Done |
 | M27 — Dual-OBC topology (ZynqMP + MSP430 Renode lockstep) | ✅ Done |
 | M28 — UART/serial wire protocol transport (MSP430, STM32H750 HIL) | ✅ Done |
-| M42 — Orbital environment: SGP4 propagator + eclipse + solar model | 🗂 Backlog |
+| M42 — Orbital environment: SGP4 propagator + eclipse + solar model | ✅ Done |
 | M43 — F3 sensor fidelity: Allan-variance, calibration curves, I-V | 🗂 Backlog |
 | M44 — SRDB control layer: AOCS gains and FDIR thresholds as S20 parameters | 🗂 Backlog |
 | M45 — FDIR supervisor model | 🗂 Backlog |
 | M46 — Live YAMCS dashboards | 🗂 Backlog |
 | M47 — Multi-spacecraft / constellation | 🗂 Backlog |
+| M48 — Migrate orbital environment (SGP4 + dipole) into opensvf-kde FMU | 🗂 Backlog |
 
 ---
 
