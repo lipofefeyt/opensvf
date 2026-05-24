@@ -26,8 +26,8 @@ from svf.pus.tc import PusTcPacket, PusTcParser, PusTcError
 from svf.pus.tm import PusTmPacket, PusTmBuilder
 from svf.pus.services import (
     PusService1, PusService3, PusService5,
-    PusService9, PusService11, PusService17, PusService20,
-    TimeBasedScheduler, HkReportDefinition, EventSeverity,
+    PusService9, PusService11, PusService12, PusService17, PusService20,
+    TimeBasedScheduler, OnBoardMonitor, HkReportDefinition, EventSeverity,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,6 +103,7 @@ class ObcEquipment(HilAdapter):
         self._tm_builder = PusTmBuilder()
         self._s3 = PusService3()
         self._s11 = TimeBasedScheduler()
+        self._s12 = OnBoardMonitor()
         self._tm_queue: list[PusTmPacket] = []
         self._tm_seq: int = 0
         self._lock = threading.Lock()
@@ -191,6 +192,14 @@ class ObcEquipment(HilAdapter):
         # ── S11 time-based schedule: fire due activities ───────────────
         for tc_bytes in self._s11.due(self._obt):
             self.receive_tc(tc_bytes, t)
+
+        # ── S12 on-board monitoring: check parameters against limits ───
+        if self._store is not None:
+            ool_tms = self._s12.check(
+                self._store, self._config.apid, self._next_tm_seq, self._obt
+            )
+            if ool_tms:
+                self._enqueue_tm(ool_tms)
 
         # ── Mode transitions ───────────────────────────────────────────
         mode_cmd = self.read_port("dhs.obc.mode_cmd")
@@ -384,6 +393,43 @@ class ObcEquipment(HilAdapter):
         elif PusService11.is_disable(tc):
             self._s11.disable()
             logger.info("[obc] S11 schedule disabled")
+        elif PusService12.is_add(tc):
+            try:
+                param_id, = struct.unpack_from(">H", tc.app_data)
+                param_name = self._config.param_id_map.get(param_id)
+                if param_name is None:
+                    logger.warning(
+                        f"[obc] S12 add: unknown param_id 0x{param_id:04X}"
+                    )
+                else:
+                    defn = PusService12.parse_add(tc, param_name)
+                    self._s12.add(defn)
+                    logger.info(
+                        f"[obc] S12 add monitor: 0x{param_id:04X} "
+                        f"({param_name}) low={defn.low_limit} "
+                        f"high={defn.high_limit}"
+                    )
+            except (ValueError, struct.error) as e:
+                logger.warning(f"[obc] S12 add error: {e}")
+        elif PusService12.is_delete(tc):
+            try:
+                param_id = PusService12.parse_delete(tc)
+                found = self._s12.delete(param_id)
+                logger.info(
+                    f"[obc] S12 delete 0x{param_id:04X}: "
+                    f"{'removed' if found else 'not found'}"
+                )
+            except ValueError as e:
+                logger.warning(f"[obc] S12 delete error: {e}")
+        elif PusService12.is_delete_all(tc):
+            n = self._s12.delete_all()
+            logger.info(f"[obc] S12 delete all: removed {n} monitors")
+        elif PusService12.is_enable(tc):
+            self._s12.enable()
+            logger.info("[obc] S12 monitoring enabled")
+        elif PusService12.is_disable(tc):
+            self._s12.disable()
+            logger.info("[obc] S12 monitoring disabled")
         elif PusService17.is_are_you_alive(tc):
             responses.append(PusService17.are_you_alive_response(
                 tm_apid=self._config.apid,
