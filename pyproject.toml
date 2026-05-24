@@ -25,11 +25,15 @@ Documentation = "https://opensvf.readthedocs.io"
 Repository = "https://github.com/lipofefeyt/opensvf"
 
 [project.optional-dependencies]
+uart = [
+    "pyserial>=3.5",
+]
 dev = [
     "pytest>=7.4",
     "pytest-xdist",
     "mypy>=1.8",
     "types-PyYAML>=6.0",
+    "pyserial>=3.5",
 ]
 docs = [
     "mkdocs-material>=9.5",
@@ -66,6 +70,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["obsw_srdb.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["serial", "serial.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

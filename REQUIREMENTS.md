@@ -453,6 +453,9 @@ Each simulation tick, `DualObcAdapter` shall drive only the active OBC via `on_t
 **SVF-DEV-168** `[DHS]` `IMPLEMENTED`
 `DualObcAdapter` shall support manual failover via `switch_to_primary()` / `switch_to_secondary()`, and shall auto-failover to the other OBC if the active OBC's `is_connected()` returns False after a tick. Assigned to M27.
 
+**SVF-DEV-169** `[DHS]` `IMPLEMENTED`
+`OBCEmulatorAdapter` shall support a UART serial transport mode via an optional `serial_port` parameter. When set, the adapter shall open the port at the specified `baud_rate`, start a background reader thread that feeds received bytes into the shared `_rx_q`, and use the same wire protocol v3 framing as pipe and socket modes. The `pyserial` package shall be an optional dependency declared under the `uart` extras group; if not installed, `initialise()` shall raise `ImportError` with a clear installation hint. Assigned to M28.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -961,6 +964,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-166   | DHS  | IMPLEMENTED | M27 | test_dual_obc_is_hil_adapter |
 | SVF-DEV-167   | DHS  | IMPLEMENTED | M27 | test_dual_obc_only_active_obc_is_ticked |
 | SVF-DEV-168   | DHS  | IMPLEMENTED | M27 | test_dual_obc_auto_failover_when_primary_disconnects |
+| SVF-DEV-169   | DHS  | IMPLEMENTED | M28 | test_initialise_opens_serial_port |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
