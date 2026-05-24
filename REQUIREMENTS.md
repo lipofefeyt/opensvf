@@ -444,6 +444,15 @@ The OBC Equipment model shall receive raw PUS TC bytes, parse them using PusTcPa
 **PUS-011** `[PUS]` `IMPLEMENTED`
 The TTC Equipment model shall bridge the ground segment to the OBC via simulated RF link, forwarding TC bytes and exposing TM for observable assertions. Assigned to M7.
 
+**SVF-DEV-166** `[DHS]` `IMPLEMENTED`
+The platform shall provide a `DualObcAdapter` that wraps a primary and secondary `HilAdapter` in a dual-OBC topology, presenting a single `HilAdapter` interface to the rest of the system. Assigned to M27.
+
+**SVF-DEV-167** `[DHS]` `IMPLEMENTED`
+Each simulation tick, `DualObcAdapter` shall drive only the active OBC via `on_tick()`; the passive OBC shall receive no sensor data or TCs until it becomes active. TC routing and TM draining shall always target the active OBC. Assigned to M27.
+
+**SVF-DEV-168** `[DHS]` `IMPLEMENTED`
+`DualObcAdapter` shall support manual failover via `switch_to_primary()` / `switch_to_secondary()`, and shall auto-failover to the other OBC if the active OBC's `is_connected()` returns False after a tick. Assigned to M27.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -949,6 +958,9 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-164   | PUS  | IMPLEMENTED | M39 | test_monitor_high_limit_fires_once_on_entry |
 | SVF-DEV-165   | PUS  | IMPLEMENTED | M40 | test_obc_tc_19_1_registers_reaction_fired_next_tick |
 | SVF-DEV-018   | ABS  | IMPLEMENTED | M41 | test_shm_sync_drives_simulation_master |
+| SVF-DEV-166   | DHS  | IMPLEMENTED | M27 | test_dual_obc_is_hil_adapter |
+| SVF-DEV-167   | DHS  | IMPLEMENTED | M27 | test_dual_obc_only_active_obc_is_ticked |
+| SVF-DEV-168   | DHS  | IMPLEMENTED | M27 | test_dual_obc_auto_failover_when_primary_disconnects |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
