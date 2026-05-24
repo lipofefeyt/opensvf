@@ -432,6 +432,9 @@ The platform shall implement PUS Service 9 (Time Management): TC(9,128) Set OBT 
 **SVF-DEV-163** `[PUS]` `IMPLEMENTED`
 The platform shall implement PUS Service 11 (Time-Based Scheduling): TC(11,4) Insert Activity, TC(11,5) Delete Activity, TC(11,6) Delete All, TC(11,17) Enable Schedule, TC(11,18) Disable Schedule. A `TimeBasedScheduler` shall hold a sorted list of `ScheduledActivity` items; on each OBC tick the scheduler shall fire all activities with `time_tag <= obt` by routing them through the normal `receive_tc()` path. `ProcedureContext.schedule_tc()` shall provide a convenience API for test procedures. Assigned to M38.
 
+**SVF-DEV-164** `[PUS]` `IMPLEMENTED`
+The platform shall implement PUS Service 12 (On-Board Monitoring): TC(12,1) Enable, TC(12,2) Disable, TC(12,3) Add/Replace Monitoring Definition, TC(12,4) Delete, TC(12,5) Delete All. An `OnBoardMonitor` shall evaluate each enabled `MonitoringDefinition` on every OBC tick and generate a PUS S5 event report on the first tick a parameter crosses a low or high limit (latching — no repeat until recovery). TC(12,3) app_data: 2B param_id, 4B low_limit (IEEE754 float, NaN=none), 4B high_limit, 2B event_id_low, 2B event_id_high, 1B severity. Assigned to M39.
+
 **PUS-010** `[PUS]` `IMPLEMENTED`
 The OBC Equipment model shall receive raw PUS TC bytes, parse them using PusTcParser, route commands to equipment via the appropriate bus interface, and generate PUS TM acknowledgement packets. Assigned to M7.
 
@@ -940,6 +943,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-161   | BUS  | IMPLEMENTED | M38 | test_consecutive_desync_raises_after_max_desync |
 | SVF-DEV-162   | PUS  | IMPLEMENTED | M37 | test_s9_build_and_parse_roundtrip |
 | SVF-DEV-163   | PUS  | IMPLEMENTED | M38 | test_scheduler_due_returns_tc_at_correct_obt |
+| SVF-DEV-164   | PUS  | IMPLEMENTED | M39 | test_monitor_high_limit_fires_once_on_entry |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
