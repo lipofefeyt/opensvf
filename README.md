@@ -68,7 +68,7 @@ git clone https://github.com/lipofefeyt/opensvf
 cd opensvf
 pip install -e ".[dev]"                                           # install SVF and dev dependencies
 
-testosvf                                                          # 564 unit + integration tests
+testosvf                                                          # 578 unit + integration tests
 checkcov                                                          # requirement coverage report
 svf profiles                                                      # list bundled hardware profiles
 svf check mission_mysat1/spacecraft.yaml
@@ -261,7 +261,7 @@ TM pipeline: obsw_sim → SVF → TCP port 10015 → YAMCS packet viewer
 ## Developer tools
 
 ```bash
-testosvf                              # full test suite (564 tests, L1+L2)
+testosvf                              # full test suite (578 tests, L1+L2)
 checkosvf                             # mypy strict type check
 svf validate spacecraft.yaml          # fast pre-flight config check (no DDS, no FMU)
 checkcov                              # requirement coverage + equipment fidelity report
@@ -350,7 +350,7 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 | M39 — S12 On-Board Monitoring: parameter OOL events | ✅ Done |
 | M40 — S19 Event-Action Service: automated FDIR reaction chains | ✅ Done |
 | M41 — SharedMemorySyncProtocol: sub-ms tick sync for RT HIL | ✅ Done |
-| M27 — Dual-OBC topology (ZynqMP + MSP430 Renode lockstep) | 📋 Planned |
+| M27 — Dual-OBC topology (ZynqMP + MSP430 Renode lockstep) | ✅ Done |
 | M28 — UART/serial wire protocol transport (MSP430, STM32H750 HIL) | 📋 Planned |
 | M42 — Orbital environment: SGP4 propagator + eclipse + solar model | 🗂 Backlog |
 | M43 — F3 sensor fidelity: Allan-variance, calibration curves, I-V | 🗂 Backlog |
