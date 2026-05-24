@@ -26,8 +26,8 @@ from svf.pus.tc import PusTcPacket, PusTcParser, PusTcError
 from svf.pus.tm import PusTmPacket, PusTmBuilder
 from svf.pus.services import (
     PusService1, PusService3, PusService5,
-    PusService9, PusService17, PusService20, HkReportDefinition,
-    EventSeverity,
+    PusService9, PusService11, PusService17, PusService20,
+    TimeBasedScheduler, HkReportDefinition, EventSeverity,
 )
 
 logger = logging.getLogger(__name__)
@@ -102,6 +102,7 @@ class ObcEquipment(HilAdapter):
         self._parser = PusTcParser()
         self._tm_builder = PusTmBuilder()
         self._s3 = PusService3()
+        self._s11 = TimeBasedScheduler()
         self._tm_queue: list[PusTmPacket] = []
         self._tm_seq: int = 0
         self._lock = threading.Lock()
@@ -186,6 +187,10 @@ class ObcEquipment(HilAdapter):
             self._obt = time_sync
             self.receive("dhs.obc.time_sync_cmd", -1.0)
             logger.info(f"[obc] OBT sync: set to {time_sync:.3f}s at t={t:.1f}s")
+
+        # ── S11 time-based schedule: fire due activities ───────────────
+        for tc_bytes in self._s11.due(self._obt):
+            self.receive_tc(tc_bytes, t)
 
         # ── Mode transitions ───────────────────────────────────────────
         mode_cmd = self.read_port("dhs.obc.mode_cmd")
@@ -353,6 +358,32 @@ class ObcEquipment(HilAdapter):
                 logger.info(f"[obc] S9 OBT sync: {new_obt:.3f}s at t={t:.1f}s")
             except ValueError as e:
                 logger.warning(f"[obc] S9 parse error: {e}")
+        elif PusService11.is_insert(tc):
+            try:
+                time_tag, embedded = PusService11.parse_insert(tc)
+                rid = self._s11.insert(time_tag, embedded)
+                logger.info(
+                    f"[obc] S11 insert #{rid}: OBT={time_tag:.1f}s "
+                    f"({len(embedded)}B TC)"
+                )
+            except ValueError as e:
+                logger.warning(f"[obc] S11 insert error: {e}")
+        elif PusService11.is_delete(tc):
+            try:
+                rid = PusService11.parse_delete(tc)
+                found = self._s11.delete(rid)
+                logger.info(f"[obc] S11 delete #{rid}: {'removed' if found else 'not found'}")
+            except ValueError as e:
+                logger.warning(f"[obc] S11 delete error: {e}")
+        elif PusService11.is_delete_all(tc):
+            n = self._s11.delete_all()
+            logger.info(f"[obc] S11 delete all: removed {n} activities")
+        elif PusService11.is_enable(tc):
+            self._s11.enable()
+            logger.info("[obc] S11 schedule enabled")
+        elif PusService11.is_disable(tc):
+            self._s11.disable()
+            logger.info("[obc] S11 schedule disabled")
         elif PusService17.is_are_you_alive(tc):
             responses.append(PusService17.are_you_alive_response(
                 tm_apid=self._config.apid,

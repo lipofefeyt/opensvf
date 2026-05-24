@@ -429,6 +429,9 @@ The platform shall implement PUS Service 1 (Request Verification): acceptance TM
 **SVF-DEV-162** `[PUS]` `IMPLEMENTED`
 The platform shall implement PUS Service 9 (Time Management): TC(9,128) Set OBT shall be accepted by ObcEquipment and OBCEmulatorAdapter. The CUC-4,2 timestamp (4-byte coarse + 2-byte fine) shall be parsed and applied to the OBT counter. ObcEquipment shall also accept OBT sync via the `dhs.obc.time_sync_cmd` IN port (seconds, -1 = idle). Assigned to M37.
 
+**SVF-DEV-163** `[PUS]` `IMPLEMENTED`
+The platform shall implement PUS Service 11 (Time-Based Scheduling): TC(11,4) Insert Activity, TC(11,5) Delete Activity, TC(11,6) Delete All, TC(11,17) Enable Schedule, TC(11,18) Disable Schedule. A `TimeBasedScheduler` shall hold a sorted list of `ScheduledActivity` items; on each OBC tick the scheduler shall fire all activities with `time_tag <= obt` by routing them through the normal `receive_tc()` path. `ProcedureContext.schedule_tc()` shall provide a convenience API for test procedures. Assigned to M38.
+
 **PUS-010** `[PUS]` `IMPLEMENTED`
 The OBC Equipment model shall receive raw PUS TC bytes, parse them using PusTcParser, route commands to equipment via the appropriate bus interface, and generate PUS TM acknowledgement packets. Assigned to M7.
 
@@ -936,6 +939,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-160   | BUS  | IMPLEMENTED | M38 | test_on_s3_25_updates_hk_ports |
 | SVF-DEV-161   | BUS  | IMPLEMENTED | M38 | test_consecutive_desync_raises_after_max_desync |
 | SVF-DEV-162   | PUS  | IMPLEMENTED | M37 | test_s9_build_and_parse_roundtrip |
+| SVF-DEV-163   | PUS  | IMPLEMENTED | M38 | test_scheduler_due_returns_tc_at_correct_obt |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
