@@ -9,6 +9,10 @@ Implements: SVF-DEV-016
 from __future__ import annotations
 
 import logging
+import threading
+import time
+from collections import deque
+from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from svf.core.abstractions import TickSource, SyncProtocol, ModelAdapter
@@ -20,10 +24,52 @@ from svf.stores.parameter_store import ParameterStore
 
 logger = logging.getLogger(__name__)
 
+_TICK_STATS_WINDOW = 100  # rolling window size for tick execution times
+
+
+@dataclass
+class TickStats:
+    """
+    Rolling-window tick execution time statistics.
+
+    All durations are in milliseconds, computed over the last
+    ``_TICK_STATS_WINDOW`` ticks.
+
+    Implements: SVF-DEV-177
+    """
+
+    count: int
+    min_ms: float
+    max_ms: float
+    mean_ms: float
+    p95_ms: float
+    p99_ms: float
+
 
 class SimulationError(Exception):
     """Raised when the simulation master encounters a non-recoverable error."""
     pass
+
+
+class EquipmentTimeoutError(Exception):
+    """
+    Raised when a model's ``on_tick()`` does not return within the configured
+    ``equipment_tick_timeout`` deadline.
+
+    In FreeRTOS HIL campaigns the recommended deadline is 3.5 s — providing
+    a safety margin below the openobsw STM32H750 IWDG timeout of 4.0 s.
+
+    Implements: SVF-DEV-178
+    """
+
+    def __init__(self, equipment_id: str, obt: float, timeout_s: float) -> None:
+        self.equipment_id = equipment_id
+        self.obt = obt
+        self.timeout_s = timeout_s
+        super().__init__(
+            f"Equipment '{equipment_id}' tick timeout at OBT {obt:.3f}s "
+            f"(deadline={timeout_s:.1f}s)"
+        )
 
 
 class EquipmentTickError(Exception):
@@ -105,6 +151,7 @@ class SimulationMaster:
         seed: Optional[int] = None,
         obt_param_file: Optional[ObtParamFile] = None,
         on_tick_error: Optional[OnTickError] = None,
+        equipment_tick_timeout: Optional[float] = None,
     ) -> None:
         if not models:
             raise SimulationError("SimulationMaster requires at least one ModelAdapter.")
@@ -124,6 +171,8 @@ class SimulationMaster:
         self._model_ids = [m.model_id for m in models]
         self._seed_manager: SeedManager = SeedManager(seed)
         self._on_tick_error: OnTickError = on_tick_error or _default_on_tick_error
+        self._equipment_tick_timeout: Optional[float] = equipment_tick_timeout
+        self._tick_times: deque[float] = deque(maxlen=_TICK_STATS_WINDOW)
 
     def run(self, start_time: float = 0.0) -> None:
         """
@@ -197,6 +246,32 @@ class SimulationMaster:
         self._seed_manager.save()
         logger.info(f"SimulationMaster run complete (seed={self._seed_manager.master_seed})")
 
+    def tick_stats(self) -> Optional[TickStats]:
+        """
+        Rolling-window tick execution time statistics.
+
+        Returns ``None`` when fewer than two ticks have elapsed.
+        Implements: SVF-DEV-177
+        """
+        if len(self._tick_times) < 2:
+            return None
+        sorted_times = sorted(self._tick_times)
+        n = len(sorted_times)
+
+        def _percentile(data: list[float], pct: float) -> float:
+            idx = (pct / 100.0) * (len(data) - 1)
+            lo, hi = int(idx), min(int(idx) + 1, len(data) - 1)
+            return data[lo] + (data[hi] - data[lo]) * (idx - lo)
+
+        return TickStats(
+            count=n,
+            min_ms=sorted_times[0],
+            max_ms=sorted_times[-1],
+            mean_ms=sum(sorted_times) / n,
+            p95_ms=_percentile(sorted_times, 95),
+            p99_ms=_percentile(sorted_times, 99),
+        )
+
     @property
     def seed(self) -> int:
         """Master seed for this simulation run."""
@@ -223,6 +298,37 @@ class SimulationMaster:
                 dt = suggested
         return dt
 
+    def _tick_model(self, model: ModelAdapter, t: float, dt: float) -> None:
+        """
+        Drive a single model for one tick, enforcing the equipment timeout.
+
+        When ``equipment_tick_timeout`` is set the call runs in a daemon
+        thread; if it does not return within the deadline
+        ``EquipmentTimeoutError`` is raised.  Implements: SVF-DEV-178
+        """
+        if self._equipment_tick_timeout is None:
+            model.on_tick(t=t, dt=dt)
+            return
+
+        exc_holder: list[BaseException] = []
+
+        def _target() -> None:
+            try:
+                model.on_tick(t=t, dt=dt)
+            except BaseException as exc:
+                exc_holder.append(exc)
+
+        thread = threading.Thread(target=_target, daemon=True)
+        thread.start()
+        thread.join(timeout=self._equipment_tick_timeout)
+
+        if thread.is_alive():
+            raise EquipmentTimeoutError(
+                model.model_id, t, self._equipment_tick_timeout
+            )
+        if exc_holder:
+            raise exc_holder[0]
+
     def _on_tick(self, t: float) -> None:
         """
         Called by TickSource on each tick.
@@ -232,6 +338,7 @@ class SimulationMaster:
             self._tick_source.stop()
             return
 
+        _tick_start = time.monotonic()
         self._time = t
         self._sync_protocol.reset()
 
@@ -247,7 +354,9 @@ class SimulationMaster:
 
         for model in self._models:
             try:
-                model.on_tick(t=t, dt=self._effective_dt())
+                self._tick_model(model, t, self._effective_dt())
+            except EquipmentTimeoutError as e:
+                self._on_tick_error(EquipmentTickError(model.model_id, t, e))
             except Exception as e:
                 self._on_tick_error(EquipmentTickError(model.model_id, t, e))
 
@@ -295,6 +404,8 @@ class SimulationMaster:
                 t=round(self._time, 9),
                 model_id="svf.master",
             )
+
+        self._tick_times.append((time.monotonic() - _tick_start) * 1000.0)
 
 
     def _teardown(self) -> None:

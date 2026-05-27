@@ -84,6 +84,7 @@ def test_no_pyserial_raises_import_error(monkeypatch: pytest.MonkeyPatch) -> Non
 # Tests: initialise / teardown
 # ---------------------------------------------------------------------------
 
+@pytest.mark.requirement("SVF-DEV-169")
 def test_initialise_opens_serial_port() -> None:
     """initialise() opens the serial port at the configured baud rate."""
     fake_ser = _make_fake_serial()

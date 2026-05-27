@@ -35,7 +35,7 @@ try:
     import serial as _pyserial
     _HAS_PYSERIAL = True
 except ImportError:
-    _pyserial = None  # type: ignore[assignment]
+    _pyserial = None
     _HAS_PYSERIAL = False
 
 from svf.core.abstractions import SyncProtocol
@@ -59,6 +59,10 @@ _DHS_OBC_HK_MIN_PKT_LEN = (
     _APP_DATA_OFFSET + 1 + struct.calcsize(_DHS_OBC_HK_FMT) + 2  # +2 CRC
 )
 MAX_DESYNC = 3
+
+# openobsw FreeRTOS TMTC task queue depth (obsw/task/tmtc.h, capacity 4).
+# Exceeding this per-tick causes the OBSW to drop excess TCs silently.
+_FREERTOS_TC_QUEUE_DEPTH = 4
 
 
 def _detect_qemu_prefix(sim_path: Path) -> list[str]:
@@ -175,6 +179,11 @@ class OBCEmulatorAdapter(HilAdapter):
         self._obc_health:          int = 0
         self._obc_reset_count:     int = 0
         self._obc_cpu_load:        int = 0
+
+        # FreeRTOS diagnostic counters (parsed from stderr / UART console)
+        self._freertos_stack_overflow_count: int = 0
+        self._freertos_iwdg_reset_count:     int = 0
+
         self._tm_queue:   list[PusTmPacket] = []
         self._tm_lock     = threading.Lock()
         self._tm_parser   = PusTmParser()
@@ -242,7 +251,7 @@ class OBCEmulatorAdapter(HilAdapter):
             )
 
     def _stderr_reader(self) -> None:
-        """Read obsw_sim stderr, parse SRDB version, forward to logger."""
+        """Read obsw_sim stderr, parse SRDB version and FreeRTOS diagnostics."""
         proc = self._proc
         if proc is None or proc.stderr is None:
             return
@@ -255,6 +264,49 @@ class OBCEmulatorAdapter(HilAdapter):
             if "SRDB version:" in line:
                 srdb_version = line.split("SRDB version:")[-1].strip()
                 self._check_srdb_version(srdb_version)
+            self._on_obsw_freertos_diagnostic(line)
+
+    def _on_obsw_freertos_diagnostic(self, line: str) -> None:
+        """
+        Detect FreeRTOS runtime fault messages in a console output line.
+
+        Recognised patterns (from FreeRTOS hooks in openobsw):
+          - Stack overflow: ``vApplicationStackOverflowHook`` or
+            ``Stack overflow`` (case-insensitive)
+          - IWDG reset:     ``IWDG reset`` or ``watchdog reset`` in the
+            boot banner (case-insensitive)
+
+        Increments SVF-internal ParameterStore counters:
+          ``svf.obc.freertos.stack_overflow_count``
+          ``svf.obc.freertos.iwdg_reset_count``
+
+        Implements: SVF-DEV-179
+        """
+        lower = line.lower()
+        if "stackoverflow" in lower or "stack overflow" in lower:
+            self._freertos_stack_overflow_count += 1
+            logger.critical(
+                "[obc-emu][freertos] Stack overflow detected: %s", line.strip()
+            )
+            if self._store is not None:
+                self._store.write(
+                    name="svf.obc.freertos.stack_overflow_count",
+                    value=float(self._freertos_stack_overflow_count),
+                    t=self._obt,
+                    model_id=self.equipment_id,
+                )
+        elif "iwdg reset" in lower or "watchdog reset" in lower:
+            self._freertos_iwdg_reset_count += 1
+            logger.error(
+                "[obc-emu][freertos] IWDG/watchdog reset detected: %s", line.strip()
+            )
+            if self._store is not None:
+                self._store.write(
+                    name="svf.obc.freertos.iwdg_reset_count",
+                    value=float(self._freertos_iwdg_reset_count),
+                    t=self._obt,
+                    model_id=self.equipment_id,
+                )
 
     # ------------------------------------------------------------------ #
     # Serial reader (UART mode — MSP430, STM32H750)                       #
@@ -330,7 +382,7 @@ class OBCEmulatorAdapter(HilAdapter):
                     "pyserial is required for UART transport. "
                     "Install with: pip install 'opensvf[uart]'"
                 )
-            self._serial_dev = _pyserial.Serial(  # type: ignore[union-attr]
+            self._serial_dev = _pyserial.Serial(
                 port=self._serial_port,
                 baudrate=self._baud_rate,
                 timeout=0,  # non-blocking reads; reader thread polls
@@ -537,6 +589,18 @@ class OBCEmulatorAdapter(HilAdapter):
 
         if not frames:
             frames.append(self._build_s17_ping())
+
+        # FreeRTOS TMTC task queue depth is 4 (obsw/task/tmtc.h).
+        # Excess TCs are dropped silently by the OBSW — warn before sending.
+        if len(frames) > _FREERTOS_TC_QUEUE_DEPTH:
+            logger.warning(
+                "[obc-emu] TC burst %d exceeds FreeRTOS queue depth %d at t=%.3f"
+                " — OBSW may drop %d frame(s)",
+                len(frames),
+                _FREERTOS_TC_QUEUE_DEPTH,
+                t,
+                len(frames) - _FREERTOS_TC_QUEUE_DEPTH,
+            )
 
         for frame in frames:
             self._write_typed_frame(FRAME_TC, frame)

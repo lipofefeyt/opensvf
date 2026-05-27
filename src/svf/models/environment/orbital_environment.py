@@ -47,7 +47,7 @@ try:
     from sgp4.api import Satrec as _Satrec
     _HAS_SGP4 = True
 except ImportError:
-    _Satrec = None  # type: ignore[assignment,misc]
+    _Satrec = None
     _HAS_SGP4 = False
 
 logger = logging.getLogger(__name__)
@@ -289,7 +289,7 @@ class OrbitalEnvironment(Equipment):
                 "sgp4 is required for OrbitalEnvironment. "
                 "Install with: pip install 'opensvf[orbital]'"
             )
-        self._satrec = _Satrec.twoline2rv(self._tle1, self._tle2)  # type: ignore[union-attr]
+        self._satrec = _Satrec.twoline2rv(self._tle1, self._tle2)
         logger.info("[orbital] SGP4 satellite loaded from TLE")
 
     def teardown(self) -> None:
@@ -302,7 +302,7 @@ class OrbitalEnvironment(Equipment):
 
         # Propagate
         assert self._satrec is not None
-        e, r_teme, v_teme = self._satrec.sgp4(  # type: ignore[union-attr]
+        e, r_teme, v_teme = self._satrec.sgp4(  # type: ignore[attr-defined]
             float(jd_whole), float(jd_frac)
         )
         if e != 0:
