@@ -60,6 +60,20 @@ source .venv/bin/activate
 source "$OPENSVF_REPO/scripts/activate.sh"
 pytest tests/ -q --tb=no 2>&1 | tail -3
 
+# ── Global claude-global setup ────────────────────────────────────────
+CLAUDE_GLOBAL=/home/vscode/.claude-global
+mkdir -p "$CLAUDE_GLOBAL/contexts"
+# Copy staged files to WSL2 host on first use (never overwrite user edits)
+for f in "$OPENSVF_REPO/.devcontainer/claude-global/SETUP-NEW-REPO.md" \
+          "$OPENSVF_REPO/.devcontainer/claude-global/contexts/openobsw-opensvf.md" \
+          "$OPENSVF_REPO/.devcontainer/claude-global/contexts/opensvf-setup-handoff.md"; do
+    dest="$CLAUDE_GLOBAL/${f#*claude-global/}"
+    [ -f "$dest" ] || cp "$f" "$dest"
+done
+touch "$CLAUDE_GLOBAL/CLAUDE.md"
+ln -sf "$CLAUDE_GLOBAL/CLAUDE.md" /home/vscode/.claude/CLAUDE.md
+echo "[+] Global CLAUDE.md linked; context files seeded to WSL2 host"
+
 echo ""
 echo "=== opensvf container ready ==="
 echo "YAMCS:  yamcsd (config in yamcs/etc/)"

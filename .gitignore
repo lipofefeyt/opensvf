@@ -35,3 +35,5 @@ docs/datapack/out/
 # Local guidance and context files
 CONTEXT.md
 OBSW_CONTEXT.md
+CLAUDE.md
+.devcontainer/claude-global/
