@@ -72,3 +72,34 @@ The PCDU shall provide regulated 3.3 V and 5.0 V rails within ±5 % under
 nominal load conditions.
 
 *Verification:* Requires PCDU telemetry — pending campaign procedure.
+
+---
+
+## FreeRTOS HIL Requirements
+
+**MIS-RTOS-001**
+The simulation tick p95 wall-clock latency shall remain below 3 500 ms
+throughout a nominal operational session to maintain IWDG keepalive margin
+when SVF is connected to an STM32H750 running FreeRTOS (IWDG timeout 4 000 ms,
+3 500 ms budget leaves 500 ms margin for jitter).
+
+*Verified by:* TC-RTOS-001 (`freertos_procedures.py`)
+
+---
+
+**MIS-RTOS-002**
+The SRDB `dhs.obc.freertos.*` PUS parameter ID namespace (0x4020–0x402F)
+shall contain no collisions with any other parameter definition at mission
+integration time, preserving the reservation for future FreeRTOS health
+telemetry (task stack HWM, tick miss counter, context switch rate).
+
+*Verified by:* TC-RTOS-002 (`freertos_procedures.py`)
+
+---
+
+**MIS-RTOS-003**
+No FreeRTOS fault events (stack overflow, IWDG reset) shall be detected in
+the `svf.obc.freertos.*` diagnostic counters during a nominal OBC operational
+period of 10 simulation seconds.
+
+*Verified by:* TC-RTOS-003 (`freertos_procedures.py`)

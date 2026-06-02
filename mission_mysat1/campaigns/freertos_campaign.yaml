@@ -1,0 +1,8 @@
+campaign: MySat-1 FreeRTOS HIL Validation
+spacecraft: ../spacecraft.yaml
+requirements:
+  - MIS-RTOS-001
+  - MIS-RTOS-002
+  - MIS-RTOS-003
+procedures:
+  - ../procedures/freertos_procedures.py
