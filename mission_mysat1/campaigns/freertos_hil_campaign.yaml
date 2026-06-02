@@ -1,0 +1,14 @@
+campaign: MySat-1 FreeRTOS HIL Integration Validation
+
+# Default: stub OBC — procedures produce INCONCLUSIVE (binary not found).
+# When bin/obsw_sim is available, change spacecraft to spacecraft_hil.yaml
+# to exercise the real openobsw binary and get PASS/FAIL verdicts.
+spacecraft: ../spacecraft.yaml
+
+requirements:
+  - MIS-HIL-001
+  - MIS-HIL-002
+  - MIS-HIL-003
+  - MIS-HIL-004
+procedures:
+  - ../procedures/freertos_hil_procedures.py

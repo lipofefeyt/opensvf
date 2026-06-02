@@ -1,0 +1,51 @@
+version: 1
+spacecraft: MySat-1 (FreeRTOS HIL)
+
+# Hardware-in-the-Loop configuration — connects to a real openobsw binary.
+#
+# Pipe mode (default): spawns bin/obsw_sim as a subprocess.
+#   Build openobsw for host: cmake --build build && cp build/sim/obsw_sim bin/
+#
+# Socket mode (Renode / STM32H750): change type to 'socket' and set host/port.
+#   Start Renode: renode renode/stm32h750_obsw.resc
+#   Then: svf campaign mission_mysat1/campaigns/freertos_hil_campaign.yaml
+
+obsw:
+  type: pipe
+  binary: bin/obsw_sim   # resolved relative to this file
+
+equipment:
+  - id: mag1
+    model: magnetometer
+    hardware_profile: mag_default
+
+  - id: gyro1
+    model: gyroscope
+    hardware_profile: gyro_default
+
+  - id: str1
+    model: star_tracker
+    hardware_profile: str_default
+
+  - id: css1
+    model: css
+
+  - id: rw1
+    model: reaction_wheel
+    hardware_profile: rw_default
+
+  - id: mtq1
+    model: magnetorquer
+    hardware_profile: mtq_default
+
+  - id: sbt
+    model: sbt
+
+wiring:
+  auto: true
+
+simulation:
+  dt: 0.1
+  stop_time: 600.0
+  seed: 42
+  realtime: false

@@ -103,3 +103,42 @@ the `svf.obc.freertos.*` diagnostic counters during a nominal OBC operational
 period of 10 simulation seconds.
 
 *Verified by:* TC-RTOS-003 (`freertos_procedures.py`)
+
+---
+
+## FreeRTOS HIL Integration Requirements
+
+> These requirements apply only when SVF is connected to a real openobsw binary
+> (pipe or socket transport). Procedures raise INCONCLUSIVE if no binary is found.
+
+**MIS-HIL-001**
+The OBSW shall respond to a TC(17,1) Are-You-Alive ping with a TM(17,2) pong
+within 2 seconds of connection establishment in pipe mode.
+
+*Verified by:* TC-HIL-001 (`freertos_hil_procedures.py`)
+
+---
+
+**MIS-HIL-002**
+The OBSW shall emit DHS_OBC_HK telemetry (S3, SID 3) with OBC mode, OBT,
+health, reset count, and CPU load within 5 seconds of HK reporting being
+enabled, and the OBT shall advance monotonically across ticks.
+
+*Verified by:* TC-HIL-002 (`freertos_hil_procedures.py`)
+
+---
+
+**MIS-HIL-003**
+The SVF simulation master shall maintain tick synchronisation with the OBSW
+(no consecutive desync events) for a minimum of 30 simulation seconds, and
+the tick p95 latency shall remain below 3 500 ms throughout.
+
+*Verified by:* TC-HIL-003 (`freertos_hil_procedures.py`)
+
+---
+
+**MIS-HIL-004**
+No FreeRTOS fault events (stack overflow, IWDG reset) shall be detected in
+the SVF diagnostic counters during a 30-second nominal HIL session.
+
+*Verified by:* TC-HIL-004 (`freertos_hil_procedures.py`)
