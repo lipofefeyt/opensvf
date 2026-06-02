@@ -155,6 +155,7 @@ def test_eclipse_outside_shadow_cylinder() -> None:
 # Dipole magnetic field
 # ---------------------------------------------------------------------------
 
+@pytest.mark.requirement("SVF-DEV-172")
 def test_dipole_field_magnitude_leo() -> None:
     """Tilted-dipole field magnitude at 500 km altitude is 20–70 µT."""
     r_km = _R_EARTH_KM + 500.0
@@ -197,6 +198,7 @@ def _make_satrec_mock(eclipse: bool = False) -> MagicMock:
     return sat
 
 
+@pytest.mark.requirement("SVF-DEV-170")
 def test_orbital_tick_publishes_all_ports() -> None:
     """do_step() publishes all expected orbital ports to ParameterStore."""
     env, store = _make_env()
@@ -218,6 +220,7 @@ def test_orbital_tick_publishes_all_ports() -> None:
         assert store.read(port) is not None, f"Port {port} not published"
 
 
+@pytest.mark.requirement("SVF-DEV-171")
 def test_orbital_tick_eclipse_zero_irradiance() -> None:
     """When in eclipse, solar_irradiance = 0 and illumination = 0."""
     env, store = _make_env()

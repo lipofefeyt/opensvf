@@ -15,7 +15,8 @@
     },
     "mounts": [
         "source=${localWorkspaceFolder}/../openobsw,target=/workspace/openobsw,type=bind,consistency=cached",
-        "source=${localWorkspaceFolder}/../opensvf-kde,target=/workspace/opensvf-kde,type=bind,consistency=cached"
+        "source=${localWorkspaceFolder}/../opensvf-kde,target=/workspace/opensvf-kde,type=bind,consistency=cached",
+        "source=${localEnv:HOME}/.claude-global,target=/home/vscode/.claude-global,type=bind,consistency=cached"
     ],
     "runArgs": [
         "--privileged"

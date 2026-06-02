@@ -237,6 +237,9 @@ The platform shall provide an XTCE 1.2 export adapter. Assigned to M10.
 **SVF-DEV-098** `[SDB]` `DEFERRED`
 The platform shall provide a MIB import adapter. Assigned to M10.
 
+**SVF-DEV-180** `[SDB]` `BASELINED`
+The SRDB `dhs.obc.freertos.*` parameter namespace shall reserve PUS parameter IDs 0x4020–0x402F for FreeRTOS-specific runtime telemetry (task stack high-water marks, tick miss counter, context switch rate). No openobsw implementation is required at this milestone; the reservation prevents future parameter ID collisions when openobsw begins emitting FreeRTOS health metrics. Assigned to M43.
+
 ---
 
 ## Generic Equipment Contract Requirements [EQP]
@@ -456,6 +459,12 @@ Each simulation tick, `DualObcAdapter` shall drive only the active OBC via `on_t
 **SVF-DEV-169** `[DHS]` `IMPLEMENTED`
 `OBCEmulatorAdapter` shall support a UART serial transport mode via an optional `serial_port` parameter. When set, the adapter shall open the port at the specified `baud_rate`, start a background reader thread that feeds received bytes into the shared `_rx_q`, and use the same wire protocol v3 framing as pipe and socket modes. The `pyserial` package shall be an optional dependency declared under the `uart` extras group; if not installed, `initialise()` shall raise `ImportError` with a clear installation hint. Assigned to M28.
 
+**SVF-DEV-176** `[DHS]` `IMPLEMENTED`
+`OBCEmulatorAdapter._send_tcs()` shall guard against TC burst overflow of the openobsw FreeRTOS TMTC task queue (depth 4, defined in `obsw/task/tmtc.h`). When the number of TC frames assembled for a single tick exceeds `_FREERTOS_TC_QUEUE_DEPTH`, the adapter shall emit a WARNING-level log message identifying the excess count. No TC frames shall be silently discarded by SVF; the warning exists to alert operators that the OBSW may drop excess frames. Assigned to M43.
+
+**SVF-DEV-179** `[DHS]` `IMPLEMENTED`
+`OBCEmulatorAdapter` shall parse FreeRTOS diagnostic lines from the obsw_sim stderr stream (pipe mode) and from console UART output (serial mode). On detecting a `vApplicationStackOverflowHook` banner, the adapter shall increment the `svf.obc.freertos.stack_overflow_count` ParameterStore counter and emit a CRITICAL-level log entry naming the affected task. On detecting an IWDG reset banner in the boot sequence, it shall increment `svf.obc.freertos.iwdg_reset_count` and log at ERROR level. Assigned to M43.
+
 **SVF-DEV-170** `[SIM]` `IMPLEMENTED`
 The platform shall provide an `OrbitalEnvironment` equipment model that propagates a two-line element set (TLE) using SGP4 each simulation tick, publishing spacecraft position and velocity in ECI (TEME frame) together with geodetic latitude, longitude, and altitude. The `sgp4` package shall be an optional dependency under the `orbital` extras group; if not installed, `initialise()` shall raise `ImportError` with a clear installation hint. Assigned to M42.
 
@@ -467,6 +476,12 @@ The platform shall provide an `OrbitalEnvironment` equipment model that propagat
 
 **SVF-DEV-175** `[SIM]` `DEFERRED`
 The SGP4 propagator and IGRF dipole model implemented in Python for M42 shall be migrated into the opensvf-kde C++ FMU so that orbital environment and spacecraft dynamics share a common reference frame and time base. Migration shall preserve the ParameterStore port interface. Assigned to M48.
+
+**SVF-DEV-177** `[SIM]` `IMPLEMENTED`
+`SimulationMaster` shall record the wall-clock execution duration of each `_on_tick()` call in a rolling window of the last 100 ticks. The `tick_stats()` method shall return a `TickStats` dataclass exposing `count`, `min_ms`, `max_ms`, `mean_ms`, `p95_ms`, and `p99_ms` fields computed from the window. The method shall return `None` when fewer than two ticks have elapsed. Assigned to M43.
+
+**SVF-DEV-178** `[SIM]` `IMPLEMENTED`
+`SimulationMaster` shall support an optional `equipment_tick_timeout` parameter (seconds, default `None`). When set, each `model.on_tick()` call shall be executed in a daemon thread; if the call does not return within the deadline, `EquipmentTimeoutError` shall be raised and routed through the existing `on_tick_error` callback. The recommended deadline for FreeRTOS HIL campaigns is 3.5 s, providing a safety margin below the openobsw STM32H750 hardware IWDG timeout of 4.0 s. Assigned to M43.
 
 ---
 
@@ -981,6 +996,11 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-171   | SIM  | IMPLEMENTED | M42 | test_orbital_tick_eclipse_zero_irradiance |
 | SVF-DEV-172   | SIM  | IMPLEMENTED | M42 | test_dipole_field_magnitude_leo |
 | SVF-DEV-175   | SIM  | DEFERRED    | M48 | — |
+| SVF-DEV-176   | DHS  | IMPLEMENTED | M43 | test_tc_burst_warns_at_freertos_queue_depth |
+| SVF-DEV-177   | SIM  | IMPLEMENTED | M43 | test_tick_stats_returns_rolling_window_metrics |
+| SVF-DEV-178   | SIM  | IMPLEMENTED | M43 | test_equipment_timeout_raises_equipment_timeout_error |
+| SVF-DEV-179   | DHS  | IMPLEMENTED | M43 | test_stack_overflow_diagnostic_increments_counter |
+| SVF-DEV-180   | SDB  | BASELINED   | M43 | test_freertos_parameter_namespace_reserved |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
