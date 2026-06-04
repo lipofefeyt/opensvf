@@ -53,18 +53,74 @@ parameters:
   # ── Solar Array ────────────────────────────────────────────────────────────
 
   eps.solar_array.generated_power:
-    description: Solar array generated power
+    description: Solar array generated power at MPP
     unit: W
     dtype: float
     classification: TM
     domain: EPS
-    model_id: eps
+    model_id: solar_array
     valid_range: [0.0, 120.0]
     pus:
       apid: 0x100
       service: 3
       subservice: 25
       parameter_id: 0x1010
+
+  eps.solar_array.generated_current:
+    description: Solar array output current at MPP
+    unit: A
+    dtype: float
+    classification: TM
+    domain: EPS
+    model_id: solar_array
+    valid_range: [0.0, 10.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1012
+
+  eps.solar_array.generated_voltage:
+    description: Solar array MPP voltage
+    unit: V
+    dtype: float
+    classification: TM
+    domain: EPS
+    model_id: solar_array
+    valid_range: [0.0, 40.0]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1013
+
+  eps.solar_array.efficiency:
+    description: Solar array efficiency relative to STC (0–1)
+    unit: ""
+    dtype: float
+    classification: TM
+    domain: EPS
+    model_id: solar_array
+    valid_range: [0.0, 1.2]
+    pus:
+      apid: 0x100
+      service: 3
+      subservice: 25
+      parameter_id: 0x1014
+
+  eps.solar_array.panel_temp_degc:
+    description: Solar panel temperature
+    unit: degC
+    dtype: float
+    classification: TC
+    domain: EPS
+    model_id: solar_array
+    valid_range: [-60.0, 120.0]
+    pus:
+      apid: 0x100
+      service: 20
+      subservice: 1
+      parameter_id: 0x1015
 
   eps.solar_array.illumination:
     description: Solar illumination fraction (0.0=eclipse, 1.0=full sun)

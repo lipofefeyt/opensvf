@@ -564,6 +564,9 @@ parameters:
     domain: AOCS
     model_id: gyro
     valid_range: [-1.0, 1.0]
+    calibration:
+      type: polynomial
+      coefficients: [0.0, 1.0]
     pus:
       apid: 0x101
       service: 3
@@ -578,6 +581,9 @@ parameters:
     domain: AOCS
     model_id: gyro
     valid_range: [-1.0, 1.0]
+    calibration:
+      type: polynomial
+      coefficients: [0.0, 1.0]
     pus:
       apid: 0x101
       service: 3
@@ -592,6 +598,9 @@ parameters:
     domain: AOCS
     model_id: gyro
     valid_range: [-1.0, 1.0]
+    calibration:
+      type: polynomial
+      coefficients: [0.0, 1.0]
     pus:
       apid: 0x101
       service: 3

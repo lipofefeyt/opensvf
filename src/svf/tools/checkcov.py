@@ -58,7 +58,7 @@ KNOWN_GAPS: dict[str, str] = {
 EQUIPMENT_FIDELITY: dict[str, tuple[str, str, str]] = {
     # model_id            level   display name           F3 upgrade path
     "mag":    ("F2", "Magnetometer",       "Add polynomial calibration for field_x/y/z bias and scale"),
-    "gyro":   ("F2", "Gyroscope",          "Add Allan-variance noise model + temperature calibration"),
+    "gyro":   ("F3", "Gyroscope",          "Allan-deviation characterisation against hardware data (F4)"),
     "rw1":    ("F2", "Reaction Wheel",     "Add nonlinear friction and bearing temperature model"),
     "str1":   ("F2", "Star Tracker",       "Add centroiding noise model + aberration correction"),
     "css":    ("F2", "Coarse Sun Sensor",  "Add cosine response calibration polynomial per face"),
@@ -66,7 +66,8 @@ EQUIPMENT_FIDELITY: dict[str, tuple[str, str, str]] = {
     "mtq":    ("F2", "Magnetorquer",       "Add hysteresis model + cross-coupling matrix"),
     "aocs":   ("F2", "AOCS (generic)",     "Promote constituent sensor models to F3 individually"),
     "pcdu":   ("F2", "PCDU",               "Add temperature-dependent efficiency curves"),
-    "eps":    ("F2", "EPS (generic)",      "Add MPPT nonlinear I-V curve + thermal derating"),
+    "eps":         ("F3", "EPS (generic)",      "Validate I-V curve against real panel data (F4)"),
+    "solar_array": ("F3", "Solar Array",        "Validate I-V curve against real panel data (F4)"),
     "sbt":    ("F2", "S-Band Transponder", "Add link budget model with rain fade and Doppler"),
     "ttc":    ("F2", "TTC (generic)",      "Add channel model with AWGN and Doppler"),
     "thermal":("F2", "Thermal Model",      "Add radiation view-factor matrix + MLI model"),

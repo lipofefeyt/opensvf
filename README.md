@@ -353,12 +353,15 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 | M27 — Dual-OBC topology (ZynqMP + MSP430 Renode lockstep) | ✅ Done |
 | M28 — UART/serial wire protocol transport (MSP430, STM32H750 HIL) | ✅ Done |
 | M42 — Orbital environment: SGP4 propagator + eclipse + solar model | ✅ Done |
-| M43 — F3 sensor fidelity: Allan-variance, calibration curves, I-V | 🗂 Backlog |
-| M44 — SRDB control layer: AOCS gains and FDIR thresholds as S20 parameters | 🗂 Backlog |
-| M45 — FDIR supervisor model | 🗂 Backlog |
-| M46 — Live YAMCS dashboards | 🗂 Backlog |
-| M47 — Multi-spacecraft / constellation | 🗂 Backlog |
-| M48 — Migrate orbital environment (SGP4 + dipole) into opensvf-kde FMU | 🗂 Backlog |
+| M43 — FreeRTOS HIL support: tick-aware OBC adapter, TC guard, diagnostics | ✅ Done |
+| M44 — FreeRTOS HIL validation campaign | ✅ Done |
+| M45 — FreeRTOS HIL integration campaign (end-to-end OBSW) | ✅ Done |
+| M46 — F3 sensor fidelity: Allan-variance noise model, calibration curves, I-V | 🗂 Backlog |
+| M47 — SRDB control layer: AOCS gains and FDIR thresholds as S20 parameters | 🗂 Backlog |
+| M48 — FDIR supervisor model | 🗂 Backlog |
+| M49 — Live YAMCS dashboards | 🗂 Backlog |
+| M50 — Multi-spacecraft / constellation | 🗂 Backlog |
+| M51 — Migrate orbital environment (SGP4 + dipole) into opensvf-kde FMU | 🗂 Backlog |
 
 ---
 
