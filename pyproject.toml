@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "opensvf"
-version = "0.7.1"
+version = "0.8.0"
 description = "Open-source spacecraft software validation facility — SIL campaigns, physics-in-the-loop, HTML reports"
 readme = "README.md"
 license = {text = "Apache-2.0"}

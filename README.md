@@ -42,7 +42,7 @@ opensvf-kde (C++/Eigen3)        openobsw (C11)
 
 | Package | Version | Notes |
 |---|---|---|
-| opensvf | v0.7.1 | Python 3.12 |
+| opensvf | v0.8.0 | Python 3.12 |
 | openobsw | v0.7.0+ | C11 |
 | opensvf-kde | v0.1.0 | C++ / Eigen3 |
 | YAMCS | 5.12.6 | Java 21+ |
@@ -356,8 +356,8 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 | M43 — FreeRTOS HIL support: tick-aware OBC adapter, TC guard, diagnostics | ✅ Done |
 | M44 — FreeRTOS HIL validation campaign | ✅ Done |
 | M45 — FreeRTOS HIL integration campaign (end-to-end OBSW) | ✅ Done |
-| M46 — F3 sensor fidelity: Allan-variance noise model, calibration curves, I-V | 🗂 Backlog |
-| M47 — SRDB control layer: AOCS gains and FDIR thresholds as S20 parameters | 🗂 Backlog |
+| M46 — F3 sensor fidelity: Allan-variance noise model, calibration curves, I-V | ✅ Done |
+| M47 — SRDB control layer: AOCS gains and FDIR thresholds as S20 parameters | ✅ Done |
 | M48 — FDIR supervisor model | 🗂 Backlog |
 | M49 — Live YAMCS dashboards | 🗂 Backlog |
 | M50 — Multi-spacecraft / constellation | 🗂 Backlog |
