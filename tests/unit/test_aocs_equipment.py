@@ -484,3 +484,88 @@ class BdotControllerBehaviorTests:
         assert dipole_large > dipole_small, (
             "larger B-field change should produce larger dipole command"
         )
+
+
+# ── M47: S20 control layer tests ──────────────────────────────────────────────
+
+class BdotS20ControlLayerTests:
+    """B-dot gain and max_dipole are updatable at runtime via ParameterStore."""
+
+    def _bdot_with_field_change(
+        self, store: ParameterStore, delta_b: float
+    ) -> float:
+        """Return |dipole_x| after a field step of delta_b T."""
+        cmd = CommandStore()
+        bdot = make_bdot_controller(
+            _sync(), store, cmd,
+            equipment_id="bdot", mag_id="mag", mtq_id="mtq",
+        )
+        bdot.initialise()
+        bdot.receive("aocs.bdot.enable", 1.0)
+        bdot.receive("aocs.mag.field_x", 30e-6)
+        bdot.receive("aocs.mag.field_y", 0.0)
+        bdot.receive("aocs.mag.field_z", 0.0)
+        bdot.do_step(t=0.0, dt=0.1)
+        bdot.receive("aocs.mag.field_x", 30e-6 + delta_b)
+        bdot.do_step(t=0.1, dt=0.1)
+        return abs(bdot.read_port("aocs.mtq.dipole_x"))
+
+    @pytest.mark.requirement("SVF-DEV-145")
+    def test_default_gain_written_to_store(self) -> None:
+        """B-dot controller writes its default gain into ParameterStore at init."""
+        store, _ = _stores()
+        make_bdot_controller(_sync(), store, CommandStore(), gain=5e3)
+        entry = store.read("aocs.ctrl.bdot_gain")
+        assert entry is not None
+        assert entry.value == pytest.approx(5e3)
+
+    @pytest.mark.requirement("SVF-DEV-145")
+    def test_gain_update_via_store_takes_effect(self) -> None:
+        """Doubling gain in ParameterStore doubles the dipole output."""
+        store, cmd = _stores()
+        bdot = make_bdot_controller(
+            _sync(), store, cmd,
+            equipment_id="bdot", mag_id="mag", mtq_id="mtq", gain=1e4,
+        )
+        bdot.initialise()
+        bdot.receive("aocs.bdot.enable", 1.0)
+        bdot.receive("aocs.mag.field_x", 30e-6)
+        bdot.receive("aocs.mag.field_y", 0.0)
+        bdot.receive("aocs.mag.field_z", 0.0)
+        bdot.do_step(t=0.0, dt=0.1)
+        bdot.receive("aocs.mag.field_x", 35e-6)
+        bdot.do_step(t=0.1, dt=0.1)
+        dipole_before = abs(bdot.read_port("aocs.mtq.dipole_x"))
+
+        # Update gain via store (simulates TC(20,1) reaching ParameterStore)
+        store.write("aocs.ctrl.bdot_gain", 2e4, t=0.2, model_id="obc")
+        bdot.receive("aocs.mag.field_x", 40e-6)   # same delta_b = 5e-6 T
+        bdot.do_step(t=0.2, dt=0.1)
+        dipole_after = abs(bdot.read_port("aocs.mtq.dipole_x"))
+
+        assert dipole_after == pytest.approx(dipole_before * 2.0, rel=1e-3)
+
+    @pytest.mark.requirement("SVF-DEV-145")
+    def test_max_dipole_clamps_output(self) -> None:
+        """Reducing max_dipole via store clamps output to new limit."""
+        store, cmd = _stores()
+        bdot = make_bdot_controller(
+            _sync(), store, cmd,
+            equipment_id="bdot", mag_id="mag", mtq_id="mtq",
+            gain=1e6, max_dipole=10.0,
+        )
+        bdot.initialise()
+        bdot.receive("aocs.bdot.enable", 1.0)
+        bdot.receive("aocs.mag.field_x", 30e-6)
+        bdot.receive("aocs.mag.field_y", 0.0)
+        bdot.receive("aocs.mag.field_z", 0.0)
+        bdot.do_step(t=0.0, dt=0.1)
+        bdot.receive("aocs.mag.field_x", 130e-6)   # large step → saturation
+        bdot.do_step(t=0.1, dt=0.1)
+        assert abs(bdot.read_port("aocs.mtq.dipole_x")) == pytest.approx(10.0, abs=1e-9)
+
+        # Reduce limit
+        store.write("aocs.ctrl.bdot_max_dipole", 5.0, t=0.2, model_id="obc")
+        bdot.receive("aocs.mag.field_x", 230e-6)
+        bdot.do_step(t=0.2, dt=0.1)
+        assert abs(bdot.read_port("aocs.mtq.dipole_x")) == pytest.approx(5.0, abs=1e-9)

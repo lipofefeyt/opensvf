@@ -509,7 +509,30 @@ class ObcEquipment(HilAdapter):
             logger.info(
                 f"[obc] S20 set: 0x{param_id:04X} -> {canonical} = {value}"
             )
+        self._apply_fdir_limit(canonical, value)
         return []
+
+    # Maps FDIR threshold param name → (monitored_param_name, field)
+    _FDIR_LIMIT_MAP: dict[str, tuple[str, str]] = {
+        "aocs.fdir.rate_ool_high":   ("aocs.rate", "high"),
+        "aocs.fdir.rate_ool_low":    ("aocs.rate", "low"),
+        "aocs.fdir.rw_speed_ool_high": ("aocs.rw", "high"),
+    }
+
+    def _apply_fdir_limit(self, canonical: str, value: float) -> None:
+        """Propagate S20 FDIR threshold updates into active S12 definitions."""
+        entry = self._FDIR_LIMIT_MAP.get(canonical)
+        if entry is None:
+            return
+        prefix, field = entry
+        low  = value if field == "low"  else None
+        high = value if field == "high" else None
+        for defn in self._s12._definitions.values():
+            if defn.param_name.startswith(prefix):
+                if low is not None:
+                    defn.low_limit = low
+                if high is not None:
+                    defn.high_limit = high
 
     def _handle_s20_get(
         self, tc: PusTcPacket, t: float

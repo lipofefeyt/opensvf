@@ -79,6 +79,12 @@ def make_bdot_controller(
     _mag_pfx = f"aocs.{mag_id}"
     _mtq_pfx = f"aocs.{mtq_id}"
 
+    # Write construction-time defaults so TC(20,3) get returns a value
+    if store.read("aocs.ctrl.bdot_gain") is None:
+        store.write("aocs.ctrl.bdot_gain", gain, t=0.0, model_id=equipment_id)
+    if store.read("aocs.ctrl.bdot_max_dipole") is None:
+        store.write("aocs.ctrl.bdot_max_dipole", max_dipole, t=0.0, model_id=equipment_id)
+
     state: dict[str, Any] = {
         "b_prev_x":    0.0,
         "b_prev_y":    0.0,
@@ -125,9 +131,15 @@ def make_bdot_controller(
         else:
             bdot_x = bdot_y = bdot_z = 0.0
 
-        mx = max(-max_dipole, min(max_dipole, -gain * bdot_x))
-        my = max(-max_dipole, min(max_dipole, -gain * bdot_y))
-        mz = max(-max_dipole, min(max_dipole, -gain * bdot_z))
+        # Read live gains — updated via TC(20,1) S20 set
+        _gain_e = store.read("aocs.ctrl.bdot_gain")
+        _gain = _gain_e.value if _gain_e is not None else gain
+        _dip_e = store.read("aocs.ctrl.bdot_max_dipole")
+        _max_dip = _dip_e.value if _dip_e is not None else max_dipole
+
+        mx = max(-_max_dip, min(_max_dip, -_gain * bdot_x))
+        my = max(-_max_dip, min(_max_dip, -_gain * bdot_y))
+        mz = max(-_max_dip, min(_max_dip, -_gain * bdot_z))
 
         eq.write_port(f"{_mtq_pfx}.dipole_x", mx)
         eq.write_port(f"{_mtq_pfx}.dipole_y", my)

@@ -90,6 +90,27 @@ class OnBoardMonitor:
     def count(self) -> int:
         return len(self._definitions)
 
+    def update_limits_for_param(
+        self,
+        param_name: str,
+        low: Optional[float] = None,
+        high: Optional[float] = None,
+    ) -> int:
+        """Update low/high limits on all MonitoringDefinitions watching param_name.
+
+        Called by the OBC S20 handler when a FDIR threshold parameter is set.
+        Returns the number of definitions updated.
+        """
+        updated = 0
+        for defn in self._definitions.values():
+            if defn.param_name == param_name:
+                if low is not None:
+                    defn.low_limit = low
+                if high is not None:
+                    defn.high_limit = high
+                updated += 1
+        return updated
+
     def check(
         self,
         store: ParameterStore,

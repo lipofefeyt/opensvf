@@ -228,3 +228,42 @@ def test_ttc_are_you_alive_roundtrip(ttc: TtcEquipment) -> None:
     assert len(responses) == 1
     assert responses[0].service == 17
     assert responses[0].subservice == 2
+
+
+# ── M47: S20 FDIR threshold bridge tests ─────────────────────────────────────
+
+@pytest.mark.requirement("PUS-010", "PUS-008")
+def test_obc_s20_fdir_rate_high_updates_s12_definition(
+    sync: _NoSync, store: ParameterStore, cmd_store: CommandStore,
+) -> None:
+    """TC(20,1) to aocs.fdir.rate_ool_high updates S12 MonitoringDefinition high_limit."""
+    from svf.pus.services import MonitoringDefinition, EventSeverity
+    config = ObcConfig(
+        apid=0x101,
+        param_id_map={0x20B0: "aocs.fdir.rate_ool_high"},
+    )
+    obc = ObcEquipment(config, sync, store, cmd_store)
+    obc.initialise()
+
+    # Add a S12 definition monitoring aocs.rate.x
+    defn = MonitoringDefinition(
+        param_id=0x2010,
+        param_name="aocs.rate.x",
+        low_limit=-0.5,
+        high_limit=0.5,
+        event_id_low=0x01,
+        event_id_high=0x02,
+        severity=EventSeverity.MEDIUM,
+    )
+    obc._s12.add(defn)
+
+    # Send TC(20,1) updating rate_ool_high to 0.2 rad/s
+    tc = PusTcPacket(
+        apid=0x100, sequence_count=10,
+        service=20, subservice=1,
+        app_data=struct.pack(">Hf", 0x20B0, 0.2),
+    )
+    obc.receive_tc(PusTcBuilder().build(tc), t=0.0)
+
+    assert defn.high_limit == pytest.approx(0.2, abs=1e-5)
+    assert defn.low_limit == pytest.approx(-0.5, abs=1e-5)   # unchanged

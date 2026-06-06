@@ -692,3 +692,77 @@ parameters:
       service: 20
       subservice: 1
       parameter_id: 0x2092
+
+  # ── AOCS Control Parameters (S20 tunable gains) ────────────────────────────
+
+  aocs.ctrl.bdot_gain:
+    description: B-dot controller gain k_bdot — m_cmd = -k * B_dot [Am2*s/T]
+    unit: Am2.s/T
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: bdot
+    valid_range: [0.0, 1.0e8]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x20A0
+
+  aocs.ctrl.bdot_max_dipole:
+    description: B-dot controller dipole saturation limit [Am2]
+    unit: Am2
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: bdot
+    valid_range: [0.0, 100.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x20A1
+
+  # ── AOCS FDIR Thresholds (S20 tunable) ─────────────────────────────────────
+
+  aocs.fdir.rate_ool_high:
+    description: Body rate OOL high threshold — safe mode trigger [rad/s]
+    unit: rad/s
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: aocs
+    valid_range: [0.001, 1.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x20B0
+
+  aocs.fdir.rate_ool_low:
+    description: Body rate OOL low threshold — safe mode trigger [rad/s]
+    unit: rad/s
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: aocs
+    valid_range: [-1.0, -0.001]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x20B1
+
+  aocs.fdir.rw_speed_ool_high:
+    description: Reaction wheel overspeed OOL threshold [rad/s]
+    unit: rad/s
+    dtype: float
+    classification: TC
+    domain: AOCS
+    model_id: rw1
+    valid_range: [0.0, 1000.0]
+    pus:
+      apid: 0x101
+      service: 20
+      subservice: 1
+      parameter_id: 0x20B2
