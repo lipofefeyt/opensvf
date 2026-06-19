@@ -113,6 +113,9 @@ class FreeRTOSTcGuardSuite:
         simultaneous port commands.
         """
         obc = _make_obc()
+        # Set watchdog_kick directly in _port_values (do_step is called without
+        # on_tick, so the command-store → port sync does not run).
+        obc._port_values["dhs.obc.watchdog_kick"] = 1.0
 
         with patch("svf.models.dhs.obc_emulator._FREERTOS_TC_QUEUE_DEPTH", 0):
             with patch.object(obc, "_write_typed_frame"):
