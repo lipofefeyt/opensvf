@@ -33,7 +33,7 @@ def test_fixture_custom_stop_time(svf_session) -> None:  # type: ignore[no-untyp
 @pytest.mark.svf_stop_time(1.0)
 @pytest.mark.requirement("SVF-DEV-041")
 def test_fixture_custom_dt(svf_session) -> None:  # type: ignore[no-untyped-def]
-    """Fixture respects svf_dt mark — smaller dt means more steps."""
+    """Fixture respects svf_dt mark  -  smaller dt means more steps."""
     svf_session.observe("counter").reaches(0.5).within(3.0)
 
 
@@ -58,7 +58,7 @@ def test_fixture_condition_not_met(svf_session) -> None:  # type: ignore[no-unty
 def test_fixture_inject_command(svf_session) -> None:  # type: ignore[no-untyped-def]
     """
     inject() writes to CommandStore without error.
-    SimpleCounter has no inputs so command is injected but not consumed —
+    SimpleCounter has no inputs so command is injected but not consumed  - 
     this test verifies the API works and pending() reflects the state.
     """
     svf_session.inject("some_cmd", 1.0)
@@ -69,7 +69,7 @@ def test_fixture_inject_command(svf_session) -> None:  # type: ignore[no-untyped
 @pytest.mark.requirement("SVF-DEV-041")
 def test_fixture_no_fmu_raises(request) -> None:  # type: ignore[no-untyped-def]
     """svf_session raises ValueError when no svf_fmus marker is provided."""
-    from svf.plugin.fixtures import FmuConfig  # noqa: F401 — verify import path
+    from svf.plugin.fixtures import FmuConfig  # noqa: F401  -  verify import path
     # The ValueError is raised at fixture setup time; we verify the guard exists
     # by checking the fixture source directly rather than triggering setup.
     import inspect

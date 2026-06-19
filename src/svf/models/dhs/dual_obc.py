@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class _NoOpSync(SyncProtocol):
-    """Silent sync — used to detach inner OBCs from the outer sync protocol."""
+    """Silent sync  -  used to detach inner OBCs from the outer sync protocol."""
     def reset(self) -> None: pass
     def publish_ready(self, model_id: str, t: float) -> None: pass
     def wait_for_ready(self, expected: list[str], timeout: float) -> bool: return True
@@ -31,7 +31,7 @@ class DualObcAdapter(HilAdapter):
     Dual-OBC topology: primary and secondary HilAdapters in lockstep.
 
     Each tick, only the active OBC is driven (``on_tick()``). The passive OBC
-    stays warm — it is initialised and torn down with the primary, but does
+    stays warm  -  it is initialised and torn down with the primary, but does
     not receive sensor data or TCs until it becomes active.
 
     Auto-failover: if the active OBC's ``is_connected()`` returns False after a
@@ -171,7 +171,7 @@ class DualObcAdapter(HilAdapter):
     def _auto_failover(self) -> None:
         if self._active_id == "primary":
             self.switch_to_secondary()
-            logger.warning("[DualObc] Primary OBC disconnected — switched to secondary")
+            logger.warning("[DualObc] Primary OBC disconnected  -  switched to secondary")
         else:
             self.switch_to_primary()
-            logger.warning("[DualObc] Secondary OBC disconnected — switched to primary")
+            logger.warning("[DualObc] Secondary OBC disconnected  -  switched to primary")

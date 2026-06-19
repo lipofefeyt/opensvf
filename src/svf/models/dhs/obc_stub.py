@@ -6,7 +6,7 @@ Replaces ObcEquipment for closed-loop system validation
 without a real OBSW binary. Rules are evaluated each tick
 against the ParameterStore and fire CommandStore injections.
 
-This is the ECSS "model responder" concept — a test stub
+This is the ECSS "model responder" concept  -  a test stub
 representing equipment, sufficient to test open-loop and
 closed-loop OBSW behaviour against its specification.
 
@@ -37,7 +37,7 @@ class Rule:
     Attributes:
         name:       Human-readable rule name for logging and debugging
         watch:      SRDB canonical parameter name to monitor
-        condition:  Called with current ParameterEntry — return True to fire
+        condition:  Called with current ParameterEntry  -  return True to fire
         action:     Called with (CommandStore, t) when condition is True
         enabled:    Whether this rule is currently active
         fired:      Number of times this rule has fired (for debugging)
@@ -84,13 +84,13 @@ class Rule:
 
 class ObcStub(ObcEquipment):
     """
-    OBC Stub — configurable OBSW behaviour simulator.
+    OBC Stub  -  configurable OBSW behaviour simulator.
 
     Extends ObcEquipment with a rule engine that evaluates
     conditions against the ParameterStore each tick and fires
     CommandStore injections when conditions are met.
 
-    This is the HIL adapter plug-in point — when the real OBC
+    This is the HIL adapter plug-in point  -  when the real OBC
     emulator is available, replace ObcStub with HardwareEquipment
     at the composition root. Nothing else changes.
 

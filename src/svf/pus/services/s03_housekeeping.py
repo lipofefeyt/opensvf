@@ -1,4 +1,4 @@
-"""PUS Service 3 — Housekeeping and Diagnostic Data Reporting."""
+"""PUS Service 3  -  Housekeeping and Diagnostic Data Reporting."""
 
 from __future__ import annotations
 
@@ -31,13 +31,13 @@ class HkReportDefinition:
 
 class PusService3:
     """
-    PUS Service 3 — Housekeeping and Diagnostic Data Reporting.
+    PUS Service 3  -  Housekeeping and Diagnostic Data Reporting.
 
-    TC(3,1)  — Define New HK Parameter Report Structure
-    TC(3,5)  — Enable Periodic Generation of HK Parameter Report
-    TC(3,6)  — Disable Periodic Generation
-    TC(3,27) — Generate One-Shot HK Report (immediate)
-    TM(3,25) — HK Parameter Report
+    TC(3,1)   -  Define New HK Parameter Report Structure
+    TC(3,5)   -  Enable Periodic Generation of HK Parameter Report
+    TC(3,6)   -  Disable Periodic Generation
+    TC(3,27)  -  Generate One-Shot HK Report (immediate)
+    TM(3,25)  -  HK Parameter Report
     """
 
     def __init__(self) -> None:
@@ -45,7 +45,7 @@ class PusService3:
         self._essential: list[HkReportDefinition] = []
 
     def define_report(self, definition: HkReportDefinition) -> None:
-        """TC(3,1) — Define a new HK report structure."""
+        """TC(3,1)  -  Define a new HK report structure."""
         self._definitions[definition.report_id] = definition
         logger.info(
             f"[S3] Defined HK report {definition.report_id}: "
@@ -54,7 +54,7 @@ class PusService3:
 
     def add_essential(self, definition: HkReportDefinition) -> None:
         """
-        Add an essential HK report — activated automatically at boot.
+        Add an essential HK report  -  activated automatically at boot.
         Essential reports are always enabled regardless of TC(3,5/6).
         """
         definition.enabled = True
@@ -62,13 +62,13 @@ class PusService3:
         self._definitions[definition.report_id] = definition
 
     def enable(self, report_id: int) -> None:
-        """TC(3,5) — Enable periodic generation."""
+        """TC(3,5)  -  Enable periodic generation."""
         if report_id in self._definitions:
             self._definitions[report_id].enabled = True
             logger.info(f"[S3] Enabled HK report {report_id}")
 
     def disable(self, report_id: int) -> None:
-        """TC(3,6) — Disable periodic generation."""
+        """TC(3,6)  -  Disable periodic generation."""
         defn = self._definitions.get(report_id)
         if defn and defn not in self._essential:
             defn.enabled = False
@@ -83,7 +83,7 @@ class PusService3:
         timestamp: int = 0,
     ) -> Optional[PusTmPacket]:
         """
-        TM(3,25) — Generate a HK parameter report.
+        TM(3,25)  -  Generate a HK parameter report.
 
         Args:
             report_id:         Report structure ID

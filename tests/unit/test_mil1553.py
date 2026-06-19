@@ -200,11 +200,11 @@ def test_fault_clears_after_duration(
     bus.inject_fault(BusFault(FaultType.NO_RESPONSE, "rt5", 5.0, 0.0))
     store.write("aocs.rw1.torque_cmd", 0.1, t=0.0, model_id="obc")
 
-    # During fault — blocked
+    # During fault  -  blocked
     bus.do_step(t=0.0, dt=1.0)
     assert cmd_store.peek("aocs.rw1.torque_cmd") is None
 
-    # After fault expires — routing resumes
+    # After fault expires  -  routing resumes
     bus._expire_faults(t=5.0)
     bus.do_step(t=5.0, dt=1.0)
     entry = cmd_store.peek("aocs.rw1.torque_cmd")

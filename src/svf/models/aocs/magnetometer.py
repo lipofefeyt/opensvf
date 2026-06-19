@@ -47,14 +47,14 @@ def make_magnetometer(
         hardware_dir:     Directory to search for profile YAML files.
 
     Inputs:
-        aocs.<id>.power_enable — power on/off
-        aocs.<id>.true_x/y/z  — true magnetic field (T) from truth model
+        aocs.<id>.power_enable  -  power on/off
+        aocs.<id>.true_x/y/z   -  true magnetic field (T) from truth model
 
     Outputs:
-        aocs.<id>.field_x/y/z — measured field with noise + bias
-        aocs.<id>.status      — 0=off, 1=nominal
+        aocs.<id>.field_x/y/z  -  measured field with noise + bias
+        aocs.<id>.status       -  0=off, 1=nominal
     """
-    # Physics constants — per-instance locals
+    # Physics constants  -  per-instance locals
     base_noise_std   = 1e-7
     temp_noise_coeff = 5e-9
     bias_drift_rate  = 1e-9

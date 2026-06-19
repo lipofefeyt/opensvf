@@ -34,7 +34,7 @@ class ObcInterface(Protocol):
 
 class TtcEquipment(Equipment):
     """
-    TTC Equipment — ground-to-spacecraft interface.
+    TTC Equipment  -  ground-to-spacecraft interface.
 
     Forwards raw PUS TC bytes to the OBC.
     Exposes received TM for observable assertions.

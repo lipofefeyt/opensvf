@@ -45,7 +45,7 @@ def make_reaction_wheel(
                           Overrides built-in defaults when provided.
         hardware_dir:     Directory to search for profile YAML files.
     """
-    # Physics constants — per-instance locals, overridden by hardware profile
+    # Physics constants  -  per-instance locals, overridden by hardware profile
     max_speed_rpm          = 6000.0
     moment_of_inertia_kgms = 0.001
     coulomb_friction       = 5.0
@@ -79,7 +79,7 @@ def make_reaction_wheel(
         if temp > max_temp_c:
             effective_torque *= temp_derating_factor
             logger.warning(
-                "[%s] t=%.1fs over-temperature %.1f°C — torque derated to %.3f Nm",
+                "[%s] t=%.1fs over-temperature %.1f°C  -  torque derated to %.3f Nm",
                 equipment_id, t, temp, effective_torque,
             )
 

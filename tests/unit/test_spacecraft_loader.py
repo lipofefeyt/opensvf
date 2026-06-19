@@ -31,7 +31,7 @@ class TestSpacecraftLoaderSuite:
         assert "mtq1" in model_ids
         assert "rw1" in model_ids
         assert "str1" in model_ids
-        # kde (dynamics FMU) is optional — commented out in spacecraft.yaml
+        # kde (dynamics FMU) is optional  -  commented out in spacecraft.yaml
         # until the opensvf-kde binary is available
 
     @pytest.mark.requirement("SVF-DEV-110")

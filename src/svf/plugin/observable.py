@@ -57,7 +57,7 @@ class WithinClause:
                     )
                     return entry.value
 
-            # If simulation is done and condition still not met — fail fast
+            # If simulation is done and condition still not met  -  fail fast
             if self._session is not None and self._session._done:
                 break
 
@@ -71,7 +71,7 @@ class WithinClause:
 
 
 class ReachesClause:
-    """Intermediate clause — specifies the condition to wait for."""
+    """Intermediate clause  -  specifies the condition to wait for."""
 
     def __init__(
         self, store: ParameterStore, variable: str, session: Optional[Any] = None

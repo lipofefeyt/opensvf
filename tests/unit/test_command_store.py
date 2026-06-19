@@ -30,7 +30,7 @@ def test_take_unknown_command() -> None:
 
 @pytest.mark.requirement("SVF-DEV-036")
 def test_take_is_atomic() -> None:
-    """Command can only be taken once — second take returns None."""
+    """Command can only be taken once  -  second take returns None."""
     store = CommandStore()
     store.inject("thruster_cmd", value=1.0, t=0.0, source_id="TC-001")
     first = store.take("thruster_cmd")
@@ -41,7 +41,7 @@ def test_take_is_atomic() -> None:
 
 @pytest.mark.requirement("SVF-DEV-036")
 def test_latest_command_wins() -> None:
-    """Second inject overwrites first — latest command wins."""
+    """Second inject overwrites first  -  latest command wins."""
     store = CommandStore()
     store.inject("thruster_cmd", value=1.0, t=0.0, source_id="TC-001")
     store.inject("thruster_cmd", value=2.0, t=0.1, source_id="TC-002")

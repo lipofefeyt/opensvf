@@ -107,7 +107,7 @@ def _run_scheduler(
         store:    ParameterStore to read svf.sim_time from
         cmd_store: CommandStore to inject commands into
         commands: List of (sim_time, param_name, value) tuples
-        session:  SimulationSession — stops polling when _done is True
+        session:  SimulationSession  -  stops polling when _done is True
     """
     remaining = list(commands)
 

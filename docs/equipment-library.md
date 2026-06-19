@@ -8,9 +8,9 @@
 
 ## Overview
 
-Every spacecraft model in SVF is an `Equipment` — a Python class with named IN/OUT ports, a `do_step()` physics implementation, and SRDB-canonical parameter names. This document defines the **interface contract** for each reference model.
+Every spacecraft model in SVF is an `Equipment`  -  a Python class with named IN/OUT ports, a `do_step()` physics implementation, and SRDB-canonical parameter names. This document defines the **interface contract** for each reference model.
 
-The contract is stable. If you replace a reference model with a higher-fidelity implementation or a hardware-in-the-loop adapter, only the wiring YAML changes — nothing else.
+The contract is stable. If you replace a reference model with a higher-fidelity implementation or a hardware-in-the-loop adapter, only the wiring YAML changes  -  nothing else.
 
 ---
 
@@ -21,8 +21,8 @@ All SVF equipment models declare a fidelity level. The level determines what the
 | Level | Name | Definition | Validated Against |
 |---|---|---|---|
 | **F1** | Functional | Correct port names and directions; trivial or stub physics (fixed values, pass-through). Used for wiring tests and OBC integration. | Port contract only |
-| **F2** | Behavioural | Correct dynamics structure — noise, bias, saturation, parametric hardware profiles. Sufficient for OBSW algorithm testing. | Domain physics knowledge |
-| **F3** | High-fidelity | Detailed physical modelling — nonlinear effects, thermal coupling, dynamic power budgets. Appropriate for mission performance analysis. | Flight heritage data or simulation benchmark |
+| **F2** | Behavioural | Correct dynamics structure  -  noise, bias, saturation, parametric hardware profiles. Sufficient for OBSW algorithm testing. | Domain physics knowledge |
+| **F3** | High-fidelity | Detailed physical modelling  -  nonlinear effects, thermal coupling, dynamic power budgets. Appropriate for mission performance analysis. | Flight heritage data or simulation benchmark |
 | **F4** | Validated | Parameters derived from acceptance test measurements or hardware-in-the-loop runs. Suitable for qualification evidence. | Hardware test data |
 
 All reference models currently ship at **F2**. F3/F4 models are supplied by the mission team or via HIL adapters.
@@ -34,23 +34,23 @@ All reference models currently ship at **F2**. F3/F4 models are supplied by the 
 | Equipment | Factory / Class | Subsystem | Bus Interface | Fidelity | Milestone |
 |---|---|---|---|---|---|
 | OBC | `ObcEquipment` | DHS | 1553 BC | F2 | M7/M8 |
-| OBC Stub | `ObcStub` | DHS | — | F1 | M10 |
+| OBC Stub | `ObcStub` | DHS |  -  | F1 | M10 |
 | OBC Emulator | `OBCEmulatorAdapter` | DHS | binary pipe | F4 | M11 |
 | TTC | `TtcEquipment` | TTC | software | F2 | M7 |
 | YAMCS Bridge | `YamcsBridge` | GND | TCP | F2 | M12 |
 | KDE Dynamics | `make_kde_equipment()` | Dynamics | FMI 2.0 | F3 | M11.5 |
-| Magnetometer | `make_magnetometer()` | AOCS | — | F2 | M11.5 |
-| Magnetorquer | `make_magnetorquer()` | AOCS | — | F2 | M11.5 |
-| Gyroscope | `make_gyroscope()` | AOCS | — | F2 | M11.5 |
-| CSS | `make_css()` | AOCS | — | F2 | M11.5 |
-| B-dot Controller | `make_bdot_controller()` | AOCS | — | F2 | M11.5 |
+| Magnetometer | `make_magnetometer()` | AOCS |  -  | F2 | M11.5 |
+| Magnetorquer | `make_magnetorquer()` | AOCS |  -  | F2 | M11.5 |
+| Gyroscope | `make_gyroscope()` | AOCS |  -  | F2 | M11.5 |
+| CSS | `make_css()` | AOCS |  -  | F2 | M11.5 |
+| B-dot Controller | `make_bdot_controller()` | AOCS |  -  | F2 | M11.5 |
 | Reaction Wheel | `make_reaction_wheel()` | AOCS | 1553 RT | F2 | M6/M8 |
 | Star Tracker | `make_star_tracker()` | AOCS | SpW/1553 | F2 | M8 |
 | Thruster | `make_thruster()` | AOCS/Prop | discrete | F2 | M17 |
 | GPS Receiver | `make_gps()` | NAV | UART/SPI | F2 | M17 |
-| Thermal Model | `make_thermal()` | THM | — | F2 | M17 |
-| Solar Array | `make_solar_array()` | EPS | — | F2 | M26 |
-| Battery | `make_battery()` | EPS | — | F2 | M26 |
+| Thermal Model | `make_thermal()` | THM |  -  | F2 | M17 |
+| Solar Array | `make_solar_array()` | EPS |  -  | F2 | M26 |
+| Battery | `make_battery()` | EPS |  -  | F2 | M26 |
 | PCDU | `make_pcdu()` | EPS | 1553/CAN | F2 | M9 |
 
 > **EPS FMU** (`FmuEquipment(EpsFmu)`) was removed in M26. EPS is now fully covered by `make_solar_array()`, `make_battery()`, and `make_pcdu()`.
@@ -104,9 +104,9 @@ aocs.<equipment_id>.<signal>
 
 The `equipment_id` is the instance name passed to the factory (e.g. `"rw1"`, `"rw2"`, `"str_front"`). This lets you instantiate the same model type multiple times without port collisions.
 
-**Exception — shared truth ports:** `aocs.truth.rate_x/y/z` are written by the KDE dynamics model and shared by all sensors. They use a fixed prefix because there is only one dynamics model per simulation.
+**Exception  -  shared truth ports:** `aocs.truth.rate_x/y/z` are written by the KDE dynamics model and shared by all sensors. They use a fixed prefix because there is only one dynamics model per simulation.
 
-**Exception — GPS:** GPS ports use `<equipment_id>.<signal>` (no `aocs.` prefix) to match the NAV subsystem naming convention.
+**Exception  -  GPS:** GPS ports use `<equipment_id>.<signal>` (no `aocs.` prefix) to match the NAV subsystem naming convention.
 
 ---
 
@@ -118,7 +118,7 @@ All `make_*` AOCS factories accept `equipment_id`, `hardware_profile`, and `hard
 # Use built-in defaults, default id
 rw = make_reaction_wheel(sync, store, cmd_store)
 
-# Named instance — ports become aocs.rw_pitch.*
+# Named instance  -  ports become aocs.rw_pitch.*
 rw = make_reaction_wheel(sync, store, cmd_store,
                          equipment_id="rw_pitch")
 
@@ -207,7 +207,7 @@ ttc = TtcEquipment(obc, sync, store, cmd_store, yamcs_bridge=bridge)
 | `aocs.mtq.torque_x/y/z` | IN | Nm | MTQ torques |
 | `aocs.truth.rate_x/y/z` | OUT | rad/s | True angular velocity → GYRO, CSS |
 | `aocs.mag.true_x/y/z` | OUT | T | True B-field → MAG |
-| `aocs.attitude.quaternion_w/x/y/z` | OUT | — | True attitude → ST |
+| `aocs.attitude.quaternion_w/x/y/z` | OUT |  -  | True attitude → ST |
 
 ---
 
@@ -223,10 +223,10 @@ make_magnetometer(sync, store, cmd_store,
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
-| `aocs.<id>.power_enable` | IN | — | Power on/off |
+| `aocs.<id>.power_enable` | IN |  -  | Power on/off |
 | `aocs.<id>.true_x/y/z` | IN | T | True B-field from truth model |
 | `aocs.<id>.field_x/y/z` | OUT | T | Measured field (noise + bias drift) |
-| `aocs.<id>.status` | OUT | — | 0=off, 1=nominal |
+| `aocs.<id>.status` | OUT |  -  | 0=off, 1=nominal |
 
 ### Gyroscope
 
@@ -238,10 +238,10 @@ make_gyroscope(sync, store, cmd_store,
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
-| `aocs.<id>.power_enable` | IN | — | Power on/off |
+| `aocs.<id>.power_enable` | IN |  -  | Power on/off |
 | `aocs.truth.rate_x/y/z` | IN | rad/s | True angular rate (shared truth port) |
 | `aocs.<id>.rate_x/y/z` | OUT | rad/s | Measured rate (noise + ARW + bias) |
-| `aocs.<id>.status` | OUT | — | 0=off, 1=nominal |
+| `aocs.<id>.status` | OUT |  -  | 0=off, 1=nominal |
 
 ### Coarse Sun Sensor (CSS)
 
@@ -253,11 +253,11 @@ make_css(sync, store, cmd_store,
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
-| `aocs.<id>.power_enable` | IN | — | Power on/off |
+| `aocs.<id>.power_enable` | IN |  -  | Power on/off |
 | `aocs.truth.rate_x/y/z` | IN | rad/s | True angular rate (shared truth port) |
-| `aocs.<id>.sun_x/y/z` | OUT | — | Estimated sun unit vector |
-| `aocs.<id>.eclipse` | OUT | — | 1=eclipse |
-| `aocs.<id>.status` | OUT | — | 0=off, 1=nominal, 2=eclipse |
+| `aocs.<id>.sun_x/y/z` | OUT |  -  | Estimated sun unit vector |
+| `aocs.<id>.eclipse` | OUT |  -  | 1=eclipse |
+| `aocs.<id>.status` | OUT |  -  | 0=off, 1=nominal, 2=eclipse |
 
 ### B-dot Controller (validation oracle)
 
@@ -268,17 +268,17 @@ make_bdot_controller(sync, store, cmd_store,
                      mag_id="mag", mtq_id="mtq")
 ```
 
-**Note:** This is a Python validation oracle — not flight code. The flight b-dot runs in `openobsw`.
+**Note:** This is a Python validation oracle  -  not flight code. The flight b-dot runs in `openobsw`.
 
 `mag_id` and `mtq_id` select which magnetometer and magnetorquer instance to read/command. Port prefixes resolve to `aocs.<mag_id>.field_*` and `aocs.<mtq_id>.dipole_*`.
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
-| `aocs.<id>.enable` | IN | — | Enable control (0=off, 1=on) |
+| `aocs.<id>.enable` | IN |  -  | Enable control (0=off, 1=on) |
 | `aocs.<mag_id>.field_x/y/z` | IN | T | MAG measurement |
 | `aocs.<mtq_id>.dipole_x/y/z` | OUT | Am² | MTQ dipole commands |
 | `aocs.<id>.bdot_x/y/z` | OUT | T/s | Estimated B-dot (telemetry) |
-| `aocs.<id>.active` | OUT | — | 1=controller active |
+| `aocs.<id>.active` | OUT |  -  | 1=controller active |
 
 ---
 
@@ -292,11 +292,11 @@ make_magnetorquer(sync, store, cmd_store,
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
-| `aocs.<id>.power_enable` | IN | — | Power on/off |
+| `aocs.<id>.power_enable` | IN |  -  | Power on/off |
 | `aocs.<id>.dipole_x/y/z` | IN | Am² | Dipole commands |
 | `aocs.<id>.b_field_x/y/z` | IN | T | Local B-field for torque calculation |
 | `aocs.<id>.torque_x/y/z` | OUT | Nm | Torque = m × B |
-| `aocs.<id>.status` | OUT | — | 0=off, 1=nominal |
+| `aocs.<id>.status` | OUT |  -  | 0=off, 1=nominal |
 | `aocs.<id>.power_w` | OUT | W | Power consumption |
 
 ---
@@ -314,7 +314,7 @@ make_reaction_wheel(sync, store, cmd_store,
 | `aocs.<id>.torque_cmd` | IN | Nm | Torque command |
 | `aocs.<id>.speed` | OUT | rpm | Wheel speed |
 | `aocs.<id>.temperature` | OUT | °C | Bearing temperature |
-| `aocs.<id>.status` | OUT | — | 0=off, 1=nominal, 2=over-temp |
+| `aocs.<id>.status` | OUT |  -  | 0=off, 1=nominal, 2=over-temp |
 
 Multiple wheels: pass different `equipment_id` values (`"rw_x"`, `"rw_y"`, `"rw_z"`, `"rw_skew"`).
 
@@ -330,11 +330,11 @@ make_star_tracker(sync, store, cmd_store,
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
-| `aocs.<id>.power_enable` | IN | — | Power on/off |
+| `aocs.<id>.power_enable` | IN |  -  | Power on/off |
 | `aocs.<id>.sun_angle` | IN | deg | Sun angle for blinding check |
-| `aocs.<id>.quaternion_w/x/y/z` | OUT | — | Attitude quaternion (noise added) |
-| `aocs.<id>.validity` | OUT | — | 1=valid measurement |
-| `aocs.<id>.mode` | OUT | — | 0=off, 1=acquiring, 2=tracking |
+| `aocs.<id>.quaternion_w/x/y/z` | OUT |  -  | Attitude quaternion (noise added) |
+| `aocs.<id>.validity` | OUT |  -  | 1=valid measurement |
+| `aocs.<id>.mode` | OUT |  -  | 0=off, 1=acquiring, 2=tracking |
 
 ---
 
@@ -350,12 +350,12 @@ Physics: propellant consumption via rocket equation (Δm = F / (Isp × g₀) × 
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
-| `aocs.<id>.enable` | IN | — | Fire command (1=fire) |
+| `aocs.<id>.enable` | IN |  -  | Fire command (1=fire) |
 | `aocs.<id>.thrust_cmd` | IN | N | Commanded thrust |
 | `aocs.<id>.thrust` | OUT | N | Actual thrust |
 | `aocs.<id>.temperature` | OUT | °C | Thruster temperature |
 | `aocs.<id>.propellant` | OUT | kg | Remaining propellant mass |
-| `aocs.<id>.status` | OUT | — | 0=off 1=nominal 2=low_prop 3=empty 4=over_temp |
+| `aocs.<id>.status` | OUT |  -  | 0=off 1=nominal 2=low_prop 3=empty 4=over_temp |
 
 Status codes are exported as `STATUS_OFF`, `STATUS_NOMINAL`, `STATUS_LOW_PROP`, `STATUS_EMPTY`, `STATUS_OVER_TEMP` from `svf.models.aocs.thruster`.
 
@@ -373,15 +373,15 @@ Truth state from KDE (position/velocity). Gaussian noise added per axis. GPS por
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
-| `<id>.power_enable` | IN | — | Power on/off |
+| `<id>.power_enable` | IN |  -  | Power on/off |
 | `<id>.truth.pos_x/y/z` | IN | m | True ECI position from KDE |
 | `<id>.truth.vel_x/y/z` | IN | m/s | True ECI velocity from KDE |
-| `<id>.eclipse` | IN | — | Eclipse flag from CSS |
+| `<id>.eclipse` | IN |  -  | Eclipse flag from CSS |
 | `<id>.position_x/y/z` | OUT | m | Measured ECI position |
 | `<id>.velocity_x/y/z` | OUT | m/s | Measured ECI velocity |
-| `<id>.fix` | OUT | — | 1=valid fix |
+| `<id>.fix` | OUT |  -  | 1=valid fix |
 | `<id>.altitude_km` | OUT | km | Altitude above sphere |
-| `<id>.status` | OUT | — | 0=off 1=acquiring 2=fix 3=eclipse_outage |
+| `<id>.status` | OUT |  -  | 0=off 1=acquiring 2=fix 3=eclipse_outage |
 
 Status codes exported as `STATUS_OFF`, `STATUS_ACQUIRING`, `STATUS_FIX`, `STATUS_ECLIPSE_OUTAGE` from `svf.models.aocs.gps`.
 
@@ -395,7 +395,7 @@ N-node configurable thermal network. Node count and properties from hardware pro
 
 | Port | Direction | Unit | Description |
 |---|---|---|---|
-| `thermal.solar_illumination` | IN | — | 0=eclipse, 1=sun |
+| `thermal.solar_illumination` | IN |  -  | 0=eclipse, 1=sun |
 | `thermal.equipment_power_w` | IN | W | Equipment dissipation |
 | `thermal.{node_id}.temp_degc` | OUT | °C | Per-node temperature |
 | `thermal.cavity.temp_degc` | OUT | °C | Internal cavity temperature |
@@ -413,7 +413,7 @@ Default 3 nodes: `panel_plus_x`, `panel_minus_x`, `internal`.
 | Port | Direction | Unit | Description |
 |---|---|---|---|
 | `ttc.sbt.uplink_signal_level` | IN | dBm | Signal level |
-| `ttc.sbt.uplink_lock` | OUT | — | 1=locked |
+| `ttc.sbt.uplink_lock` | OUT |  -  | 1=locked |
 | `ttc.sbt.rx_bitrate` | OUT | bps | Uplink bit rate |
 | `ttc.sbt.tx_bitrate` | OUT | bps | Downlink bit rate |
 
@@ -426,9 +426,9 @@ Default 3 nodes: `panel_plus_x`, `panel_minus_x`, `internal`.
 | Port | Direction | Unit | Description |
 |---|---|---|---|
 | `eps.solar_array.generated_power` | IN | W | Solar power |
-| `eps.pcdu.lcl{1-8}.enable` | IN | — | Per-LCL enable |
+| `eps.pcdu.lcl{1-8}.enable` | IN |  -  | Per-LCL enable |
 | `eps.pcdu.total_load` | OUT | W | Total load |
-| `eps.pcdu.uvlo_active` | OUT | — | 1=UVLO active |
+| `eps.pcdu.uvlo_active` | OUT |  -  | 1=UVLO active |
 
 ---
 

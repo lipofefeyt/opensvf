@@ -1,4 +1,4 @@
-"""PUS Service 20 — On-Board Parameter Management."""
+"""PUS Service 20  -  On-Board Parameter Management."""
 
 from __future__ import annotations
 
@@ -10,11 +10,11 @@ from svf.pus.tm import PusTmPacket
 
 class PusService20:
     """
-    PUS Service 20 — On-Board Parameter Management.
+    PUS Service 20  -  On-Board Parameter Management.
 
-    TC(20,1) — Set parameter value
-    TC(20,3) — Get parameter value
-    TM(20,4) — Parameter value report
+    TC(20,1)  -  Set parameter value
+    TC(20,3)  -  Get parameter value
+    TM(20,4)  -  Parameter value report
     """
 
     @staticmethod
@@ -63,7 +63,7 @@ class PusService20:
         sequence_count: int,
         timestamp: int = 0,
     ) -> PusTmPacket:
-        """TM(20,4) — Parameter value report."""
+        """TM(20,4)  -  Parameter value report."""
         app_data = struct.pack(">Hf", parameter_id, value)
         return PusTmPacket(
             apid=tm_apid,

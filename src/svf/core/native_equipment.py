@@ -76,7 +76,7 @@ class NativeEquipment(Equipment):
         logger.info(f"[{self._equipment_id}] NativeEquipment initialised")
 
     def suggested_dt(self) -> Optional[float]:
-        """Default: no preference — use SimulationMaster's fixed dt."""
+        """Default: no preference  -  use SimulationMaster's fixed dt."""
         return None
 
     def do_step(self, t: float, dt: float) -> None:

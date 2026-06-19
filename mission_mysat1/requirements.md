@@ -47,7 +47,7 @@ status flag (set to 0.0) when wheel bearing temperature exceeds 80 °C.
 The battery state of charge shall increase when the solar array illumination
 is 100 % and the bus load is below the array output power.
 
-*Verified by:* TC-PWR-001 (`eps_procedures.py`) — add EPS models to spacecraft.yaml to enable.
+*Verified by:* TC-PWR-001 (`eps_procedures.py`)  -  add EPS models to spacecraft.yaml to enable.
 
 ---
 
@@ -55,7 +55,7 @@ is 100 % and the bus load is below the array output power.
 The battery state of charge shall decrease monotonically during full eclipse
 when the bus load exceeds zero.
 
-*Verified by:* TC-PWR-002 (`eps_procedures.py`) — add EPS models to spacecraft.yaml to enable.
+*Verified by:* TC-PWR-002 (`eps_procedures.py`)  -  add EPS models to spacecraft.yaml to enable.
 
 ---
 
@@ -63,7 +63,7 @@ when the bus load exceeds zero.
 The regulated bus voltage shall remain above 3.0 V during deep eclipse with
 nominal bus load for at least 120 seconds.
 
-*Verified by:* TC-PWR-005 (`eps_procedures.py`) — add EPS models to spacecraft.yaml to enable.
+*Verified by:* TC-PWR-005 (`eps_procedures.py`)  -  add EPS models to spacecraft.yaml to enable.
 
 ---
 
@@ -71,7 +71,7 @@ nominal bus load for at least 120 seconds.
 The PCDU shall provide regulated 3.3 V and 5.0 V rails within ±5 % under
 nominal load conditions.
 
-*Verification:* Requires PCDU telemetry — pending campaign procedure.
+*Verification:* Requires PCDU telemetry  -  pending campaign procedure.
 
 ---
 

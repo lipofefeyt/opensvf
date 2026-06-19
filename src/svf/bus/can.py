@@ -7,12 +7,12 @@ Models a CAN 2.0B bus with:
 - Message routing by CAN identifier
 - Error injection: bus-off, error-passive, ACK error
 
-CAN uses message-based broadcast — every node sees every message.
+CAN uses message-based broadcast  -  every node sees every message.
 The adapter routes by CAN identifier to the correct parameter.
 
 Port naming convention:
-    controller_in   — CAN controller port (OBC)
-    node{n}_out     — CAN node ports (equipment)
+    controller_in    -  CAN controller port (OBC)
+    node{n}_out      -  CAN node ports (equipment)
 
 Message routing:
     TX (controller→nodes): value from ParameterStore → CommandStore
@@ -155,7 +155,7 @@ class CanBus(Bus):
         if self.has_fault(FaultType.BUS_ERROR, "all", t):
             if not self._bus_off:
                 logger.warning(
-                    f"[{self._bus_id}] Bus-off state — "
+                    f"[{self._bus_id}] Bus-off state  -  "
                     f"all CAN transmission suspended"
                 )
                 self._bus_off = True

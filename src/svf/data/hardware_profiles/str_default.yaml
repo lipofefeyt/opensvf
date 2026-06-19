@@ -1,6 +1,6 @@
 hardware_id: str_default
 type: star_tracker
-description: "Generic star tracker — representative smallsat parameters"
+description: "Generic star tracker  -  representative smallsat parameters"
 vendor: generic
 params:
   sun_exclusion_deg: 30.0

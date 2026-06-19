@@ -18,7 +18,7 @@ class TestRealtimeTickSourceSuite:
 
         assert len(ticks) == 10
         assert 0.9 <= elapsed <= 1.5, (
-            f"Wall clock {elapsed:.2f}s — expected ~1.0s for 1s simulation"
+            f"Wall clock {elapsed:.2f}s  -  expected ~1.0s for 1s simulation"
         )
 
     @pytest.mark.requirement("SVF-DEV-010")
@@ -37,7 +37,7 @@ class TestRealtimeTickSourceSuite:
         source.start(lambda t: None, dt=0.1, stop_time=5.0)
         elapsed = time.monotonic() - t_start
         assert elapsed < 1.0, (
-            f"SoftwareTickSource took {elapsed:.2f}s for 5s simulation — too slow"
+            f"SoftwareTickSource took {elapsed:.2f}s for 5s simulation  -  too slow"
         )
 
     @pytest.mark.requirement("SVF-DEV-010")

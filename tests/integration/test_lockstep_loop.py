@@ -1,5 +1,5 @@
 """
-SVF Integration Test — Full Lockstep Loop
+SVF Integration Test  -  Full Lockstep Loop
 Exercises the complete stack with Equipment-based models.
 Implements: SVF-DEV-010, SVF-DEV-012, SVF-DEV-014, SVF-DEV-015, SVF-DEV-016
 """

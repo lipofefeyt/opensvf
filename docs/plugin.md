@@ -36,7 +36,7 @@ It is automatically active in any project that has `opensvf` installed.
 | `svf_stop_time(float)` | float | 2.0 | Maximum simulation time (s) |
 | `svf_initial_commands([(name, value)])` | list | [] | Commands injected before first tick |
 | `svf_command_schedule([(t, name, value)])` | list | [] | Commands fired at simulation time t |
-| `requirement(*ids)` | varargs | — | Requirement IDs verified by this test |
+| `requirement(*ids)` | varargs |  -  | Requirement IDs verified by this test |
 
 ### FmuConfig
 
@@ -116,10 +116,10 @@ svf_session.observe("aocs.str1.validity").satisfies(
 `within(N)` specifies real wall-clock seconds. For long simulations use `SimulationMaster` directly:
 
 ```python
-# For fast simulations — observables
+# For fast simulations  -  observables
 svf_session.observe("eps.battery.soc").exceeds(0.88).within(30.0)
 
-# For long simulations — run master directly
+# For long simulations  -  run master directly
 master, store, cmd_store = make_eps_system(stop_time=600.0)
 master.run()
 soc = store.read("eps.battery.soc")
@@ -167,7 +167,7 @@ pytest tests/ -n 4 --dist=worksteal
 
 `Mark` objects are not serialised across xdist worker processes. The plugin collects requirement IDs from `item.user_properties` (strings) rather than from `item.own_markers` directly, avoiding the `execnet` serialisation error.
 
-Each worker process runs its own DDS participant. DDS participants are explicitly closed via `DdsSyncProtocol.close()` in `SimulationMaster._teardown()` — no reliance on garbage collection.
+Each worker process runs its own DDS participant. DDS participants are explicitly closed via `DdsSyncProtocol.close()` in `SimulationMaster._teardown()`  -  no reliance on garbage collection.
 
 Worker processes run a final `gc.collect()` in `pytest_sessionfinish` as belt-and-suspenders cleanup.
 
@@ -259,14 +259,14 @@ checkcov   # cross-references BASELINED requirements vs traceability matrix
 
 ## Session Teardown
 
-DDS lifecycle is managed explicitly — no reliance on garbage collection:
+DDS lifecycle is managed explicitly  -  no reliance on garbage collection:
 
 ```python
 # SimulationMaster._teardown()
 for model in self._models:
     model.teardown()
 
-# Close DDS explicitly — prevents corrupted double-linked list crash
+# Close DDS explicitly  -  prevents corrupted double-linked list crash
 if hasattr(self._sync_protocol, "close"):
     self._sync_protocol.close()
 ```

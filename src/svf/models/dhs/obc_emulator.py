@@ -3,8 +3,8 @@ OBC Emulator Adapter
 Drop-in replacement for ObcStub using the openobsw host sim (obsw_sim).
 
 Extended pipe protocol with type-prefixed frames:
-  Type 0x01 — TC uplink:       [0x01][uint16 BE length][TC frame bytes]
-  Type 0x02 — Sensor injection: [0x02][uint16 BE length][obsw_sensor_frame_t]
+  Type 0x01  -  TC uplink:       [0x01][uint16 BE length][TC frame bytes]
+  Type 0x02  -  Sensor injection: [0x02][uint16 BE length][obsw_sensor_frame_t]
 
 obsw_sensor_frame_t (packed, little-endian floats):
   float mag_x, mag_y, mag_z; uint8_t mag_valid;
@@ -100,7 +100,7 @@ def _detect_qemu_prefix(sim_path: Path) -> list[str]:
             raise RuntimeError(
                 "aarch64 glibc not found. Set AARCH64_GLIBC environment variable."
             )
-        logger.info(f"[obc-emu] aarch64 binary detected — using QEMU: {qemu}")
+        logger.info(f"[obc-emu] aarch64 binary detected  -  using QEMU: {qemu}")
         return [qemu, "-L", glibc]
 
     return []
@@ -128,7 +128,7 @@ class OBCEmulatorAdapter(HilAdapter):
 
     1. Packs sensor values from ``ParameterStore`` into ``obsw_sensor_frame_t``
        and sends it as a type-0x02 frame.
-    2. Sends any queued TC frames (type-0x01) — at minimum a TC(17,1) heartbeat.
+    2. Sends any queued TC frames (type-0x01)  -  at minimum a TC(17,1) heartbeat.
     3. Reads response frames until the 0xFF sync byte, parsing TM packets and
        actuator commands.
     4. Injects actuator values into ``CommandStore`` for downstream equipment.
@@ -234,7 +234,7 @@ class OBCEmulatorAdapter(HilAdapter):
             pkg_version = importlib.metadata.version("obsw-srdb")
         except importlib.metadata.PackageNotFoundError:
             logger.warning(
-                "[obc-emu] obsw-srdb package not installed — "
+                "[obc-emu] obsw-srdb package not installed  -  "
                 "cannot verify SRDB version handshake"
             )
             return
@@ -242,7 +242,7 @@ class OBCEmulatorAdapter(HilAdapter):
         if srdb_version != pkg_version:
             logger.warning(
                 f"[obc-emu] SRDB VERSION MISMATCH: "
-                f"obsw_sim={srdb_version} vs opensvf={pkg_version} — "
+                f"obsw_sim={srdb_version} vs opensvf={pkg_version}  -  "
                 f"parameter names may be inconsistent"
             )
         else:
@@ -309,7 +309,7 @@ class OBCEmulatorAdapter(HilAdapter):
                 )
 
     # ------------------------------------------------------------------ #
-    # Serial reader (UART mode — MSP430, STM32H750)                       #
+    # Serial reader (UART mode  -  MSP430, STM32H750)                       #
     # ------------------------------------------------------------------ #
 
     def _start_serial_reader(self) -> None:
@@ -376,7 +376,7 @@ class OBCEmulatorAdapter(HilAdapter):
 
     def initialise(self, start_time: float = 0.0) -> None:
         if self._serial_port is not None:
-            # Serial mode — connect to hardware UART (MSP430, STM32H750)
+            # Serial mode  -  connect to hardware UART (MSP430, STM32H750)
             if not _HAS_PYSERIAL:
                 raise ImportError(
                     "pyserial is required for UART transport. "
@@ -394,7 +394,7 @@ class OBCEmulatorAdapter(HilAdapter):
             return
 
         if self._socket_addr is not None:
-            # Socket mode — connect to Renode UART TCP terminal
+            # Socket mode  -  connect to Renode UART TCP terminal
             self._sock = socket.create_connection(
                 self._socket_addr, timeout=self._sync_timeout
             )
@@ -429,7 +429,7 @@ class OBCEmulatorAdapter(HilAdapter):
         self._reader.start()
         logger.info(f"[obc-emu] obsw_sim PID={self._proc.pid}")
 
-        # Read startup lines synchronously — version handshake
+        # Read startup lines synchronously  -  version handshake
         import time as _time
         _time.sleep(0.1)
         import select as _select
@@ -487,7 +487,7 @@ class OBCEmulatorAdapter(HilAdapter):
         n_tcs = self._send_tcs(t)
 
         # Each frame sent to the binary produces exactly one 0xFF sync byte.
-        # Drain the sensor-frame sync first (primary — governs desync counter),
+        # Drain the sensor-frame sync first (primary  -  governs desync counter),
         # then drain one sync per TC frame so the buffer never accumulates.
         tm_packets, synced = self._collect_until_sync(self._sync_timeout)
         if not synced:
@@ -596,11 +596,11 @@ class OBCEmulatorAdapter(HilAdapter):
             self._port_values["dhs.obc.time_sync_cmd"] = -1.0
 
         # FreeRTOS TMTC task queue depth is 4 (obsw/task/tmtc.h).
-        # Excess TCs are dropped silently by the OBSW — warn before sending.
+        # Excess TCs are dropped silently by the OBSW  -  warn before sending.
         if len(frames) > _FREERTOS_TC_QUEUE_DEPTH:
             logger.warning(
                 "[obc-emu] TC burst %d exceeds FreeRTOS queue depth %d at t=%.3f"
-                " — OBSW may drop %d frame(s)",
+                "  -  OBSW may drop %d frame(s)",
                 len(frames),
                 _FREERTOS_TC_QUEUE_DEPTH,
                 t,
@@ -726,8 +726,8 @@ class OBCEmulatorAdapter(HilAdapter):
 
         Called once per tick after sending the sensor and TC frames. Parses:
 
-        - Type 0x03 — actuator frame: injected into ``CommandStore``
-        - Type 0x04 — PUS TM packet: recorded in ``ParameterStore`` and
+        - Type 0x03  -  actuator frame: injected into ``CommandStore``
+        - Type 0x04  -  PUS TM packet: recorded in ``ParameterStore`` and
           passed to ``_parse_tm()``
 
         Args:
@@ -877,10 +877,10 @@ class OBCEmulatorAdapter(HilAdapter):
     # ── HilAdapter interface ──────────────────────────────────────────────────
 
     def connect(self) -> None:
-        """Connection is established in initialise() — no-op here."""
+        """Connection is established in initialise()  -  no-op here."""
 
     def disconnect(self) -> None:
-        """Disconnection is handled in teardown() — no-op here."""
+        """Disconnection is handled in teardown()  -  no-op here."""
 
     def is_connected(self) -> bool:
         """Return True if the subprocess, socket, or serial port is alive."""

@@ -1,5 +1,5 @@
 """
-Unit tests for SpacecraftValidator — pre-flight configuration check.
+Unit tests for SpacecraftValidator  -  pre-flight configuration check.
 Implements: SVF-DEV-152, SVF-DEV-153
 """
 from __future__ import annotations

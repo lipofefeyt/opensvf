@@ -1,6 +1,6 @@
 hardware_id: gps_default
 type: gps
-description: "Generic spaceborne GPS receiver — representative smallsat parameters"
+description: "Generic spaceborne GPS receiver  -  representative smallsat parameters"
 vendor: generic
 params:
   position_noise_m: 5.0

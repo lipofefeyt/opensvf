@@ -1,6 +1,6 @@
 hardware_id: rw_sinclair_rw003
 type: reaction_wheel
-description: "Sinclair Interplanetary RW-0.03 — 30 mNm, 5000 rpm"
+description: "Sinclair Interplanetary RW-0.03  -  30 mNm, 5000 rpm"
 vendor: sinclair_interplanetary
 params:
   max_speed_rpm: 5000.0

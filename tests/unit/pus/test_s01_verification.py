@@ -1,5 +1,5 @@
 """
-Tests for PUS Service 1 — Request Verification.
+Tests for PUS Service 1  -  Request Verification.
 Implements: PUS-009
 """
 

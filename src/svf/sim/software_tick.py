@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class SoftwareTickSource(TickSource):
     """
     Advances simulation time in a simple Python loop.
-    No real-time guarantees — runs as fast as the hardware allows.
+    No real-time guarantees  -  runs as fast as the hardware allows.
     This is the default TickSource for software-only simulation runs.
     """
 
@@ -50,7 +50,7 @@ class RealtimeTickSource(TickSource):
     Advances simulation time aligned to wall-clock time.
     Sleeps between ticks to maintain dt alignment.
     If a tick takes longer than dt, logs a warning and continues
-    immediately (no drift accumulation — each tick targets absolute
+    immediately (no drift accumulation  -  each tick targets absolute
     wall-clock time, not relative to previous tick end).
 
     Usage:

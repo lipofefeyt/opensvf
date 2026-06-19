@@ -43,20 +43,20 @@ def _get_emulator(ctx: ProcedureContext) -> OBCEmulatorAdapter:
     """
     if ctx._master is None:
         raise ProcedureInconclusiveError(
-            "SimulationMaster not available — cannot run HIL procedure"
+            "SimulationMaster not available  -  cannot run HIL procedure"
         )
     for model in ctx._master._models:
         if isinstance(model, OBCEmulatorAdapter):
             return model
     raise ProcedureInconclusiveError(
-        "No OBCEmulatorAdapter found — run this campaign with "
+        "No OBCEmulatorAdapter found  -  run this campaign with "
         "spacecraft_hil.yaml (obsw.type: pipe or socket), not the stub config"
     )
 
 
 class PingPong(Procedure):
     """
-    TC-HIL-001 — TC(17,1) Are-You-Alive → TM(17,2) pong within 2 s.
+    TC-HIL-001  -  TC(17,1) Are-You-Alive → TM(17,2) pong within 2 s.
 
     The most basic HIL smoke test: confirms wire-protocol framing, TC delivery,
     and TM parsing are all working end-to-end on the first connection tick.
@@ -82,7 +82,7 @@ class PingPong(Procedure):
 
 class HkTelemetryReception(Procedure):
     """
-    TC-HIL-002 — Enable DHS_OBC_HK (S3, SID 3) and verify OBT advances.
+    TC-HIL-002  -  Enable DHS_OBC_HK (S3, SID 3) and verify OBT advances.
 
     Sends TC(3,5) to enable HK reporting at 1-tick intervals, then polls the
     ParameterStore for obc.obt to confirm the OBSW is advancing on-board time
@@ -131,7 +131,7 @@ class HkTelemetryReception(Procedure):
 
 class TickSyncStability(Procedure):
     """
-    TC-HIL-003 — 30 s of continuous tick sync + p95 within IWDG margin.
+    TC-HIL-003  -  30 s of continuous tick sync + p95 within IWDG margin.
 
     Runs the simulation for 30 sim-seconds and asserts:
       - SimulationMaster has not raised a desync error (implicit: still running)
@@ -158,7 +158,7 @@ class TickSyncStability(Procedure):
             raise ProcedureError("SimulationMaster not available")
         stats = ctx._master.tick_stats()
         if stats is None:
-            raise ProcedureError("tick_stats() returned None — too few ticks")
+            raise ProcedureError("tick_stats() returned None  -  too few ticks")
 
         self.step(
             f"Assert p95 tick latency < {_IWDG_P95_LIMIT_MS:.0f} ms "
@@ -174,7 +174,7 @@ class TickSyncStability(Procedure):
 
 class FreeRTOSDiagnosticsClean(Procedure):
     """
-    TC-HIL-004 — No FreeRTOS fault events in a 30 s HIL session.
+    TC-HIL-004  -  No FreeRTOS fault events in a 30 s HIL session.
 
     Monitors svf.obc.freertos.stack_overflow_count and
     svf.obc.freertos.iwdg_reset_count for the full 30-second session.

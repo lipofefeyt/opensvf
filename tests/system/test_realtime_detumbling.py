@@ -135,7 +135,7 @@ def test_realtime_bdot_observable_in_yamcs() -> None:
 
     # Wall clock should be ~30s (allow 20% tolerance for slow CI)
     assert 25.0 <= elapsed <= 40.0, (
-        f"Realtime simulation took {elapsed:.1f}s — expected ~30s"
+        f"Realtime simulation took {elapsed:.1f}s  -  expected ~30s"
     )
 
     # Angular rate should have decreased (b-dot active)
@@ -147,7 +147,7 @@ def test_realtime_bdot_observable_in_yamcs() -> None:
         rate_x.value**2 + rate_y.value**2 + rate_z.value**2
     )
     assert final_rate < 1.0, (
-        f"Angular rate {final_rate:.3f} rad/s — b-dot not effective"
+        f"Angular rate {final_rate:.3f} rad/s  -  b-dot not effective"
     )
 
 
@@ -157,7 +157,7 @@ def test_realtime_tick_overrun_warning() -> None:
     """
     TC-RT-002: RealtimeTickSource logs overrun warning when tick is slow.
 
-    Validates that the overrun detection mechanism works — a tick
+    Validates that the overrun detection mechanism works  -  a tick
     that takes longer than dt triggers a warning log.
     """
     import time

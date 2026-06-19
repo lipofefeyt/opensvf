@@ -35,7 +35,7 @@ _DHS_YAML = Path(__file__).resolve().parent.parent.parent / "srdb" / "baseline" 
 
 class TickTimingCompliant(Procedure):
     """
-    TC-RTOS-001 — Tick p95 wall-clock latency stays within IWDG margin.
+    TC-RTOS-001  -  Tick p95 wall-clock latency stays within IWDG margin.
 
     Runs the simulation for 10 s of sim-time, then reads the rolling tick
     statistics from SimulationMaster.  The p95 must be below 3 500 ms so
@@ -56,10 +56,10 @@ class TickTimingCompliant(Procedure):
 
         self.step("Read rolling tick statistics from SimulationMaster")
         if ctx._master is None:
-            raise ProcedureError("SimulationMaster not available — cannot read tick stats")
+            raise ProcedureError("SimulationMaster not available  -  cannot read tick stats")
         stats = ctx._master.tick_stats()
         if stats is None:
-            raise ProcedureError("tick_stats() returned None — fewer than 2 ticks elapsed")
+            raise ProcedureError("tick_stats() returned None  -  fewer than 2 ticks elapsed")
 
         self.step(
             f"Assert p95 tick latency < {_IWDG_P95_LIMIT_MS:.0f} ms "
@@ -75,7 +75,7 @@ class TickTimingCompliant(Procedure):
 
 class FreeRTOSNamespaceIntact(Procedure):
     """
-    TC-RTOS-002 — SRDB dhs.obc.freertos.* PUS ID namespace has no collisions.
+    TC-RTOS-002  -  SRDB dhs.obc.freertos.* PUS ID namespace has no collisions.
 
     Loads the SRDB DHS baseline YAML directly and checks that no existing
     parameter has been assigned a PUS parameter_id in the reserved range
@@ -119,14 +119,14 @@ class FreeRTOSNamespaceIntact(Procedure):
 
 class OBCDiagnosticsClean(Procedure):
     """
-    TC-RTOS-003 — No FreeRTOS fault events detected during nominal operation.
+    TC-RTOS-003  -  No FreeRTOS fault events detected during nominal operation.
 
     Waits 10 s of sim-time, then asserts that the FreeRTOS diagnostic
     counters written by OBCEmulatorAdapter._on_obsw_freertos_diagnostic()
     are absent or zero.
 
     In stub mode these parameters are never written (no stderr stream), so
-    their absence is treated as 0 events — the procedure passes correctly.
+    their absence is treated as 0 events  -  the procedure passes correctly.
     In pipe/socket mode a real stack-overflow or IWDG reset would set the
     counter to ≥ 1 and fail the procedure.
     """
@@ -155,4 +155,4 @@ class OBCDiagnosticsClean(Procedure):
                 f"svf.obc.freertos.iwdg_reset_count = {count:.0f}"
             )
 
-        self.step("FreeRTOS diagnostics clean — no fault events in 10 s session")
+        self.step("FreeRTOS diagnostics clean  -  no fault events in 10 s session")

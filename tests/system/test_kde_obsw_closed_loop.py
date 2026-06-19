@@ -105,7 +105,7 @@ def make_full_system(
 def test_full_loop_obsw_receives_sensor_data() -> None:
     """
     TC-FULL-001: obsw_sim receives sensor frames each tick.
-    OBT increments — confirms obsw_sim is cycling.
+    OBT increments  -  confirms obsw_sim is cycling.
     """
     master, store, cmd_store, obc = make_full_system(stop_time=5.0)
     master.run()
@@ -137,7 +137,7 @@ def test_full_loop_kde_provides_b_field_to_obsw() -> None:
 @pytest.mark.requirement("SVF-DEV-037", "KDE-001", "KDE-003")
 def test_full_loop_gyro_rates_reach_obsw() -> None:
     """
-    TC-FULL-003: GYRO rates from KDE reach ParameterStore — obsw_sim reads them.
+    TC-FULL-003: GYRO rates from KDE reach ParameterStore  -  obsw_sim reads them.
     """
     master, store, cmd_store, obc = make_full_system(stop_time=5.0)
     master.run()

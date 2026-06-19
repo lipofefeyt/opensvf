@@ -6,7 +6,7 @@ from svf.monte_carlo import MonteCarloRunner, MonteCarloResult, MonteCarloSummar
 
 
 def _simple_run(seed: int) -> dict:
-    """Deterministic test function — result depends on seed."""
+    """Deterministic test function  -  result depends on seed."""
     import random
     rng = random.Random(seed)
     value = rng.gauss(5.0, 1.0)

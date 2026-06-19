@@ -10,10 +10,10 @@
 
 The Software Validation Facility (SVF) is an open-core platform for the validation of spacecraft software and systems. It connects four independent components into a single closed-loop simulation:
 
-- **opensvf** — Python orchestration layer (this repo)
-- **opensvf-kde** — C++ 6-DOF physics engine, compiled to FMI 2.0 FMU
-- **openobsw** — C11 OBSW: PUS services, b-dot, ADCS PD, FDIR
-- **YAMCS 5.12.6** — Ground station: TC uplink, TM display, XTCE MDB
+- **opensvf**  -  Python orchestration layer (this repo)
+- **opensvf-kde**  -  C++ 6-DOF physics engine, compiled to FMI 2.0 FMU
+- **openobsw**  -  C11 OBSW: PUS services, b-dot, ADCS PD, FDIR
+- **YAMCS 5.12.6**  -  Ground station: TC uplink, TM display, XTCE MDB
 
 ---
 
@@ -178,18 +178,18 @@ src/svf/models/
 ├── ttc/        ttc, sbt
 └── thermal/    thermal
 
-models/         FMU binaries (data, not code — external models only)
+models/         FMU binaries (data, not code  -  external models only)
 ├── SpacecraftDynamics.fmu   (from opensvf-kde C++ project)
 └── SimpleCounter.fmu        (test double for FmuEquipment infrastructure tests)
 ```
 
-All SVF reference models are implemented as `NativeEquipment` factories — pure Python closures with no compiled binaries. `FmuEquipment` is an adapter reserved for operator-supplied external physics (Modelica, Simulink, C++) and the `SpacecraftDynamics.fmu` from `opensvf-kde`. Use `scripts/download_fmu.sh` to download updated FMU binaries from opensvf-kde releases.
+All SVF reference models are implemented as `NativeEquipment` factories  -  pure Python closures with no compiled binaries. `FmuEquipment` is an adapter reserved for operator-supplied external physics (Modelica, Simulink, C++) and the `SpacecraftDynamics.fmu` from `opensvf-kde`. Use `scripts/download_fmu.sh` to download updated FMU binaries from opensvf-kde releases.
 
 ---
 
 ## 7. Hardware Profile System
 
-Hardware profiles are YAML files that override equipment physics constants. Bundled profiles live in `mission_mysat1/hardware_profiles/` — no extra packages needed.
+Hardware profiles are YAML files that override equipment physics constants. Bundled profiles live in `mission_mysat1/hardware_profiles/`  -  no extra packages needed.
 
 ```
 mission_mysat1/hardware_profiles/     bundled profiles
@@ -212,7 +212,7 @@ Profile search order in `svf.config.hardware_profile.load_hardware_profile()`:
 2. Bundled `mission_mysat1/hardware_profiles/` in opensvf (always available)
 3. `obsw-srdb` Python package (if installed)
 
-**Note:** `srdb/data/hardware/` in the openobsw repository contains the same profile data used to generate the OBSW SRDB C header — this is a separate concern from SVF.
+**Note:** `srdb/data/hardware/` in the openobsw repository contains the same profile data used to generate the OBSW SRDB C header  -  this is a separate concern from SVF.
 
 ---
 
@@ -330,7 +330,7 @@ master = SimulationMaster(..., on_tick_error=strict)
 ### Pre-flight validation
 
 ```bash
-svf validate spacecraft.yaml   # fast config check — no DDS, no FMU, no model imports
+svf validate spacecraft.yaml   # fast config check  -  no DDS, no FMU, no model imports
 ```
 
 `SpacecraftValidator` (`src/svf/config/validator.py`) runs before any simulation
@@ -395,40 +395,40 @@ repos cannot coexist on the same filesystem.
 
 | Milestone | Status |
 |---|---|
-| M1-M12 — Core platform through ground segment | Done |
-| M13 — SIL Attitude Loop Closure | Done |
-| M14 — Real-Time and HIL + Renode socket + variable timestep | Done |
-| M15 — Extended Bus Protocols (SpaceWire, CAN) | Done |
-| M16 — SRDB Maturity | Done |
-| M17 — Equipment Configurability | Done |
-| M18 — Architecture Refactor | Done |
-| M19 — Spacecraft Configuration DSL | Done |
-| M20 — Structured Test Procedure API | Done |
-| M21 — Mission-Level Results Reporting | Done |
-| M22 — OBSW Integration Guide | Done |
-| M23 — Temporal assertions + equipment fault engine | Done |
-| M24 — ZynqMP SIL (aarch64 QEMU + Renode socket transport) | Done |
-| M25 — YAMCS ground segment integration (TM/TC pipeline, XTCE MDB) | Done |
-| M26 — EPS/AOCS/thermal native models + full test pyramid restructure | Done |
-| M29 — Time-tagged parameter init file (OBT-format startup state) | Done |
-| M30 — CAN 2.0B full validation + SpaceWire RMAP completion | Done |
-| M31 — Equipment fidelity levels + SRDB calibration curves | Done |
-| M32 — SpacecraftValidator: pre-flight config check (`svf validate`) | Done |
-| M33 — SRDB namespace linting (checkcons check [7/7]) | Done |
-| M34 — Equipment fidelity coverage in checkcov | Done |
-| M35 — EquipmentTickError + on_tick_error callback | Done |
-| M36 — Campaign L4 scaffolding: INCONCLUSIVE verdict + declared requirements | Done |
-| M37 — S9 Time Management: OBT sync via TC | Done |
-| M38 — S11 Time-Based Scheduling: time-tagged command sequences | Done |
-| M39 — S12 On-Board Monitoring: parameter OOL events | Done |
-| M40 — S19 Event-Action Service: FDIR reaction chains | Done |
-| M41 — SharedMemorySyncProtocol: sub-ms tick sync | Done |
-| M27 — Dual-OBC topology (DualObcAdapter: primary/secondary + auto-failover) | Done |
-| M28 — UART/serial wire protocol transport (MSP430, STM32H750 HIL) | Done |
-| M42 — Orbital environment: SGP4 + eclipse + dipole mag field (Python) | Done |
-| M48 — Migrate orbital environment into opensvf-kde FMU (SVF-DEV-175) | Backlog |
-| M43 — F3 sensor fidelity | Backlog |
-| M44 — SRDB control layer (AOCS gains, FDIR thresholds) | Backlog |
-| M45 — FDIR supervisor model | Backlog |
-| M46 — Live YAMCS dashboards | Backlog |
-| M47 — Multi-spacecraft / constellation | Backlog |
+| M1-M12  -  Core platform through ground segment | Done |
+| M13  -  SIL Attitude Loop Closure | Done |
+| M14  -  Real-Time and HIL + Renode socket + variable timestep | Done |
+| M15  -  Extended Bus Protocols (SpaceWire, CAN) | Done |
+| M16  -  SRDB Maturity | Done |
+| M17  -  Equipment Configurability | Done |
+| M18  -  Architecture Refactor | Done |
+| M19  -  Spacecraft Configuration DSL | Done |
+| M20  -  Structured Test Procedure API | Done |
+| M21  -  Mission-Level Results Reporting | Done |
+| M22  -  OBSW Integration Guide | Done |
+| M23  -  Temporal assertions + equipment fault engine | Done |
+| M24  -  ZynqMP SIL (aarch64 QEMU + Renode socket transport) | Done |
+| M25  -  YAMCS ground segment integration (TM/TC pipeline, XTCE MDB) | Done |
+| M26  -  EPS/AOCS/thermal native models + full test pyramid restructure | Done |
+| M29  -  Time-tagged parameter init file (OBT-format startup state) | Done |
+| M30  -  CAN 2.0B full validation + SpaceWire RMAP completion | Done |
+| M31  -  Equipment fidelity levels + SRDB calibration curves | Done |
+| M32  -  SpacecraftValidator: pre-flight config check (`svf validate`) | Done |
+| M33  -  SRDB namespace linting (checkcons check [7/7]) | Done |
+| M34  -  Equipment fidelity coverage in checkcov | Done |
+| M35  -  EquipmentTickError + on_tick_error callback | Done |
+| M36  -  Campaign L4 scaffolding: INCONCLUSIVE verdict + declared requirements | Done |
+| M37  -  S9 Time Management: OBT sync via TC | Done |
+| M38  -  S11 Time-Based Scheduling: time-tagged command sequences | Done |
+| M39  -  S12 On-Board Monitoring: parameter OOL events | Done |
+| M40  -  S19 Event-Action Service: FDIR reaction chains | Done |
+| M41  -  SharedMemorySyncProtocol: sub-ms tick sync | Done |
+| M27  -  Dual-OBC topology (DualObcAdapter: primary/secondary + auto-failover) | Done |
+| M28  -  UART/serial wire protocol transport (MSP430, STM32H750 HIL) | Done |
+| M42  -  Orbital environment: SGP4 + eclipse + dipole mag field (Python) | Done |
+| M48  -  Migrate orbital environment into opensvf-kde FMU (SVF-DEV-175) | Backlog |
+| M43  -  F3 sensor fidelity | Backlog |
+| M44  -  SRDB control layer (AOCS gains, FDIR thresholds) | Backlog |
+| M45  -  FDIR supervisor model | Backlog |
+| M46  -  Live YAMCS dashboards | Backlog |
+| M47  -  Multi-spacecraft / constellation | Backlog |

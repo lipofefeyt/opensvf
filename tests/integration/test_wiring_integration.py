@@ -1,5 +1,5 @@
 """
-SVF Integration Test — Equipment Wiring via SimulationMaster
+SVF Integration Test  -  Equipment Wiring via SimulationMaster
 Verifies that OUT port values flow to connected IN ports between ticks.
 Implements: SVF-DEV-004
 """
@@ -178,6 +178,6 @@ connections:
     )
     master.run()
 
-    # After first tick wiring applies — ticks 2+ should see correct values
+    # After first tick wiring applies  -  ticks 2+ should see correct values
     assert all(v == pytest.approx(10.0) for v in log["a"][1:])
     assert all(v == pytest.approx(20.0) for v in log["b"][1:])

@@ -75,7 +75,7 @@ svf check mission_mysat1/spacecraft.yaml
 svf campaign mission_mysat1/campaigns/quickstart_campaign.yaml --report
 ```
 
-The campaign produces `results/report.html` — open it in a browser.
+The campaign produces `results/report.html`  -  open it in a browser.
 
 To start the YAMCS ground station:
 
@@ -131,7 +131,7 @@ obsw:
   port: 3456
 ```
 
-The flight software runs inside Renode emulating a ZynqMP Cortex-A53. SVF connects to the Renode UART terminal over TCP. Same wire protocol — the flight binary never knows the difference.
+The flight software runs inside Renode emulating a ZynqMP Cortex-A53. SVF connects to the Renode UART terminal over TCP. Same wire protocol  -  the flight binary never knows the difference.
 
 ---
 
@@ -328,40 +328,40 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 
 | Milestone | Status |
 |---|---|
-| M1–M18 — Core platform, FMI, DDS sync, PUS stack, equipment models | ✅ Done |
-| M19 — Spacecraft configuration DSL (YAML zero-Python entry point) | ✅ Done |
-| M20 — Structured test procedure API | ✅ Done |
-| M21 — Mission-level HTML reporting | ✅ Done |
-| M22 — OBSW integration guide | ✅ Done |
-| M23 — Temporal assertions + equipment fault engine | ✅ Done |
-| M24 — ZynqMP SIL (aarch64 QEMU + Renode socket transport) | ✅ Done |
-| M25 — YAMCS ground segment integration (TM/TC pipeline, XTCE MDB) | ✅ Done |
-| M26 — EPS/AOCS/thermal native models + full test pyramid restructure | ✅ Done |
-| M29 — Time-tagged parameter init file (OBT-format startup state) | ✅ Done |
-| M30 — CAN 2.0B full validation + SpaceWire RMAP completion | ✅ Done |
-| M31 — Equipment fidelity levels + SRDB calibration curves (raw→engineering) | ✅ Done |
-| M32 — SpacecraftValidator: pre-flight config check without DDS (`svf validate`) | ✅ Done |
-| M33 — SRDB namespace linting (checkcons check [7/7]) | ✅ Done |
-| M34 — Equipment fidelity coverage in checkcov (F1–F4 per model, upgrade paths) | ✅ Done |
-| M35 — EquipmentTickError + on_tick_error callback (record-and-continue) | ✅ Done |
-| M36 — Campaign L4 scaffolding: INCONCLUSIVE verdict + declared requirements | ✅ Done |
-| M37 — S9 Time Management: OBT sync via TC | ✅ Done |
-| M38 — S11 Time-Based Scheduling: time-tagged command sequences | ✅ Done |
-| M39 — S12 On-Board Monitoring: parameter OOL events | ✅ Done |
-| M40 — S19 Event-Action Service: automated FDIR reaction chains | ✅ Done |
-| M41 — SharedMemorySyncProtocol: sub-ms tick sync for RT HIL | ✅ Done |
-| M27 — Dual-OBC topology (ZynqMP + MSP430 Renode lockstep) | ✅ Done |
-| M28 — UART/serial wire protocol transport (MSP430, STM32H750 HIL) | ✅ Done |
-| M42 — Orbital environment: SGP4 propagator + eclipse + solar model | ✅ Done |
-| M43 — FreeRTOS HIL support: tick-aware OBC adapter, TC guard, diagnostics | ✅ Done |
-| M44 — FreeRTOS HIL validation campaign | ✅ Done |
-| M45 — FreeRTOS HIL integration campaign (end-to-end OBSW) | ✅ Done |
-| M46 — F3 sensor fidelity: Allan-variance noise model, calibration curves, I-V | ✅ Done |
-| M47 — SRDB control layer: AOCS gains and FDIR thresholds as S20 parameters | ✅ Done |
-| M48 — FDIR supervisor model | 🗂 Backlog |
-| M49 — Live YAMCS dashboards | 🗂 Backlog |
-| M50 — Multi-spacecraft / constellation | 🗂 Backlog |
-| M51 — Migrate orbital environment (SGP4 + dipole) into opensvf-kde FMU | 🗂 Backlog |
+| M1–M18  -  Core platform, FMI, DDS sync, PUS stack, equipment models | ✅ Done |
+| M19  -  Spacecraft configuration DSL (YAML zero-Python entry point) | ✅ Done |
+| M20  -  Structured test procedure API | ✅ Done |
+| M21  -  Mission-level HTML reporting | ✅ Done |
+| M22  -  OBSW integration guide | ✅ Done |
+| M23  -  Temporal assertions + equipment fault engine | ✅ Done |
+| M24  -  ZynqMP SIL (aarch64 QEMU + Renode socket transport) | ✅ Done |
+| M25  -  YAMCS ground segment integration (TM/TC pipeline, XTCE MDB) | ✅ Done |
+| M26  -  EPS/AOCS/thermal native models + full test pyramid restructure | ✅ Done |
+| M29  -  Time-tagged parameter init file (OBT-format startup state) | ✅ Done |
+| M30  -  CAN 2.0B full validation + SpaceWire RMAP completion | ✅ Done |
+| M31  -  Equipment fidelity levels + SRDB calibration curves (raw→engineering) | ✅ Done |
+| M32  -  SpacecraftValidator: pre-flight config check without DDS (`svf validate`) | ✅ Done |
+| M33  -  SRDB namespace linting (checkcons check [7/7]) | ✅ Done |
+| M34  -  Equipment fidelity coverage in checkcov (F1–F4 per model, upgrade paths) | ✅ Done |
+| M35  -  EquipmentTickError + on_tick_error callback (record-and-continue) | ✅ Done |
+| M36  -  Campaign L4 scaffolding: INCONCLUSIVE verdict + declared requirements | ✅ Done |
+| M37  -  S9 Time Management: OBT sync via TC | ✅ Done |
+| M38  -  S11 Time-Based Scheduling: time-tagged command sequences | ✅ Done |
+| M39  -  S12 On-Board Monitoring: parameter OOL events | ✅ Done |
+| M40  -  S19 Event-Action Service: automated FDIR reaction chains | ✅ Done |
+| M41  -  SharedMemorySyncProtocol: sub-ms tick sync for RT HIL | ✅ Done |
+| M27  -  Dual-OBC topology (ZynqMP + MSP430 Renode lockstep) | ✅ Done |
+| M28  -  UART/serial wire protocol transport (MSP430, STM32H750 HIL) | ✅ Done |
+| M42  -  Orbital environment: SGP4 propagator + eclipse + solar model | ✅ Done |
+| M43  -  FreeRTOS HIL support: tick-aware OBC adapter, TC guard, diagnostics | ✅ Done |
+| M44  -  FreeRTOS HIL validation campaign | ✅ Done |
+| M45  -  FreeRTOS HIL integration campaign (end-to-end OBSW) | ✅ Done |
+| M46  -  F3 sensor fidelity: Allan-variance noise model, calibration curves, I-V | ✅ Done |
+| M47  -  SRDB control layer: AOCS gains and FDIR thresholds as S20 parameters | ✅ Done |
+| M48  -  FDIR supervisor model | 🗂 Backlog |
+| M49  -  Live YAMCS dashboards | 🗂 Backlog |
+| M50  -  Multi-spacecraft / constellation | 🗂 Backlog |
+| M51  -  Migrate orbital environment (SGP4 + dipole) into opensvf-kde FMU | 🗂 Backlog |
 
 ---
 

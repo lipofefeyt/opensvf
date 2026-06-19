@@ -1,4 +1,4 @@
-"""PUS Service 12 — On-Board Monitoring."""
+"""PUS Service 12  -  On-Board Monitoring."""
 
 from __future__ import annotations
 
@@ -168,13 +168,13 @@ class OnBoardMonitor:
 
 class PusService12:
     """
-    PUS Service 12 — On-Board Monitoring.
+    PUS Service 12  -  On-Board Monitoring.
 
-    TC(12,1)  — Enable Monitoring
-    TC(12,2)  — Disable Monitoring
-    TC(12,3)  — Add/Replace Monitoring Definition
-    TC(12,4)  — Delete Monitoring Definition
-    TC(12,5)  — Delete All Monitoring Definitions
+    TC(12,1)   -  Enable Monitoring
+    TC(12,2)   -  Disable Monitoring
+    TC(12,3)   -  Add/Replace Monitoring Definition
+    TC(12,4)   -  Delete Monitoring Definition
+    TC(12,5)   -  Delete All Monitoring Definitions
 
     TC(12,3) app_data format (SVF subset, 15 bytes):
         2B uint16  param_id

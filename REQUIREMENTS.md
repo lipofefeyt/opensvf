@@ -312,7 +312,7 @@ PcduFmu shall produce positive charge_current when generated_power exceeds load_
 PcduFmu shall produce negative charge_current when load_power exceeds generated_power.
 
 **EPS-010** `[EPS]` `IMPLEMENTED`
-PcduFmu bus_voltage shall equal battery_voltage (simplified — no active regulation).
+PcduFmu bus_voltage shall equal battery_voltage (simplified  -  no active regulation).
 
 **EPS-011** `[EPS]` `IMPLEMENTED`
 The integrated EpsFmu shall charge the battery when solar_illumination = 1.0 and load_power = 30W.
@@ -439,7 +439,7 @@ The platform shall implement PUS Service 11 (Time-Based Scheduling): TC(11,4) In
 The platform shall implement PUS Service 19 (Event-Action Service): TC(19,1) Add, TC(19,2) Delete, TC(19,3) Delete All, TC(19,4) Enable, TC(19,5) Disable. An `EventActionService` shall hold one `EventActionDefinition` per event_id (last write wins). When `ObcEquipment._enqueue_tm()` enqueues a TM(5,x) event, matching action TCs shall be collected into a pending list and dispatched at the start of the following `do_step()` tick, enabling fully automated FDIR reaction chains without re-entrant `receive_tc()` calls. Assigned to M40.
 
 **SVF-DEV-164** `[PUS]` `IMPLEMENTED`
-The platform shall implement PUS Service 12 (On-Board Monitoring): TC(12,1) Enable, TC(12,2) Disable, TC(12,3) Add/Replace Monitoring Definition, TC(12,4) Delete, TC(12,5) Delete All. An `OnBoardMonitor` shall evaluate each enabled `MonitoringDefinition` on every OBC tick and generate a PUS S5 event report on the first tick a parameter crosses a low or high limit (latching — no repeat until recovery). TC(12,3) app_data: 2B param_id, 4B low_limit (IEEE754 float, NaN=none), 4B high_limit, 2B event_id_low, 2B event_id_high, 1B severity. Assigned to M39.
+The platform shall implement PUS Service 12 (On-Board Monitoring): TC(12,1) Enable, TC(12,2) Disable, TC(12,3) Add/Replace Monitoring Definition, TC(12,4) Delete, TC(12,5) Delete All. An `OnBoardMonitor` shall evaluate each enabled `MonitoringDefinition` on every OBC tick and generate a PUS S5 event report on the first tick a parameter crosses a low or high limit (latching  -  no repeat until recovery). TC(12,3) app_data: 2B param_id, 4B low_limit (IEEE754 float, NaN=none), 4B high_limit, 2B event_id_low, 2B event_id_high, 1B severity. Assigned to M39.
 
 **PUS-010** `[PUS]` `IMPLEMENTED`
 The OBC Equipment model shall receive raw PUS TC bytes, parse them using PusTcParser, route commands to equipment via the appropriate bus interface, and generate PUS TM acknowledgement packets. Assigned to M7.
@@ -744,7 +744,7 @@ The OBT parameter file loader shall parse a tab/space-delimited file with three 
 The spacecraft configuration loader shall accept `simulation.obt_init_file` as a path (resolved relative to the spacecraft YAML directory) and load it as an `ObtParamFile` passed to `SimulationMaster`.
 
 **SVF-DEV-152** `[CFG]` `IMPLEMENTED`
-The spacecraft pre-flight validator (`SpacecraftValidator`) shall detect and report duplicate equipment IDs, wiring overrides that reference undefined equipment, and OBT parameter init file problems (missing file, parse errors) — all without instantiating DDS, models, or a tick source.
+The spacecraft pre-flight validator (`SpacecraftValidator`) shall detect and report duplicate equipment IDs, wiring overrides that reference undefined equipment, and OBT parameter init file problems (missing file, parse errors)  -  all without instantiating DDS, models, or a tick source.
 
 **SVF-DEV-153** `[CFG]` `IMPLEMENTED`
 The spacecraft pre-flight validator shall detect bus address conflicts within each declared bus: duplicate CAN message IDs (CAN 2.0B), duplicate SpaceWire logical addresses, and duplicate MIL-STD-1553 RT/SA pairs.
@@ -807,13 +807,13 @@ clamped to ±MAX_CHARGE_CURRENT.
 |---|---|---|---|---|
 | SVF-DEV-001 | SIM | IMPLEMENTED | M1 | test_fmu_equipment_initialises |
 | SVF-DEV-002 | SIM | IMPLEMENTED | M1 | test_simulation_master_with_fmu |
-| SVF-DEV-003 | SIM | DRAFT | — | — |
+| SVF-DEV-003 | SIM | DRAFT |  -  |  -  |
 | SVF-DEV-004 | SIM | IMPLEMENTED | M4.5 | test_wiring_propagates_values |
-| SVF-DEV-004b | SIM | DEFERRED | M8 | — |
+| SVF-DEV-004b | SIM | DEFERRED | M8 |  -  |
 | SVF-DEV-005 | SIM | IMPLEMENTED | M1 | test_csv_logger_creates_file |
 | SVF-DEV-006 | SIM | IMPLEMENTED | M1 | test_simulation_master_context_manager |
 | SVF-DEV-007 | SIM | IMPLEMENTED | M1 | test_fmu_equipment_missing_fmu |
-| SVF-DEV-008 | SIM | DEFERRED | — | — |
+| SVF-DEV-008 | SIM | DEFERRED |  -  |  -  |
 | SVF-DEV-009 | ABS | IMPLEMENTED | M2 | test_simulation_master_runs |
 | SVF-DEV-010 | ABS | IMPLEMENTED | M2 | test_lockstep_single_fmu |
 | SVF-DEV-011 | ABS | IMPLEMENTED | M2 | test_lockstep_sync_timeout |
@@ -822,23 +822,23 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-014 | ABS | IMPLEMENTED | M3 | test_fmu_equipment_on_tick_writes_store |
 | SVF-DEV-015 | ABS | IMPLEMENTED | M2 | test_native_equipment_step |
 | SVF-DEV-016 | ABS | IMPLEMENTED | M2 | test_simulation_master_runs |
-| SVF-DEV-017 | ABS | DEFERRED | M9 | — |
-| SVF-DEV-018 | ABS | DEFERRED | M9 | — |
+| SVF-DEV-017 | ABS | DEFERRED | M9 |  -  |
+| SVF-DEV-018 | ABS | DEFERRED | M9 |  -  |
 | SVF-DEV-020 | BUS | IMPLEMENTED | M2 | test_lockstep_single_fmu |
 | SVF-DEV-021 | BUS | IMPLEMENTED | M2 | test_lockstep_single_fmu |
 | SVF-DEV-022 | BUS | IMPLEMENTED | M2 | test_lockstep_single_fmu |
 | SVF-DEV-023 | BUS | IMPLEMENTED | M2 | test_lockstep_single_fmu |
-| SVF-DEV-024 | BUS | SUPERSEDED | — | SVF-DEV-031 |
-| SVF-DEV-025 | BUS | DEFERRED | — | — |
+| SVF-DEV-024 | BUS | SUPERSEDED |  -  | SVF-DEV-031 |
+| SVF-DEV-025 | BUS | DEFERRED |  -  |  -  |
 | SVF-DEV-026 | BUS | IMPLEMENTED | M2 | test_lockstep_multiple_models |
-| SVF-DEV-027 | BUS | DEFERRED | — | — |
+| SVF-DEV-027 | BUS | DEFERRED |  -  |  -  |
 | SVF-DEV-028 | BUS | IMPLEMENTED | M2 | test_lockstep_single_fmu |
-| SVF-DEV-029 | BUS | DEFERRED | M10 | — |
-| SVF-DEV-030 | BUS | DEFERRED | M10 | — |
+| SVF-DEV-029 | BUS | DEFERRED | M10 |  -  |
+| SVF-DEV-030 | BUS | DEFERRED | M10 |  -  |
 | SVF-DEV-031 | BUS | IMPLEMENTED | M3 | test_parameter_store_populated_after_run |
 | SVF-DEV-032 | BUS | IMPLEMENTED | M3 | test_write_and_read |
 | SVF-DEV-033 | BUS | IMPLEMENTED | M3 | test_late_reader_sees_value |
-| SVF-DEV-034 | BUS | DEFERRED | M10 | — |
+| SVF-DEV-034 | BUS | DEFERRED | M10 |  -  |
 | SVF-DEV-035 | BUS | IMPLEMENTED | M3 | test_inject_and_take |
 | SVF-DEV-036 | BUS | IMPLEMENTED | M3 | test_take_is_atomic |
 | SVF-DEV-037 | BUS | IMPLEMENTED | M7 | test_tc_pus_005_full_chain_ground_to_rw |
@@ -850,8 +850,8 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-094 | SDB | IMPLEMENTED | M3.5 | test_parameter_store_range_violation_warns |
 | SVF-DEV-095 | SDB | IMPLEMENTED | M3.5 | test_command_store_tm_inject_warns |
 | SVF-DEV-096 | SDB | IMPLEMENTED | M31 | test_srdb_calibration |
-| SVF-DEV-097 | SDB | DEFERRED | M10 | — |
-| SVF-DEV-098 | SDB | DEFERRED | M10 | — |
+| SVF-DEV-097 | SDB | DEFERRED | M10 |  -  |
+| SVF-DEV-098 | SDB | DEFERRED | M10 |  -  |
 | EQP-001 | EQP | IMPLEMENTED | M3.6 | test_equipment_construction |
 | EQP-002 | EQP | IMPLEMENTED | M3.6 | test_write_port_to_in_raises |
 | EQP-003 | EQP | IMPLEMENTED | M3.6 | test_read_port_unknown_raises |
@@ -906,8 +906,8 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-042 | ORC | IMPLEMENTED | M3 | test_fixture_inject_command |
 | SVF-DEV-043 | ORC | IMPLEMENTED | M3 | test_observe_reaches |
 | SVF-DEV-044 | ORC | IMPLEMENTED | M3 | test_verdict_pass |
-| SVF-DEV-045 | ORC | DEFERRED | — | — |
-| SVF-DEV-046 | ORC | DRAFT | — | — |
+| SVF-DEV-045 | ORC | DEFERRED |  -  |  -  |
+| SVF-DEV-046 | ORC | DRAFT |  -  |  -  |
 | SVF-DEV-047 | ORC | IMPLEMENTED | M3 | test_fixture_default_fmu |
 | SVF-DEV-048 | ORC | IMPLEMENTED | M4.5 | test_tc_pwr_003_charging_in_sunlight |
 | SVF-DEV-050 | CAM | IMPLEMENTED | M5 | test_load_valid_campaign |
@@ -915,12 +915,12 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-052 | CAM | IMPLEMENTED | M5 | test_missing_required_field_raises |
 | SVF-DEV-053 | CAM | IMPLEMENTED | M5 | test_file_hash_recorded |
 | SVF-DEV-054 | CAM | IMPLEMENTED | M5 | test_overall_verdict_pass_when_all_pass |
-| SVF-DEV-055 | CAM | DEFERRED | — | — |
+| SVF-DEV-055 | CAM | DEFERRED |  -  |  -  |
 | SVF-DEV-060 | MOD | IMPLEMENTED | M1 | validate_fmpy.py |
-| SVF-DEV-061 | MOD | DRAFT | — | — |
-| SVF-DEV-062 | MOD | DRAFT | — | — |
+| SVF-DEV-061 | MOD | DRAFT |  -  |  -  |
+| SVF-DEV-062 | MOD | DRAFT |  -  |  -  |
 | SVF-DEV-063 | MOD | IMPLEMENTED | M4 | test_tc_pwr_001 |
-| SVF-DEV-064 | MOD | DEFERRED | M8 | — |
+| SVF-DEV-064 | MOD | DEFERRED | M8 |  -  |
 | SVF-DEV-065 | MOD | IMPLEMENTED | M4 | test_tc_pwr_001 |
 | SVF-DEV-066 | MOD | IMPLEMENTED | M4.5 | test_decomposed_eps_charges_in_sunlight |
 | SVF-DEV-070 | REP | IMPLEMENTED | M5 | results/test_results.xml |
@@ -929,18 +929,18 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-073 | REP | IMPLEMENTED | M3.6 | traceability.txt |
 | SVF-DEV-074 | REP | IMPLEMENTED | M5 | test_report_contains_metadata |
 | SVF-DEV-075 | REP | IMPLEMENTED | M5 | test_report_generated |
-| SVF-DEV-076 | REP | DEFERRED | M10 | — |
-| SVF-DEV-077 | REP | DEFERRED | M10 | — |
+| SVF-DEV-076 | REP | DEFERRED | M10 |  -  |
+| SVF-DEV-077 | REP | DEFERRED | M10 |  -  |
 | SVF-DEV-080 | SYS | IMPLEMENTED | M1 | CI pipeline |
 | SVF-DEV-081 | SYS | IMPLEMENTED | M1 | CI pipeline (ubuntu-latest) |
-| SVF-DEV-082 | SYS | DRAFT | — | — |
-| SVF-DEV-083 | SYS | DRAFT | — | — |
-| SVF-DEV-084 | SYS | DRAFT | — | — |
-| SVF-DEV-085 | SYS | DRAFT | — | — |
-| SVF-DEV-086 | SYS | DRAFT | — | — |
+| SVF-DEV-082 | SYS | DRAFT |  -  |  -  |
+| SVF-DEV-083 | SYS | DRAFT |  -  |  -  |
+| SVF-DEV-084 | SYS | DRAFT |  -  |  -  |
+| SVF-DEV-085 | SYS | DRAFT |  -  |  -  |
+| SVF-DEV-086 | SYS | DRAFT |  -  |  -  |
 | SVF-DEV-087 | SYS | IMPLEMENTED | M1 | CI pipeline (pytest) |
 | SVF-DEV-088 | SYS | IMPLEMENTED | M1 | CI pipeline (mypy) |
-| SVF-DEV-089 | SYS | DEFERRED | M9 | — |
+| SVF-DEV-089 | SYS | DEFERRED | M9 |  -  |
 | PCDU-001      | PCDU | IMPLEMENTED | M9  | test_pcdu_lcl_switching         |
 | PCDU-002      | PCDU | IMPLEMENTED | M9  | test_pcdu_mppt_efficiency        |
 | PCDU-003      | PCDU | IMPLEMENTED | M9  | test_pcdu_uvlo_disconnects_loads  |
@@ -995,7 +995,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-170   | SIM  | IMPLEMENTED | M42 | test_orbital_tick_publishes_all_ports |
 | SVF-DEV-171   | SIM  | IMPLEMENTED | M42 | test_orbital_tick_eclipse_zero_irradiance |
 | SVF-DEV-172   | SIM  | IMPLEMENTED | M42 | test_dipole_field_magnitude_leo |
-| SVF-DEV-175   | SIM  | DEFERRED    | M48 | — |
+| SVF-DEV-175   | SIM  | DEFERRED    | M48 |  -  |
 | SVF-DEV-176   | DHS  | IMPLEMENTED | M43 | test_tc_burst_warns_at_freertos_queue_depth |
 | SVF-DEV-177   | SIM  | IMPLEMENTED | M43 | test_tick_stats_returns_rolling_window_metrics |
 | SVF-DEV-178   | SIM  | IMPLEMENTED | M43 | test_equipment_timeout_raises_equipment_timeout_error |

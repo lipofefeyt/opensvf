@@ -2,7 +2,7 @@
 SVF Simulation Master
 Orchestrates simulation execution via dependency-injected abstractions.
 Depends only on TickSource, SyncProtocol, and ModelAdapter interfaces.
-The master drives models and waits for sync — it never speaks for models.
+The master drives models and waits for sync  -  it never speaks for models.
 Implements: SVF-DEV-016
 """
 
@@ -56,7 +56,7 @@ class EquipmentTimeoutError(Exception):
     Raised when a model's ``on_tick()`` does not return within the configured
     ``equipment_tick_timeout`` deadline.
 
-    In FreeRTOS HIL campaigns the recommended deadline is 3.5 s — providing
+    In FreeRTOS HIL campaigns the recommended deadline is 3.5 s  -  providing
     a safety margin below the openobsw STM32H750 IWDG timeout of 4.0 s.
 
     Implements: SVF-DEV-178
@@ -371,7 +371,7 @@ class SimulationMaster:
                 f"within {self._sync_timeout}s"
             )
             
-        # Apply wiring — copy OUT port values to connected IN ports
+        # Apply wiring  -  copy OUT port values to connected IN ports
         if self._wiring is not None and self._command_store is not None:
             from svf.core.equipment import Equipment
             

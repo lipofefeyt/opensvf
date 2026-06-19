@@ -146,7 +146,7 @@ class SpacecraftValidator:
                     message=(
                         f"Bus '{bus_id}' (CAN): duplicate CAN ID "
                         f"{hex(can_id) if isinstance(can_id, int) else can_id!r} "
-                        f"— '{param}' conflicts with '{seen[key]}'."
+                        f" -  '{param}' conflicts with '{seen[key]}'."
                     ),
                 ))
             else:
@@ -171,7 +171,7 @@ class SpacecraftValidator:
                     code="BUS_ADDRESS_CONFLICT",
                     message=(
                         f"Bus '{bus_id}' (SpaceWire): duplicate logical address "
-                        f"{hex(addr)} — '{node_id}' conflicts with '{seen[addr]}'."
+                        f"{hex(addr)}  -  '{node_id}' conflicts with '{seen[addr]}'."
                     ),
                 ))
             else:
@@ -197,7 +197,7 @@ class SpacecraftValidator:
                     code="BUS_ADDRESS_CONFLICT",
                     message=(
                         f"Bus '{bus_id}' (MIL-STD-1553): duplicate RT={key[0]} SA={key[1]} "
-                        f"— '{param}' conflicts with '{seen[key]}'."
+                        f" -  '{param}' conflicts with '{seen[key]}'."
                     ),
                 ))
             else:

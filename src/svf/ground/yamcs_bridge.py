@@ -4,8 +4,8 @@ SVF YAMCS Bridge
 Connects a running SVF simulation to a YAMCS ground station.
 
 YAMCS connects TO SVF (SVF is the TCP server for TM, UDP server for TC):
-  Port 10015 — TM downlink: SVF sends PUS TM packets to YAMCS (TCP)
-  Port 10025 — TC uplink:   YAMCS sends PUS TC packets to SVF (UDP)
+  Port 10015  -  TM downlink: SVF sends PUS TM packets to YAMCS (TCP)
+  Port 10025  -  TC uplink:   YAMCS sends PUS TC packets to SVF (UDP)
 
 Usage:
     bridge = YamcsBridge(store)

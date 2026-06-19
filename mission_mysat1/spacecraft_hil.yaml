@@ -1,7 +1,7 @@
 version: 1
 spacecraft: MySat-1 (FreeRTOS HIL)
 
-# Hardware-in-the-Loop configuration — connects to a real openobsw binary.
+# Hardware-in-the-Loop configuration  -  connects to a real openobsw binary.
 #
 # Pipe mode (default): spawns bin/obsw_sim as a subprocess.
 #   Build openobsw for host: cmake --build build && cp build/sim/obsw_sim bin/

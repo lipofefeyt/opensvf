@@ -49,7 +49,7 @@ def _step_eps(solar, battery, pcdu, illumination: float, n_lcls_on: int, dt: flo
 
 
 # ---------------------------------------------------------------------------
-# Solar Array — EPS-001, EPS-002, EPS-003
+# Solar Array  -  EPS-001, EPS-002, EPS-003
 # ---------------------------------------------------------------------------
 
 class SolarArrayTests:
@@ -94,7 +94,7 @@ class SolarArrayTests:
 
 
 # ---------------------------------------------------------------------------
-# Battery — EPS-004, EPS-005, EPS-006, EPS-007
+# Battery  -  EPS-004, EPS-005, EPS-006, EPS-007
 # ---------------------------------------------------------------------------
 
 class BatteryTests:
@@ -165,7 +165,7 @@ class BatteryTests:
 
 
 # ---------------------------------------------------------------------------
-# Integrated EPS — EPS-008 through EPS-016
+# Integrated EPS  -  EPS-008 through EPS-016
 # ---------------------------------------------------------------------------
 
 class EpsIntegrationTests:
@@ -284,7 +284,7 @@ class EpsIntegrationTests:
 
 
 # ---------------------------------------------------------------------------
-# PCDU — PCDU-001, PCDU-002, PCDU-003, PCDU-004
+# PCDU  -  PCDU-001, PCDU-002, PCDU-003, PCDU-004
 # ---------------------------------------------------------------------------
 
 class PcduTests:

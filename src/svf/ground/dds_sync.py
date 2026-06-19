@@ -113,7 +113,7 @@ class DdsSyncProtocol(SyncProtocol):
 
     def __del__(self) -> None:
         """
-        Do NOT call close() here — calling _delete() during Python
+        Do NOT call close() here  -  calling _delete() during Python
         interpreter shutdown or GC finalization causes corrupted
         double-linked list abort. Explicit close() via
         SimulationMaster._teardown() is the only safe teardown path.

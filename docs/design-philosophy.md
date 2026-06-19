@@ -36,7 +36,7 @@ The Simulink model serves two roles: design tool (gain tuning, Monte Carlo) and 
 
 ## Where OpenSVF fits
 
-OpenSVF targets teams that **hand-code their AOCS algorithms in C** — which is most smallsat programmes that cannot afford Embedded Coder, and most research and academic projects.
+OpenSVF targets teams that **hand-code their AOCS algorithms in C**  -  which is most smallsat programmes that cannot afford Embedded Coder, and most research and academic projects.
 
 ```
 Hand-coded C algorithm (openobsw)
@@ -53,13 +53,13 @@ The question OpenSVF answers is different from Simulink Monte Carlo:
 | "What is the statistical performance of my design model?" | Simulink + Monte Carlo |
 | "What is the statistical performance of my actual flight C code?" | OpenSVF + Monte Carlo |
 
-The second question is arguably more honest — it tests the code that will actually fly, not a model of it.
+The second question is arguably more honest  -  it tests the code that will actually fly, not a model of it.
 
 ---
 
 ## Role of each component
 
-### opensvf-kde — spacecraft plant model
+### opensvf-kde  -  spacecraft plant model
 
 The C++ physics engine is a **plant model**, not an AOCS algorithm. It provides:
 - 6-DOF Euler equation integration
@@ -68,7 +68,7 @@ The C++ physics engine is a **plant model**, not an AOCS algorithm. It provides:
 
 It does **not** contain any control algorithm. It is the environment the flight software runs against.
 
-### openobsw — flight software under test
+### openobsw  -  flight software under test
 
 The C11 OBSW contains the actual flight algorithms:
 - B-dot detumbling controller (`src/aocs/bdot.c`)
@@ -78,18 +78,18 @@ The C11 OBSW contains the actual flight algorithms:
 
 These are hand-coded, not generated. They run on MSP430 hardware and in `obsw_sim` for SIL.
 
-### opensvf Python reference controllers — validation oracles
+### opensvf Python reference controllers  -  validation oracles
 
 The Python b-dot and ADCS implementations in opensvf are **reference oracles**, not flight code. They exist to validate the C implementations:
 
 ```python
-# This is NOT flight code — it is a validation oracle
+# This is NOT flight code  -  it is a validation oracle
 controller = make_bdot_controller(sync, store, cmd_store)
 ```
 
 A model comparison test asserts that for identical inputs, the C implementation and the Python oracle agree within numerical tolerance. This is the SIL equivalent of a MIL vs SIL comparison.
 
-### YAMCS — ground station validation
+### YAMCS  -  ground station validation
 
 YAMCS validates the **commanding interface**: that TC packets are correctly parsed, routed, and acknowledged, and that TM housekeeping flows correctly to the ground station. This is separate from AOCS validation.
 
@@ -132,10 +132,10 @@ This is supported by the existing infrastructure: `SeedManager`, `SimulationMast
 
 ## Design constraints
 
-**SRDB as the shared parameter contract.** Every parameter has one canonical name defined in SRDB. The OBSW, SVF, and YAMCS ground station all use the same names. Changing a parameter name in SRDB breaks the build — intentionally.
+**SRDB as the shared parameter contract.** Every parameter has one canonical name defined in SRDB. The OBSW, SVF, and YAMCS ground station all use the same names. Changing a parameter name in SRDB breaks the build  -  intentionally.
 
 **Equipment as the universal abstraction.** Every model is an Equipment. The simulation master doesn't know whether it's driving a Python sensor model, a C++ FMU, or a real C OBSW binary. Only the wiring YAML changes.
 
 **ObcInterface as the HIL plug-in point.** Swapping `ObcStub` for `OBCEmulatorAdapter` is one line. When Renode emulation is ready, it will be a third implementation of the same interface.
 
-**Deterministic by default.** Every run is reproducible. Stochastic models require explicit seed injection. This is a deliberate choice — non-deterministic test suites are unusable for flight software validation.
+**Deterministic by default.** Every run is reproducible. Stochastic models require explicit seed injection. This is a deliberate choice  -  non-deterministic test suites are unusable for flight software validation.

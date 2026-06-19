@@ -25,7 +25,7 @@ class FaultType(enum.Enum):
     """
     Bus-level fault types for FDIR testing.
 
-    These are injected at the bus adapter level — the Equipment
+    These are injected at the bus adapter level  -  the Equipment
     model never sees them. The OBC FDIR sees a bus-level anomaly.
     """
     NO_RESPONSE      = "no_response"    # RT does not respond
@@ -76,7 +76,7 @@ class Bus(Equipment):
     by overriding _declare_ports() and do_step().
 
     Fault injection pattern in test procedures:
-        # Via svf_command_schedule — fault at t=10s, 3s duration
+        # Via svf_command_schedule  -  fault at t=10s, 3s duration
         @pytest.mark.svf_command_schedule([
             (10.0, "bus.platform_1553.fault.rw1.no_response", 3.0),
         ])
@@ -152,7 +152,7 @@ class Bus(Equipment):
         )
 
     def _expire_faults(self, t: float) -> None:
-        """Remove expired faults — called at the start of each tick."""
+        """Remove expired faults  -  called at the start of each tick."""
         expired = [f for f in self._faults if f.is_expired(t)]
         for f in expired:
             self._faults.remove(f)

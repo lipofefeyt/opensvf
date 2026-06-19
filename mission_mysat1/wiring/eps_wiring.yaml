@@ -1,7 +1,7 @@
 # SVF EPS System Wiring
 # Connects SolarArray, Battery, and PCDU equipment.
 # Represents the physical electrical interfaces of the EPS.
-# Static topology — defined once, data propagates every tick.
+# Static topology  -  defined once, data propagates every tick.
 
 connections:
   # Solar array -> PCDU

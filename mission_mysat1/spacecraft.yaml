@@ -1,13 +1,13 @@
 version: 1
 spacecraft: MySat-1
 
-# OBC runs in stub mode — no compiled binary required.
+# OBC runs in stub mode  -  no compiled binary required.
 # Swap to 'pipe' or 'socket' when you have an openobsw binary.
 obsw:
   type: stub
 
 equipment:
-  # Dynamics (FMI 2.0 FMU from opensvf-kde — comment out if binary unavailable)
+  # Dynamics (FMI 2.0 FMU from opensvf-kde  -  comment out if binary unavailable)
   # - id: kde
   #   model: dynamics
 
@@ -40,8 +40,8 @@ equipment:
   - id: sbt
     model: sbt
 
-# 1553 bus — uncomment for bus-level integration tests (platform_campaign.yaml).
-# The quickstart campaign uses direct CommandStore injection — no bus needed.
+# 1553 bus  -  uncomment for bus-level integration tests (platform_campaign.yaml).
+# The quickstart campaign uses direct CommandStore injection  -  no bus needed.
 # buses:
 #   - id: aocs_bus
 #     type: mil1553

@@ -81,7 +81,7 @@ class TestParameterMonitorSuite:
         mon = ParameterMonitor(store, "x", greater_than=0.1, poll_interval=0.02)
         time.sleep(0.05)
 
-        # Inject violation — drop below threshold
+        # Inject violation  -  drop below threshold
         store.write("x", 0.05, t=1.0, model_id="test")
         time.sleep(0.1)
         result = mon.summary()

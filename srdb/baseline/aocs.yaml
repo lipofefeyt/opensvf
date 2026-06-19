@@ -1,4 +1,4 @@
-# SVF SRDB — AOCS Domain Baseline
+# SVF SRDB  -  AOCS Domain Baseline
 # Attitude and Orbit Control System parameters
 # PUS service assignments per ECSS-E-ST-70-41C (PUS-C)
 
@@ -696,7 +696,7 @@ parameters:
   # ── AOCS Control Parameters (S20 tunable gains) ────────────────────────────
 
   aocs.ctrl.bdot_gain:
-    description: B-dot controller gain k_bdot — m_cmd = -k * B_dot [Am2*s/T]
+    description: B-dot controller gain k_bdot  -  m_cmd = -k * B_dot [Am2*s/T]
     unit: Am2.s/T
     dtype: float
     classification: TC
@@ -726,7 +726,7 @@ parameters:
   # ── AOCS FDIR Thresholds (S20 tunable) ─────────────────────────────────────
 
   aocs.fdir.rate_ool_high:
-    description: Body rate OOL high threshold — safe mode trigger [rad/s]
+    description: Body rate OOL high threshold  -  safe mode trigger [rad/s]
     unit: rad/s
     dtype: float
     classification: TC
@@ -740,7 +740,7 @@ parameters:
       parameter_id: 0x20B0
 
   aocs.fdir.rate_ool_low:
-    description: Body rate OOL low threshold — safe mode trigger [rad/s]
+    description: Body rate OOL low threshold  -  safe mode trigger [rad/s]
     unit: rad/s
     dtype: float
     classification: TC

@@ -1,6 +1,6 @@
 """
 SVF Magnetorquer Equipment
-Magnetic torque actuator — generates torque by interacting
+Magnetic torque actuator  -  generates torque by interacting
 with the Earth's magnetic field.
 
 Physics:
@@ -46,16 +46,16 @@ def make_magnetorquer(
         hardware_dir:     Directory to search for profile YAML files.
 
     Inputs:
-        aocs.<id>.power_enable   — power on/off
-        aocs.<id>.dipole_x/y/z  — commanded dipole moments (Am²)
-        aocs.<id>.b_field_x/y/z — measured B field for torque calculation
+        aocs.<id>.power_enable    -  power on/off
+        aocs.<id>.dipole_x/y/z   -  commanded dipole moments (Am²)
+        aocs.<id>.b_field_x/y/z  -  measured B field for torque calculation
 
     Outputs:
-        aocs.<id>.torque_x/y/z  — generated torque (Nm) = dipole × B
-        aocs.<id>.status        — 0=off, 1=nominal
-        aocs.<id>.power_w       — power consumption (W)
+        aocs.<id>.torque_x/y/z   -  generated torque (Nm) = dipole × B
+        aocs.<id>.status         -  0=off, 1=nominal
+        aocs.<id>.power_w        -  power consumption (W)
     """
-    # Physics constants — per-instance locals
+    # Physics constants  -  per-instance locals
     max_dipole_am2  = 10.0
     temp_rise_coeff = 0.005
     resistance_ohm  = 5.0

@@ -1,4 +1,4 @@
-"""PUS Service 1 — Request Verification."""
+"""PUS Service 1  -  Request Verification."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from svf.pus.tm import PusTmPacket
 
 class PusService1:
     """
-    PUS Service 1 — Request Verification.
+    PUS Service 1  -  Request Verification.
 
     Generates TM(1,1) acceptance, TM(1,3) execution started,
     TM(1,7) completion success, TM(1,2/4/8) failure reports.
@@ -23,7 +23,7 @@ class PusService1:
         sequence_count: int,
         timestamp: int = 0,
     ) -> PusTmPacket:
-        """TM(1,1) — TC acceptance success."""
+        """TM(1,1)  -  TC acceptance success."""
         app_data = struct.pack(
             ">HH",
             tc.apid,
@@ -46,7 +46,7 @@ class PusService1:
         failure_code: int = 0,
         timestamp: int = 0,
     ) -> PusTmPacket:
-        """TM(1,2) — TC acceptance failure."""
+        """TM(1,2)  -  TC acceptance failure."""
         app_data = struct.pack(
             ">HHH",
             tc.apid,
@@ -69,7 +69,7 @@ class PusService1:
         sequence_count: int,
         timestamp: int = 0,
     ) -> PusTmPacket:
-        """TM(1,7) — TC execution completion success."""
+        """TM(1,7)  -  TC execution completion success."""
         app_data = struct.pack(
             ">HH",
             tc.apid,
@@ -92,7 +92,7 @@ class PusService1:
         failure_code: int = 0,
         timestamp: int = 0,
     ) -> PusTmPacket:
-        """TM(1,8) — TC execution completion failure."""
+        """TM(1,8)  -  TC execution completion failure."""
         app_data = struct.pack(
             ">HHH",
             tc.apid,

@@ -47,7 +47,7 @@ def test_bridge_accepts_yamcs_tm_connection() -> None:
     try:
         tm_sock.connect(("127.0.0.1", 10115))
         time.sleep(0.1)
-        # Connection accepted — no exception means pass
+        # Connection accepted  -  no exception means pass
     finally:
         tm_sock.close()
         bridge.stop()

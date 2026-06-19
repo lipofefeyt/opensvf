@@ -41,7 +41,7 @@ class P2_StarTrackerAcquisition(Procedure):
     requirement = "MIS-AOCS-002"
 
     def run(self, ctx: ProcedureContext) -> None:
-        self.step("Power on star tracker — sun at 90° (outside 30° exclusion)")
+        self.step("Power on star tracker  -  sun at 90° (outside 30° exclusion)")
         ctx.inject("aocs.str1.power_enable", 1.0)
         ctx.inject("aocs.str1.sun_angle",    90.0)
 

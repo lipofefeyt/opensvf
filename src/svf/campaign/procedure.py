@@ -64,7 +64,7 @@ class ProcedureResult:
     seed:           Optional[int] = None
 
     def summary(self) -> str:
-        lines = [f"Procedure: {self.procedure_id} — {self.title}", f"Verdict: {self.verdict.value}"]
+        lines = [f"Procedure: {self.procedure_id}  -  {self.title}", f"Verdict: {self.verdict.value}"]
         for step in self.steps:
             lines.append(f"  [{step.verdict.value}] {step.step_name}")
         return "\n".join(lines)
@@ -166,17 +166,17 @@ class ProcedureContext:
     Execution context passed to ``Procedure.run()``.
 
     Provides the interface between a test procedure and the running simulation.
-    Created by the campaign runner — do not instantiate directly.
+    Created by the campaign runner  -  do not instantiate directly.
 
     Key methods:
 
-    - ``inject(parameter, value)``    — write to CommandStore (equipment IN port)
-    - ``wait(seconds)``               — advance sim-time
-    - ``assert_parameter(...)``       — assert a ParameterStore value
-    - ``monitor(parameter, ...)``     — start a continuous background assertion
-    - ``tc(service, subservice)``     — send a PUS TC to the OBSW
-    - ``expect_tm(service, subsvc)``  — wait for a PUS TM response
-    - ``inject_equipment_fault(...)`` — inject a fault into an equipment model
+    - ``inject(parameter, value)``     -  write to CommandStore (equipment IN port)
+    - ``wait(seconds)``                -  advance sim-time
+    - ``assert_parameter(...)``        -  assert a ParameterStore value
+    - ``monitor(parameter, ...)``      -  start a continuous background assertion
+    - ``tc(service, subservice)``      -  send a PUS TC to the OBSW
+    - ``expect_tm(service, subsvc)``   -  wait for a PUS TM response
+    - ``inject_equipment_fault(...)``  -  inject a fault into an equipment model
     """
     def __init__(
         self,
@@ -301,7 +301,7 @@ class ProcedureContext:
         """
         Block until the simulation has advanced by ``seconds`` of sim-time.
 
-        In non-realtime mode the sim runs as fast as possible — this returns
+        In non-realtime mode the sim runs as fast as possible  -  this returns
         as soon as sim-time advances by the requested amount.
 
         Args:
@@ -374,7 +374,7 @@ class ProcedureContext:
         Inject a fault into an equipment model's port.
 
         Attaches an ``EquipmentFaultEngine`` to the target equipment and
-        activates the fault. The model is unaware — its ``do_step()`` runs
+        activates the fault. The model is unaware  -  its ``do_step()`` runs
         normally and port values are intercepted transparently.
 
         Args:
@@ -414,7 +414,7 @@ class Procedure:
     Subclass and set class attributes ``id``, ``title``, and ``requirement``,
     then implement ``run()`` using the ``ProcedureContext`` (``ctx``).
 
-    Call ``self.step()`` to mark logical test steps — each is recorded in
+    Call ``self.step()`` to mark logical test steps  -  each is recorded in
     the campaign report with its verdict. Raise ``ProcedureError`` (or let
     ``ctx.assert_parameter()`` raise it) to fail the current step. Unhandled
     exceptions produce an ERROR verdict.

@@ -8,7 +8,7 @@ Full closed-loop co-simulation:
       ↑ MTQ torques ← b-dot controller ← obsw reference algorithm
 
 Validates the complete model chain end-to-end with real physics.
-Does NOT require obsw_sim — uses SVF reference b-dot controller.
+Does NOT require obsw_sim  -  uses SVF reference b-dot controller.
 
 Implements: KDE-001, KDE-002, KDE-003, KDE-004, SVF-DEV-061
 """
@@ -34,7 +34,7 @@ KDE_FMU = Path("models/SpacecraftDynamics.fmu")
 
 pytestmark = pytest.mark.skipif(
     not KDE_FMU.exists(),
-    reason="SpacecraftDynamics.fmu not found — build opensvf-kde first"
+    reason="SpacecraftDynamics.fmu not found  -  build opensvf-kde first"
 )
 
 
@@ -69,7 +69,7 @@ def make_closed_loop_system(
         Path("mission_mysat1/wiring/kde_wiring.yaml")
     )
 
-    # KDE runs first — produces true state for sensors
+    # KDE runs first  -  produces true state for sensors
     master = SimulationMaster(
         tick_source=SoftwareTickSource(),
         sync_protocol=sync,
@@ -88,7 +88,7 @@ def make_closed_loop_system(
     cmd_store.inject("aocs.gyro.power_enable", 1.0, source_id="test")
     cmd_store.inject("aocs.bdot.enable",       1.0, source_id="test")
 
-    # KDE will provide true B field — no need to inject manually
+    # KDE will provide true B field  -  no need to inject manually
 
     return master, store, cmd_store
 
@@ -165,7 +165,7 @@ def test_kde_mag_reads_true_b_field() -> None:
 @pytest.mark.requirement("KDE-001", "KDE-003", "KDE-004", "SVF-DEV-061")
 def test_kde_closed_loop_bdot_generates_torque() -> None:
     """
-    TC-KDE-005: Full closed loop — KDE → MAG → b-dot → MTQ → torque back to KDE.
+    TC-KDE-005: Full closed loop  -  KDE → MAG → b-dot → MTQ → torque back to KDE.
     MTQ generates non-zero torque when b-dot controller active.
     """
     master, store, cmd_store = make_closed_loop_system(

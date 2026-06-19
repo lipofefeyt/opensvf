@@ -43,12 +43,12 @@ class CommandStore:
 
     Test procedures inject commands here. Model adapters consume them
     via take() before each tick. Architecturally separate from
-    ParameterStore — TM and TC are never mixed.
+    ParameterStore  -  TM and TC are never mixed.
 
     Optionally accepts an Srdb instance for runtime validation:
       - Warns when a TM-classified parameter is injected as a command
 
-    Warnings are logged, never raised — the command is still stored.
+    Warnings are logged, never raised  -  the command is still stored.
     """
 
     def __init__(self, srdb: Optional[Srdb] = None) -> None:
@@ -82,7 +82,7 @@ class CommandStore:
                 if defn.classification == Classification.TM:
                     logger.warning(
                         f"[SRDB] '{source_id}' injected command to "
-                        f"TM-classified parameter '{name}' — "
+                        f"TM-classified parameter '{name}'  -  "
                         f"TM/TC separation violation"
                     )
                 if defn.valid_range is not None:

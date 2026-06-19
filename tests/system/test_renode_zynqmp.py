@@ -109,7 +109,7 @@ class TestRenodeZynqmpSuite:
         if not _renode_running():
             pytest.skip(f"Renode not running on {RENODE_HOST}:{RENODE_PORT}")
 
-        # TC(17,1) are-you-alive — APID 0x010, PUS-C
+        # TC(17,1) are-you-alive  -  APID 0x010, PUS-C
         raw = _send_tc_recv("1810c0000003201101" + "00", wait=1.0)
 
         packets = _parse_tm_packets(raw)

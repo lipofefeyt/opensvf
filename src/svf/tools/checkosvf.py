@@ -1,4 +1,4 @@
-"""Entry point for checkosvf — runs mypy strict type check over src/."""
+"""Entry point for checkosvf  -  runs mypy strict type check over src/."""
 import subprocess
 import sys
 

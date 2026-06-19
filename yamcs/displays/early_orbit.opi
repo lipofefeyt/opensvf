@@ -117,7 +117,7 @@ TC_20_3_GetBdotGain  →  readback</text>
   <widget typeId="org.csstudio.opibuilder.widgets.Label">
     <name>mtq_section</name>
     <x>330</x><y>72</y><width>550</width><height>16</height>
-    <text>MTQ DIPOLE COMMANDS  [A·m²]  —  Controller Output</text>
+    <text>MTQ DIPOLE COMMANDS  [A·m²]   -   Controller Output</text>
     <font><fontdata fontName="Liberation Mono" height="8" style="1"/></font>
     <foreground_color><color red="136" green="153" blue="187"/></foreground_color>
     <background_color><color red="30" green="45" blue="72"/></background_color>
@@ -210,7 +210,7 @@ TC_20_3_GetBdotGain  →  readback</text>
   <widget typeId="org.csstudio.opibuilder.widgets.Label">
     <name>trend_section</name>
     <x>16</x><y>244</y><width>860</width><height>16</height>
-    <text>LIVE TREND  —  MTQ Dipole Commands  (gain uplink will produce a visible step)</text>
+    <text>LIVE TREND   -   MTQ Dipole Commands  (gain uplink will produce a visible step)</text>
     <font><fontdata fontName="Liberation Mono" height="8" style="1"/></font>
     <foreground_color><color red="136" green="153" blue="187"/></foreground_color>
     <background_color><color red="26" green="32" blue="53"/></background_color>

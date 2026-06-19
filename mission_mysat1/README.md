@@ -1,10 +1,10 @@
-# MySat-1 — Reference Mission
+# MySat-1  -  Reference Mission
 
 MySat-1 is the reference mission bundled with OpenSVF. It is a minimal 3U
 CubeSat configuration designed to demonstrate the full validation workflow
 from written requirements through test procedures to an HTML campaign report.
 
-It runs entirely in **stub mode** — no compiled flight software binary or
+It runs entirely in **stub mode**  -  no compiled flight software binary or
 FMU physics engine needed. Clone the repo and run the campaign immediately.
 
 ---
@@ -18,7 +18,7 @@ open results/quickstart_campaign_report.html
 ```
 
 The report shows four PASS verdicts for AOCS requirements and four UNCOVERED
-entries for EPS requirements — exactly where the gap is.
+entries for EPS requirements  -  exactly where the gap is.
 
 ---
 
@@ -30,7 +30,7 @@ mission_mysat1/
 ├── requirements.md              Mission requirements (what we are validating)
 │
 ├── campaigns/
-│   ├── quickstart_campaign.yaml 4 AOCS procedures — run this first
+│   ├── quickstart_campaign.yaml 4 AOCS procedures  -  run this first
 │   ├── aocs_campaign.yaml       Full AOCS suite
 │   ├── eps_campaign.yaml        EPS procedures (add EPS models first)
 │   └── platform_campaign.yaml   OBC/PUS closed-loop scenarios
@@ -55,7 +55,7 @@ OpenSVF follows a requirements → procedures → evidence chain:
 ### 1. Requirements (`requirements.md`)
 
 Every procedure maps to exactly one requirement. The requirement is written
-as a verifiable statement — something the simulation can either confirm or
+as a verifiable statement  -  something the simulation can either confirm or
 refute.
 
 ```
@@ -66,7 +66,7 @@ MIS-AOCS-001: The AOCS sensor suite shall reach nominal status within
 ### 2. Spacecraft configuration (`spacecraft.yaml`)
 
 Declares which equipment models are in the simulation and how they connect.
-MySat-1 uses stub OBC mode — the OBC is rule-based with no real binary.
+MySat-1 uses stub OBC mode  -  the OBC is rule-based with no real binary.
 
 ```yaml
 obsw:
@@ -121,7 +121,7 @@ Key `ProcedureContext` methods:
 
 ### 4. Campaign YAML (`campaigns/quickstart_campaign.yaml`)
 
-Declares which procedures to run and — critically — which requirements this
+Declares which procedures to run and  -  critically  -  which requirements this
 campaign is responsible for. Any declared requirement with no covering
 procedure appears as **UNCOVERED** in the HTML report.
 
@@ -134,7 +134,7 @@ requirements:
   - MIS-AOCS-002   # covered by TC-AOCS-002
   - MIS-AOCS-003   # covered by TC-AOCS-003
   - MIS-AOCS-004   # covered by TC-FAULT-001
-  - MIS-EPS-001    # UNCOVERED — no EPS procedure yet
+  - MIS-EPS-001    # UNCOVERED  -  no EPS procedure yet
   - MIS-EPS-002    # UNCOVERED
   - MIS-EPS-003    # UNCOVERED
   - MIS-EPS-004    # UNCOVERED
@@ -163,7 +163,7 @@ The HTML report (`results/quickstart_campaign_report.html`) shows:
 
 ## Hardware profiles
 
-Equipment physics are parameterised by hardware profiles — YAML files that
+Equipment physics are parameterised by hardware profiles  -  YAML files that
 set noise levels, saturation limits, thermal constants, and so on.
 
 ```bash

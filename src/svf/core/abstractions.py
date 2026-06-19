@@ -21,7 +21,7 @@ class TickSource(ABC):
 
     The TickSource is responsible for determining when the next tick
     should occur and notifying the SimulationMaster. The master never
-    advances time on its own — it always waits for the TickSource.
+    advances time on its own  -  it always waits for the TickSource.
 
     Swap SoftwareTickSource for RealtimeTickSource to go real-time
     without changing anything else.
@@ -74,7 +74,7 @@ class SyncProtocol(ABC):
     def publish_ready(self, model_id: str, t: float) -> None:
         """
         Publish a readiness acknowledgement for the given model and time.
-        Called by the ModelAdapter itself after on_tick() completes —
+        Called by the ModelAdapter itself after on_tick() completes  - 
         never by the SimulationMaster.
 
         Args:

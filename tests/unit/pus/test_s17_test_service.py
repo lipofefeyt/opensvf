@@ -1,5 +1,5 @@
 """
-Tests for PUS Service 17 — Test (are-you-alive).
+Tests for PUS Service 17  -  Test (are-you-alive).
 Implements: PUS-007
 """
 

@@ -24,7 +24,7 @@ from svf.stores.command_store import CommandStore
 
 logger = logging.getLogger(__name__)
 
-# UVLO threshold — disconnect loads below this battery voltage
+# UVLO threshold  -  disconnect loads below this battery voltage
 UVLO_THRESHOLD_V    = 3.1
 
 # Maximum charge current
@@ -38,7 +38,7 @@ MPPT_PEAK_ILL       = 0.7
 # Number of LCLs
 N_LCLS              = 8
 
-# Nominal load per LCL when enabled (W) — simplified equal distribution
+# Nominal load per LCL when enabled (W)  -  simplified equal distribution
 LCL_NOMINAL_LOAD_W  = 5.0
 
 
@@ -60,7 +60,7 @@ def make_pcdu(
 ) -> NativeEquipment:
     """Create a PCDU NativeEquipment with 8 LCLs."""
 
-    # LCL state — captured in closure
+    # LCL state  -  captured in closure
     lcl_state: dict[str, float] = {
         f"lcl{i}": 1.0 for i in range(1, N_LCLS + 1)  # all on by default
     }

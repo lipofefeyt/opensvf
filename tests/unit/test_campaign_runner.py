@@ -218,7 +218,7 @@ class TestCampaignReportUnit:
 
     @pytest.mark.requirement("SVF-DEV-158")
     def test_failed_requirement_not_uncovered(self) -> None:
-        """A FAILED procedure counts as 'attempted' — not UNCOVERED."""
+        """A FAILED procedure counts as 'attempted'  -  not UNCOVERED."""
         report = CampaignReport(
             campaign_name="Test",
             spacecraft="spacecraft.yaml",

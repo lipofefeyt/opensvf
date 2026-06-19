@@ -18,7 +18,7 @@ class _NoSync(SyncProtocol):
 
 
 def make_minimal_master() -> tuple[Any, ParameterStore, CommandStore]:
-    """Return a minimal (store, cmd_store) pair — master is None for unit tests."""
+    """Return a minimal (store, cmd_store) pair  -  master is None for unit tests."""
     store     = ParameterStore()
     cmd_store = CommandStore()
     return None, store, cmd_store

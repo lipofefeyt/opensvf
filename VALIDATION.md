@@ -1,6 +1,6 @@
 # OpenSVF Validation Strategy
 
-> **Status:** v1.0 — 2026-04
+> **Status:** v1.0  -  2026-04
 > **Author:** lipofefeyt
 
 ---
@@ -14,19 +14,19 @@ listed in `KNOWN_GAPS` with an explicit justification.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Level 4 — Operator Campaigns                           │
+│  Level 4  -  Operator Campaigns                           │
 │  Validates OBSW behaviour using the validated SVF       │
 │  mission_mysat1/campaigns/    svf campaign ...          │
 ├─────────────────────────────────────────────────────────┤
-│  Level 3 — System Tests                                 │
+│  Level 3  -  System Tests                                 │
 │  Full spacecraft, all blocks, real binaries             │
 │  tests/system/              pytest tests/system/        │
 ├─────────────────────────────────────────────────────────┤
-│  Level 2 — Integration Tests                            │
+│  Level 2  -  Integration Tests                            │
 │  Two or more SVF blocks together                        │
 │  tests/integration/           testosvf                  │
 ├─────────────────────────────────────────────────────────┤
-│  Level 1 — Unit Tests                                   │
+│  Level 1  -  Unit Tests                                   │
 │  Individual SVF classes in isolation, no binaries       │
 │  tests/unit/                          testosvf          │
 └─────────────────────────────────────────────────────────┘
@@ -37,7 +37,7 @@ listed in `KNOWN_GAPS` with an explicit justification.
 - Levels 1–3 validate **OpenSVF itself** against `SVF-DEV-*`, `EQP-*`,
   `EPS-*`, `PUS-*`, `1553-*`, and `KDE-*` requirements.
 - Level 4 validates **the operator's OBSW** using OpenSVF as a tool.
-  These campaigns are not SVF self-validation — they produce V&V evidence
+  These campaigns are not SVF self-validation  -  they produce V&V evidence
   for the OBSW under test.
 
 Monte Carlo runs, realtime detumbling experiments, and parameter sweeps
@@ -46,7 +46,7 @@ in this document.
 
 ---
 
-## Level 1 — Unit Tests
+## Level 1  -  Unit Tests
 
 **What:** Individual SVF classes tested in isolation with no real physics,
 no DDS, and no flight binary.
@@ -62,7 +62,7 @@ no DDS, and no flight binary.
 | `test_parameter_store.py` | ParameterStore thread-safety, read/write, snapshot | SVF-DEV-031/032/033 |
 | `test_command_store.py` | CommandStore inject/take atomicity | SVF-DEV-035/036 |
 | `test_equipment_contract.py` | Equipment port direction, default values, NativeEquipment teardown | EQP-001 through EQP-006, EQP-011, EQP-012 |
-| `test_equipment_fault.py` | EquipmentFaultEngine — stuck, noise, bias, scale, fail | SVF-DEV-132 |
+| `test_equipment_fault.py` | EquipmentFaultEngine  -  stuck, noise, bias, scale, fail | SVF-DEV-132 |
 | `test_temporal_monitor.py` | ParameterMonitor threshold checking, violations | SVF-DEV-131 |
 | `test_mil1553.py` | MIL-STD-1553B routing, broadcast, fault injection | 1553-001 through 1553-010 |
 | `test_can.py` | CAN 2.0B bus routing, fault injection | SVF-DEV-038 |
@@ -77,7 +77,7 @@ no DDS, and no flight binary.
 | `test_srdb_validation.py` | SRDB range violation warnings, TC/TM classification | SVF-DEV-094/095 |
 | `test_spacecraft_loader.py` | SpacecraftLoader YAML → SimulationMaster | SVF-DEV-110 |
 | `test_campaign_runner.py` | CampaignRunner execution, verdicts, pass rate | SVF-DEV-050 through SVF-DEV-054, SVF-DEV-121 |
-| `test_procedure.py` | Procedure API — steps, assert_parameter, monitor | SVF-DEV-040/041/042/043/044 |
+| `test_procedure.py` | Procedure API  -  steps, assert_parameter, monitor | SVF-DEV-040/041/042/043/044 |
 | `test_procedure_tc_tm.py` | ctx.tc() / ctx.expect_tm() PUS commanding | SVF-DEV-037 |
 | `test_report.py` | HTML campaign report generation, traceability | SVF-DEV-071/073/074/075/122 |
 | `test_monte_carlo.py` | MonteCarloRunner parallel execution, metrics | SVF-DEV-120 |
@@ -97,10 +97,10 @@ no DDS, and no flight binary.
 
 ---
 
-## Level 2 — Integration Tests
+## Level 2  -  Integration Tests
 
 **What:** Two or more SVF blocks operating together. No real flight binary
-— the OBC is either a stub or a simulated model. Tests DDS synchronisation,
+ -  the OBC is either a stub or a simulated model. Tests DDS synchronisation,
 wiring propagation, and equipment handshake.
 
 **Run with:** `testosvf`
@@ -117,11 +117,11 @@ wiring propagation, and equipment handshake.
 | `test_wiring_integration.py` | WiringMap auto-propagation between Equipment instances | SVF-DEV-004 |
 | `test_dynamics_bridge.py` | KDE FMU ↔ sensor models data flow (MAG/GYRO truth pass-through) | KDE-001/002/003/004 |
 | `test_closed_loop_detumbling.py` | KDE FMU + magnetometer + gyroscope + magnetorquer closed-loop physics | KDE-001/002/003/004, SVF-DEV-001/004 |
-| `test_yamcs_bridge.py` | YAMCS TM/TC bridge — parameter store ↔ YAMCS telemetry | SVF-DEV-037 |
+| `test_yamcs_bridge.py` | YAMCS TM/TC bridge  -  parameter store ↔ YAMCS telemetry | SVF-DEV-037 |
 
 ---
 
-## Level 3 — System Tests
+## Level 3  -  System Tests
 
 **What:** Full spacecraft simulation with all blocks connected and a real
 flight binary (`obsw_sim`, `obsw_sim_aarch64`, or ZynqMP in Renode).
@@ -134,13 +134,13 @@ and are excluded from the default `testosvf` run via `norecursedirs`.
 
 | Test file | What it validates | Requirements | Requires |
 |---|---|---|---|
-| `test_obc_emulator.py` | OBCEmulatorAdapter pipe mode — wire protocol, sensor injection, TM parsing | SVF-DEV-029/034/037 | `bin/obsw_sim` |
+| `test_obc_emulator.py` | OBCEmulatorAdapter pipe mode  -  wire protocol, sensor injection, TM parsing | SVF-DEV-029/034/037 | `bin/obsw_sim` |
 | `test_obc_emulator_adapter.py` | OBCEmulatorAdapter full tick cycle, mode transitions via S5 events | SVF-DEV-029/034/037 | `bin/obsw_sim` |
-| `test_kde_obsw_closed_loop.py` | KDE FMU + obsw_sim b-dot closed loop — angular rate convergence | KDE-001/002/003/004 | `bin/obsw_sim` |
-| `test_kde_obsw_adcs_closed_loop.py` | KDE FMU + obsw_sim ADCS PD controller closed loop — attitude tracking | KDE-001/002/003/004 | `bin/obsw_sim` |
-| `test_aarch64_obsw.py` | obsw_sim_aarch64 under QEMU user-mode — wire protocol identical to x86_64 | SVF-DEV-100 | `bin/obsw_sim_aarch64`, `qemu-aarch64` |
-| `test_realtime_detumbling.py` | Realtime tick source — wall-clock synchronisation under load | SVF-DEV-089 | `bin/obsw_sim` |
-| `test_renode_zynqmp.py` | OBCEmulatorAdapter socket mode — TC(17,1) ping/pong via Renode UART | SVF-DEV-101 | `renode`, `bin/obsw_zynqmp.bin` |
+| `test_kde_obsw_closed_loop.py` | KDE FMU + obsw_sim b-dot closed loop  -  angular rate convergence | KDE-001/002/003/004 | `bin/obsw_sim` |
+| `test_kde_obsw_adcs_closed_loop.py` | KDE FMU + obsw_sim ADCS PD controller closed loop  -  attitude tracking | KDE-001/002/003/004 | `bin/obsw_sim` |
+| `test_aarch64_obsw.py` | obsw_sim_aarch64 under QEMU user-mode  -  wire protocol identical to x86_64 | SVF-DEV-100 | `bin/obsw_sim_aarch64`, `qemu-aarch64` |
+| `test_realtime_detumbling.py` | Realtime tick source  -  wall-clock synchronisation under load | SVF-DEV-089 | `bin/obsw_sim` |
+| `test_renode_zynqmp.py` | OBCEmulatorAdapter socket mode  -  TC(17,1) ping/pong via Renode UART | SVF-DEV-101 | `renode`, `bin/obsw_zynqmp.bin` |
 
 **Setup for system tests:**
 
@@ -158,10 +158,10 @@ pytest tests/system/test_renode_zynqmp.py -v
 
 ---
 
-## Level 4 — Operator Campaigns
+## Level 4  -  Operator Campaigns
 
 **What:** The operator uses the validated SVF to run campaigns that
-validate their own OBSW. These are not SVF self-validation — they produce
+validate their own OBSW. These are not SVF self-validation  -  they produce
 V&V evidence for the OBSW under test.
 
 **Run with:** `svf campaign <campaign.yaml> [--report]`
@@ -175,7 +175,7 @@ V&V evidence for the OBSW under test.
 | `dhs_campaign.yaml` | 3 | MIS-FDIR-001/002, OBC-001 | OBC boot, mode transition, watchdog |
 | `platform_campaign.yaml` | 2 | MIS-PLAT-* | Platform health, bus routing |
 | `freertos_campaign.yaml` | 3 | MIS-RTOS-001/002/003 | Tick timing, SRDB namespace, FreeRTOS diagnostic counters (stub + pipe/socket) |
-| `freertos_hil_campaign.yaml` | 4 | MIS-HIL-001/002/003/004 | Ping/pong, HK telemetry, tick sync stability, no FreeRTOS faults — INCONCLUSIVE until `bin/obsw_sim` present; swap to `spacecraft_hil.yaml` for real verdicts |
+| `freertos_hil_campaign.yaml` | 4 | MIS-HIL-001/002/003/004 | Ping/pong, HK telemetry, tick sync stability, no FreeRTOS faults  -  INCONCLUSIVE until `bin/obsw_sim` present; swap to `spacecraft_hil.yaml` for real verdicts |
 
 **To add your own OBSW campaign:**
 
@@ -184,7 +184,7 @@ V&V evidence for the OBSW under test.
 3. Run `svf campaign your_mission/campaigns/your_campaign.yaml --report`
 
 Each procedure must reference at least one requirement ID. Campaigns that
-do not trace to requirements are not validation — they are exploration.
+do not trace to requirements are not validation  -  they are exploration.
 
 ---
 
@@ -193,11 +193,11 @@ do not trace to requirements are not validation — they are exploration.
 The following are engineering tools and do not appear in the validation
 pyramid:
 
-- **Monte Carlo runs** — parameter sensitivity analysis, not requirement
+- **Monte Carlo runs**  -  parameter sensitivity analysis, not requirement
   verification. Use `MonteCarloRunner` directly in scripts.
-- **Realtime experiments** — wall-clock timing benchmarks. Not a
+- **Realtime experiments**  -  wall-clock timing benchmarks. Not a
   functional requirement.
-- **Example campaigns** — demonstration artefacts with no requirement
+- **Example campaigns**  -  demonstration artefacts with no requirement
   traceability.
 
 ---

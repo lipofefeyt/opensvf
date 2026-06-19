@@ -1,4 +1,4 @@
-"""PUS Service 19 — Event-Action Service."""
+"""PUS Service 19  -  Event-Action Service."""
 
 from __future__ import annotations
 
@@ -75,13 +75,13 @@ class EventActionService:
 
 class PusService19:
     """
-    PUS Service 19 — Event-Action Service.
+    PUS Service 19  -  Event-Action Service.
 
-    TC(19,1) — Add Event-Action Definition
-    TC(19,2) — Delete Event-Action Definition
-    TC(19,3) — Delete All Event-Action Definitions
-    TC(19,4) — Enable Event-Action Definitions
-    TC(19,5) — Disable Event-Action Definitions
+    TC(19,1)  -  Add Event-Action Definition
+    TC(19,2)  -  Delete Event-Action Definition
+    TC(19,3)  -  Delete All Event-Action Definitions
+    TC(19,4)  -  Enable Event-Action Definitions
+    TC(19,5)  -  Disable Event-Action Definitions
 
     TC(19,1) app_data format:
         2B uint16  event_id

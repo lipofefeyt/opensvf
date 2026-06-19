@@ -1,5 +1,5 @@
 """
-SVF SRDB — Parameter Definition Schema
+SVF SRDB  -  Parameter Definition Schema
 Core dataclasses for spacecraft parameter definitions.
 Inspired by ECSS-E-TM-10-23 and the Astrium SRDB Next Generation.
 
@@ -20,8 +20,8 @@ class Classification(enum.Enum):
     """
     TM/TC classification of a parameter.
 
-    TM: Telemetry — written by models, read by test procedures and reporters.
-    TC: Telecommand — written by test procedures, consumed by model adapters.
+    TM: Telemetry  -  written by models, read by test procedures and reporters.
+    TC: Telecommand  -  written by test procedures, consumed by model adapters.
 
     Mirrors the fundamental TM/TC separation in real spacecraft architecture.
     """
@@ -109,7 +109,7 @@ class CalibrationCurve:
             for i, coeff in enumerate(self.coefficients):
                 result += coeff * (raw ** i)
             return result
-        # table — piecewise linear, clamped at extremes
+        # table  -  piecewise linear, clamped at extremes
         pts = self.table
         if raw <= pts[0][0]:
             return pts[0][1]

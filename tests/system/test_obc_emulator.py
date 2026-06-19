@@ -3,7 +3,7 @@ SVF OBC Emulator Integration Test
 Validates OBCEmulatorAdapter with real obsw_sim binary.
 
 Skipped automatically if obsw_sim binary not found.
-This is the Level 4 system validation — real OBSW under test.
+This is the Level 4 system validation  -  real OBSW under test.
 
 Implements: SVF-DEV-029, SVF-DEV-034, SVF-DEV-037
 """
@@ -33,7 +33,7 @@ OBSW_SIM = next(
 
 pytestmark = pytest.mark.skipif(
     not OBSW_SIM.exists(),
-    reason="obsw_sim binary not found — build openobsw first"
+    reason="obsw_sim binary not found  -  build openobsw first"
 )
 
 RW_MAP = {
@@ -116,7 +116,7 @@ def test_emulator_responds_to_s17_ping() -> None:
     # Inject via stdin directly before simulation
     master.run()
 
-    # OBC should have responded with TM(17,2) — check TM seq advanced
+    # OBC should have responded with TM(17,2)  -  check TM seq advanced
     tm_out = store.read("obc.tm_output")
     assert tm_out is not None
     assert tm_out.value > 0.0
@@ -127,7 +127,7 @@ def test_emulator_mode_reported_via_s5_events() -> None:
     """
     TC-EMU-003: OBSW mode reflected in dhs.obc.mode OUT port
     via S5 event parsing.
-    OBC starts in SAFE — mode port should reflect SAFE.
+    OBC starts in SAFE  -  mode port should reflect SAFE.
     """
     master, store, cmd_store, obc = make_emulator_system(stop_time=3.0)
     master.run()

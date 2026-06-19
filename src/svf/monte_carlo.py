@@ -223,7 +223,7 @@ class MonteCarloRunner:
         t_start = time.monotonic()
 
         if self._n_workers == 1:
-            # Sequential — simpler, better for debugging
+            # Sequential  -  simpler, better for debugging
             for i, seed in enumerate(seeds):
                 result = self._run_one(seed)
                 results.append(result)

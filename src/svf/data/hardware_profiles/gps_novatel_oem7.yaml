@@ -1,6 +1,6 @@
 hardware_id: gps_novatel_oem7
 type: gps
-description: "NovAtel OEM7 GNSS receiver — high accuracy"
+description: "NovAtel OEM7 GNSS receiver  -  high accuracy"
 vendor: novatel
 params:
   position_noise_m: 1.5

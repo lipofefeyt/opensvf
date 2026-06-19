@@ -8,13 +8,13 @@ Run your first campaign against your own C flight software binary in under 15 mi
 
 - Your flight software compiled as an x86\_64 (or aarch64) Linux executable
 - Python 3.10+, `pip install opensvf`
-- Your binary must implement the **SVF wire protocol** (described below — it's small)
+- Your binary must implement the **SVF wire protocol** (described below  -  it's small)
 
 If you don't have a binary yet, work through the [MySat-1 quickstart](quickstart-mysat1.md) first to learn the campaign runner with a stub OBC.
 
 ---
 
-## Step 1 — Install
+## Step 1  -  Install
 
 ```bash
 pip install opensvf
@@ -22,7 +22,7 @@ pip install opensvf
 
 ---
 
-## Step 2 — Wire protocol (implement this in your binary)
+## Step 2  -  Wire protocol (implement this in your binary)
 
 OpenSVF and your binary communicate over **stdin/stdout** using typed binary frames.
 
@@ -30,7 +30,7 @@ OpenSVF and your binary communicate over **stdin/stdout** using typed binary fra
 
 Every simulation tick SVF sends two frames in order:
 
-**Frame type 0x02 — sensor data**
+**Frame type 0x02  -  sensor data**
 
 ```
 [0x02] [uint16 BE length] [obsw_sensor_frame_t]
@@ -51,7 +51,7 @@ typedef struct __attribute__((packed)) {
 } obsw_sensor_frame_t;
 ```
 
-**Frame type 0x01 — telecommand**
+**Frame type 0x01  -  telecommand**
 
 ```
 [0x01] [uint16 BE length] [PUS-C TC bytes]
@@ -108,7 +108,7 @@ int main(void) {
         uint8_t type = svf_read_frame(buf, &len);
 
         if (type == FRAME_SENSOR) {
-            // Parse obsw_sensor_frame_t from buf — float fields, little-endian
+            // Parse obsw_sensor_frame_t from buf  -  float fields, little-endian
             float sim_time;
             memcpy(&sim_time, buf + 43, 4);   // last field
             // ... your OBSW logic here ...
@@ -123,11 +123,11 @@ int main(void) {
 ```
 
 !!! tip
-    aarch64 binaries are auto-detected and run via QEMU — no config change needed.
+    aarch64 binaries are auto-detected and run via QEMU  -  no config change needed.
 
 ---
 
-## Step 3 — spacecraft.yaml
+## Step 3  -  spacecraft.yaml
 
 Create `my_mission/spacecraft.yaml`:
 
@@ -170,7 +170,7 @@ svf validate my_mission/spacecraft.yaml
 
 ---
 
-## Step 4 — Write a procedure
+## Step 4  -  Write a procedure
 
 Create `my_mission/procedures/smoke_test.py`:
 
@@ -197,7 +197,7 @@ class SmokeTest(Procedure):
 
 ---
 
-## Step 5 — campaign.yaml
+## Step 5  -  campaign.yaml
 
 Create `my_mission/campaign.yaml`:
 
@@ -212,7 +212,7 @@ procedures:
 
 ---
 
-## Step 6 — Run
+## Step 6  -  Run
 
 ```bash
 svf campaign my_mission/campaign.yaml --report

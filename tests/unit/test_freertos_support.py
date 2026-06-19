@@ -2,9 +2,9 @@
 Unit tests for FreeRTOS support additions (M43).
 
 Groups:
-  G1 — TC burst guard (SVF-DEV-176)
-  G2 — Tick stats + equipment timeout (SVF-DEV-177, SVF-DEV-178)
-  G3 — FreeRTOS UART diagnostics (SVF-DEV-179)
+  G1  -  TC burst guard (SVF-DEV-176)
+  G2  -  Tick stats + equipment timeout (SVF-DEV-177, SVF-DEV-178)
+  G3  -  FreeRTOS UART diagnostics (SVF-DEV-179)
 """
 from __future__ import annotations
 
@@ -109,7 +109,7 @@ class FreeRTOSTcGuardSuite:
         """_send_tcs() warns when frames exceed _FREERTOS_TC_QUEUE_DEPTH.
 
         Patching the constant to 0 means the single heartbeat ping always
-        triggers the guard — tests the warning branch without needing >4
+        triggers the guard  -  tests the warning branch without needing >4
         simultaneous port commands.
         """
         obc = _make_obc()

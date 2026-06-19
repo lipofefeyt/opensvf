@@ -45,7 +45,7 @@ class ParameterStore:
       - Warns when a value falls outside valid_range
       - Warns when a TC-classified parameter is written by a model
 
-    Warnings are logged, never raised as exceptions — the simulation
+    Warnings are logged, never raised as exceptions  -  the simulation
     continues regardless of validation findings.
 
     Usage:
@@ -86,7 +86,7 @@ class ParameterStore:
                 if defn.classification == Classification.TC:
                     logger.warning(
                         f"[SRDB] Model '{model_id}' wrote to TC-classified "
-                        f"parameter '{name}' — TM/TC separation violation"
+                        f"parameter '{name}'  -  TM/TC separation violation"
                     )
                 # Check valid range
                 if not defn.is_in_range(value):

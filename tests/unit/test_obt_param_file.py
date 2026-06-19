@@ -1,5 +1,5 @@
 """
-Unit tests for ObtParamFile — time-tagged parameter initialisation.
+Unit tests for ObtParamFile  -  time-tagged parameter initialisation.
 Implements: SVF-DEV-149, SVF-DEV-150, SVF-DEV-151
 """
 from __future__ import annotations
@@ -166,7 +166,7 @@ def test_entries_due_reset_replays(tmp_path: Path) -> None:
 def test_obt_path_resolved_relative_to_yaml_dir(tmp_path: Path) -> None:
     """
     The path written in spacecraft.yaml is resolved relative to the YAML
-    directory — matching what SpacecraftLoader does with (path.parent / obt_init_path).
+    directory  -  matching what SpacecraftLoader does with (path.parent / obt_init_path).
     """
     init_tsv = tmp_path / "init.tsv"
     init_tsv.write_text("0.0\tparam.x\t42.0\n")

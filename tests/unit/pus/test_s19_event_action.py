@@ -46,7 +46,7 @@ def test_s19_build_and_parse_add_roundtrip() -> None:
 @pytest.mark.requirement("SVF-DEV-165")
 def test_s19_parse_add_short_raises() -> None:
     tc = PusTcPacket(apid=0x100, sequence_count=1, service=19, subservice=1,
-                     app_data=b"\x00\x01")  # 2 bytes — no TC payload
+                     app_data=b"\x00\x01")  # 2 bytes  -  no TC payload
     with pytest.raises(ValueError, match="too short"):
         PusService19.parse_add(tc)
 

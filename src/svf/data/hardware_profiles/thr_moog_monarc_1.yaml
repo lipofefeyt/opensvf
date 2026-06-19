@@ -1,6 +1,6 @@
 hardware_id: thr_moog_monarc_1
 type: thruster
-description: "Moog Monarc-1 monopropellant hydrazine thruster — 1 N"
+description: "Moog Monarc-1 monopropellant hydrazine thruster  -  1 N"
 vendor: moog
 params:
   max_thrust_n: 1.0

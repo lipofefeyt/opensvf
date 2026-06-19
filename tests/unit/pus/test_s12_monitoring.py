@@ -154,7 +154,7 @@ def test_monitor_low_limit_fires_once_on_entry() -> None:
     event_id = struct.unpack_from(">H", tms[0].app_data)[0]
     assert event_id == 0x1001
 
-    # Still OOL — no repeat
+    # Still OOL  -  no repeat
     tms2 = mon.check(store, 0x101, _seq, 1.0)
     assert tms2 == []
 
@@ -208,7 +208,7 @@ def test_monitor_unknown_parameter_skipped() -> None:
         event_id_low=1, event_id_high=2,
         severity=EventSeverity.LOW,
     ))
-    # Empty store — no entry → no crash, no event
+    # Empty store  -  no entry → no crash, no event
     tms = mon.check(ParameterStore(), 0x101, _seq, 0.0)
     assert tms == []
 

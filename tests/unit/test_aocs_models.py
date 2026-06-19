@@ -1,5 +1,5 @@
 """
-AOCS equipment model tests — multi-instance isolation and hardware profile application.
+AOCS equipment model tests  -  multi-instance isolation and hardware profile application.
 
 Two failure modes this suite guards against:
 1. Multiple instances of the same model corrupting each other's state (was caused by

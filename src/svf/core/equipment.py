@@ -27,22 +27,22 @@ logger = logging.getLogger(__name__)
 
 class PortDirection(enum.Enum):
     """Direction of an equipment port."""
-    IN  = "IN"   # Input — receives values from other equipment or test procedures
-    OUT = "OUT"  # Output — produces values read by other equipment or observables
+    IN  = "IN"   # Input  -  receives values from other equipment or test procedures
+    OUT = "OUT"  # Output  -  produces values read by other equipment or observables
 
 
 class InterfaceType(enum.Enum):
     """
     Physical or logical interface type of an equipment port.
 
-    FLOAT is the default — a plain engineering value with no bus semantics.
+    FLOAT is the default  -  a plain engineering value with no bus semantics.
     Bus interface types enforce compatibility checking in WiringLoader:
     only ports with matching interface types can be connected.
 
-    This mirrors how spacecraft ICDs work — an interface type defines
+    This mirrors how spacecraft ICDs work  -  an interface type defines
     what can connect to what before any wiring is defined.
     """
-    FLOAT       = "float"        # Default — plain engineering value
+    FLOAT       = "float"        # Default  -  plain engineering value
     MIL1553_BC  = "mil1553_bc"   # MIL-STD-1553 Bus Controller
     MIL1553_RT  = "mil1553_rt"   # MIL-STD-1553 Remote Terminal
     SPACEWIRE   = "spacewire"    # SpaceWire node
@@ -238,7 +238,7 @@ class Equipment(ModelAdapter):
         """
         Advance the equipment by one simulation timestep.
 
-        Primary physics method — implement sensor noise, actuator dynamics,
+        Primary physics method  -  implement sensor noise, actuator dynamics,
         bus routing, or any time-varying behaviour here. Read IN ports with
         ``read_port()`` and write OUT ports with ``write_port()``.
 

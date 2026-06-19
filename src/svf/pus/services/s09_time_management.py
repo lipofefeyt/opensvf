@@ -1,4 +1,4 @@
-"""PUS Service 9 — Time Management."""
+"""PUS Service 9  -  Time Management."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ from svf.pus.tc import PusTcPacket
 
 class PusService9:
     """
-    PUS Service 9 — Time Management.
+    PUS Service 9  -  Time Management.
 
-    TC(9,128) — Set On-Board Time (OBT) from CUC-4,2 timestamp.
+    TC(9,128)  -  Set On-Board Time (OBT) from CUC-4,2 timestamp.
     """
 
     @staticmethod

@@ -59,7 +59,7 @@ def make_adapter(**kwargs: object) -> OBCEmulatorAdapter:
 
 @pytest.mark.skipif(
     not OBSW_SIM.exists(),
-    reason=f"obsw_sim not found at {OBSW_SIM} — run 'cmake --build build' in openobsw"
+    reason=f"obsw_sim not found at {OBSW_SIM}  -  run 'cmake --build build' in openobsw"
 )
 class OBCEmulatorAdapterTests:
 

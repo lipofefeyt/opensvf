@@ -1,6 +1,6 @@
 """
 Unit tests for M28 UART serial transport in OBCEmulatorAdapter.
-Uses unittest.mock to fake pyserial — no hardware required.
+Uses unittest.mock to fake pyserial  -  no hardware required.
 """
 from __future__ import annotations
 

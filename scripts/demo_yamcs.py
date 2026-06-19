@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
 """
-OpenSVF + YAMCS Demo — OBC Emulator mode
+OpenSVF + YAMCS Demo  -  OBC Emulator mode
 Connects obsw_sim (real C11 flight binary) to YAMCS ground station.
 
 Usage:
-    # Terminal 1 — start YAMCS
+    # Terminal 1  -  start YAMCS
     bash scripts/start-yamcs.sh
 
-    # Terminal 2 — run demo
+    # Terminal 2  -  run demo
     python3 scripts/demo_yamcs.py [--obsw-sim PATH]
 
 Then open http://localhost:8090 in your browser.
 
-Scenario: early orbit — spacecraft attitude sensors not yet calibrated.
+Scenario: early orbit  -  spacecraft attitude sensors not yet calibrated.
 B-dot detumbling is active; geomagnetic field varies with orbital motion.
 
-Demo A — Are-You-Alive:
+Demo A  -  Are-You-Alive:
     Commanding → TC_17_1_AreYouAlive → Send
     Packets: TM(1,1) acceptance → TM(17,2) pong → TM(1,7) completion
 
-Demo B — Real-time B-dot gain upload:
+Demo B  -  Real-time B-dot gain upload:
     Observe: TM(3,25) AOCS_HK reports bdot_gain=10000.0 every 5 s
-             MTQ dipole (aocs.mtq.*) is non-zero — controller is active
+             MTQ dipole (aocs.mtq.*) is non-zero  -  controller is active
     1. Commanding → TC_20_1_SetBdotGain → value: 75000.0 → Send
        Packets: TM(1,1) acceptance → TM(1,7) completion
        TM(3,25) AOCS_HK: bdot_gain jumps to 75000.0 within 5 s
@@ -50,7 +50,7 @@ import struct
 import sys
 from pathlib import Path
 
-# ISS TLE — epoch 2021-001, ISS orbit (51.6° inc, ~400 km)
+# ISS TLE  -  epoch 2021-001, ISS orbit (51.6° inc, ~400 km)
 # Provides a time-varying geomagnetic field as the spacecraft moves through orbit.
 _TLE1 = "1 25544U 98067A   21001.00000000  .00001234  00000-0  29032-4 0  9999"
 _TLE2 = "2 25544  51.6432 228.3417 0001397 349.5283 135.8144 15.49309475265695"
@@ -180,7 +180,7 @@ def main() -> None:
     cmd_store = CommandStore()
     sync = DdsSyncProtocol(participant)
 
-    # Orbital environment — SGP4 propagation + dipole B-field (pure Python)
+    # Orbital environment  -  SGP4 propagation + dipole B-field (pure Python)
     orbital = OrbitalEnvironment(
         tle_line1=_TLE1,
         tle_line2=_TLE2,
@@ -191,7 +191,7 @@ def main() -> None:
         equipment_id="orbital",
     )
 
-    # Magnetometer — noise model; reads true B field from orbital environment
+    # Magnetometer  -  noise model; reads true B field from orbital environment
     mag = make_magnetometer(sync, store, cmd_store, equipment_id="mag", seed=42)
     cmd_store.inject("aocs.mag.power_enable", 1.0, source_id="demo_init")
 
@@ -244,7 +244,7 @@ def main() -> None:
     print()
     print("─── Demo B: Real-time B-dot gain upload ─────────────────────")
     print("  Scenario: early orbit, attitude sensors not calibrated.")
-    print("  B-dot detumbling active — MTQ dipole tracks orbital dB/dt.")
+    print("  B-dot detumbling active  -  MTQ dipole tracks orbital dB/dt.")
     print()
     print("  Observe baseline in Telemetry → Parameters:")
     print("    bdot_gain = 10000.0  (TM 3,25 AOCS_HK, every 5 s)")

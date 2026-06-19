@@ -64,7 +64,7 @@ def test_shm_sync_multi_model_all_publish(shm: SharedMemorySyncProtocol) -> None
 
 @pytest.mark.requirement("SVF-DEV-018")
 def test_shm_sync_partial_publish_timeout(shm: SharedMemorySyncProtocol) -> None:
-    """Only one of two models publishes — wait_for_ready must time out."""
+    """Only one of two models publishes  -  wait_for_ready must time out."""
     shm.reset()
     shm.publish_ready("mag", 0.1)
     # "gyro" never publishes
@@ -107,7 +107,7 @@ def test_shm_sync_thread_publisher_unblocks_wait() -> None:
 def test_shm_sync_attach_mode_sees_creator_flags() -> None:
     """
     An attached instance shares the same memory as the creator.
-    Publisher on attacher, waiter on creator — simulates cross-process use.
+    Publisher on attacher, waiter on creator  -  simulates cross-process use.
     """
     name = _unique_name()
     creator = SharedMemorySyncProtocol(model_ids=["rw"], name=name, create=True)

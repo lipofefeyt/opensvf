@@ -10,7 +10,7 @@ Usage:
 
 Seed derivation:
     per_model_seed = derive_seed(master_seed, model_id)
-    This is deterministic — same master seed always gives
+    This is deterministic  -  same master seed always gives
     same per-model seeds regardless of model order.
 """
 
@@ -63,7 +63,7 @@ class SeedManager:
         if master_seed is None:
             self._seed = generate_seed()
             logger.info(
-                f"[replay] No seed provided — generated seed={self._seed}"
+                f"[replay] No seed provided  -  generated seed={self._seed}"
             )
         else:
             self._seed = master_seed

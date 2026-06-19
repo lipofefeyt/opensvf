@@ -179,8 +179,8 @@ def test_obc_routes_tc_11_4_and_fires_at_obt() -> None:
     obc.receive_tc(insert_tc, t=0.0)
     assert obc._s11.count == 1
 
-    # Advance OBT past the time tag — scheduled TC should fire
-    obc.do_step(t=5.0, dt=1.0)   # OBT becomes 1.0 — not yet
+    # Advance OBT past the time tag  -  scheduled TC should fire
+    obc.do_step(t=5.0, dt=1.0)   # OBT becomes 1.0  -  not yet
     assert obc._s11.count == 1
 
     # Advance to OBT=5.5 (start_time=0 + 5 ticks of dt=1 + initial dt=1 = 6)

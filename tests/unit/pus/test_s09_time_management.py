@@ -1,5 +1,5 @@
 """
-Tests for PUS Service 9 — Time Management.
+Tests for PUS Service 9  -  Time Management.
 Implements: SVF-DEV-162
 """
 

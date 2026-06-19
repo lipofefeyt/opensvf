@@ -3,7 +3,7 @@ Tests for ProcedureContext TC uplink and TM receipt, and OBCEmulatorAdapter
 unit-level behaviour (TM queue, HK parsing, desync recovery).
 
 Validates GAP-004 (tc() reaches OBSW) and GAP-005 (expect_tm() works).
-Uses ObcStub as a stand-in for OBCEmulatorAdapter — it responds to
+Uses ObcStub as a stand-in for OBCEmulatorAdapter  -  it responds to
 TC(17,1) with TM(17,2) without requiring a real OBSW binary.
 """
 from __future__ import annotations

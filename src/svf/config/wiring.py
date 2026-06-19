@@ -198,7 +198,7 @@ class WiringLoader:
         if eq.ports[from_port].direction != PortDirection.OUT:
             raise WiringLoadError(
                 f"{source}: connection {index}: "
-                f"'{from_eq}.{from_port}' is an IN port — "
+                f"'{from_eq}.{from_port}' is an IN port  -  "
                 f"connections must start from OUT ports"
             )
 
@@ -217,7 +217,7 @@ class WiringLoader:
         if eq.ports[to_port].direction != PortDirection.IN:
             raise WiringLoadError(
                 f"{source}: connection {index}: "
-                f"'{to_eq}.{to_port}' is an OUT port — "
+                f"'{to_eq}.{to_port}' is an OUT port  -  "
                 f"connections must end at IN ports"
             )
 
@@ -227,7 +227,7 @@ class WiringLoader:
         if src_interface != dst_interface:
             raise WiringLoadError(
                 f"{source}: connection {index}: "
-                f"interface type mismatch — "
+                f"interface type mismatch  -  "
                 f"'{from_eq}.{from_port}' is {src_interface.value} "
                 f"but '{to_eq}.{to_port}' is {dst_interface.value}"
             )

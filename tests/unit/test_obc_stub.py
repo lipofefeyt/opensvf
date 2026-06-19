@@ -1,5 +1,5 @@
 """
-Tests for OBC Stub — configurable OBSW behaviour simulator.
+Tests for OBC Stub  -  configurable OBSW behaviour simulator.
 Implements: SVF-DEV-038
 """
 

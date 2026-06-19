@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-srdb_consistency_check.py — Cross-repository SRDB consistency checker.
+srdb_consistency_check.py  -  Cross-repository SRDB consistency checker.
 
 Verifies three things:
 
@@ -93,7 +93,7 @@ _ACTUATOR_FMT          = "<6fBf"
 EXPECTED_SENSOR_SIZE   = struct.calcsize(_SENSOR_FMT)    # 47
 EXPECTED_ACTUATOR_SIZE = struct.calcsize(_ACTUATOR_FMT)  # 29
 
-# Sensor model output ports — what each model declares as OUT ports.
+# Sensor model output ports  -  what each model declares as OUT ports.
 # Verified against the actual PortDefinition() calls in each model file.
 SENSOR_MODEL_OUTPUT_PORTS: dict[str, list[str]] = {
     "magnetometer": [
@@ -117,23 +117,23 @@ SENSOR_MODEL_OUTPUT_PORTS: dict[str, list[str]] = {
 # Document a justification for each. They produce warnings, not errors,
 # since they're expected to be backfilled into REQUIREMENTS.md.
 KNOWN_UNGOVERNED: dict[str, str] = {
-    # Post-M23 additions — implemented before REQUIREMENTS.md entry was written.
+    # Post-M23 additions  -  implemented before REQUIREMENTS.md entry was written.
     # Each needs a proper requirement definition in REQUIREMENTS.md.
-    "SVF-DEV-100": "ZynqMP SIL validation (aarch64 + QEMU) — post-M23, needs REQUIREMENTS.md entry",
-    "SVF-DEV-101": "Renode ZynqMP socket SIL — post-M23, needs REQUIREMENTS.md entry",
-    "SVF-DEV-110": "SpacecraftLoader / spacecraft YAML DSL — post-M23, needs REQUIREMENTS.md entry",
-    "SVF-DEV-120": "Monte Carlo runner — post-M23, needs REQUIREMENTS.md entry",
-    "SVF-DEV-121": "CampaignRunner + CampaignReport — post-M23, needs REQUIREMENTS.md entry",
-    "SVF-DEV-122": "HTML report generation (generate_html_report) — post-M23, needs REQUIREMENTS.md entry",
-    "SVF-DEV-130": "HardwareProfile bundled search order — post-M23, needs REQUIREMENTS.md entry",
-    "SVF-DEV-131": "ParameterMonitor / temporal assertion — post-M23, needs REQUIREMENTS.md entry",
-    "SVF-DEV-132": "EquipmentFaultEngine — post-M23, needs REQUIREMENTS.md entry",
+    "SVF-DEV-100": "ZynqMP SIL validation (aarch64 + QEMU)  -  post-M23, needs REQUIREMENTS.md entry",
+    "SVF-DEV-101": "Renode ZynqMP socket SIL  -  post-M23, needs REQUIREMENTS.md entry",
+    "SVF-DEV-110": "SpacecraftLoader / spacecraft YAML DSL  -  post-M23, needs REQUIREMENTS.md entry",
+    "SVF-DEV-120": "Monte Carlo runner  -  post-M23, needs REQUIREMENTS.md entry",
+    "SVF-DEV-121": "CampaignRunner + CampaignReport  -  post-M23, needs REQUIREMENTS.md entry",
+    "SVF-DEV-122": "HTML report generation (generate_html_report)  -  post-M23, needs REQUIREMENTS.md entry",
+    "SVF-DEV-130": "HardwareProfile bundled search order  -  post-M23, needs REQUIREMENTS.md entry",
+    "SVF-DEV-131": "ParameterMonitor / temporal assertion  -  post-M23, needs REQUIREMENTS.md entry",
+    "SVF-DEV-132": "EquipmentFaultEngine  -  post-M23, needs REQUIREMENTS.md entry",
     # Functional area IDs missing from REQUIREMENTS.md
-    "PCDU-001": "PCDU LCL switching — implemented in pcdu.py, missing [PCDU] section in REQUIREMENTS.md",
-    "PCDU-002": "PCDU MPPT efficiency model — implemented in pcdu.py, missing [PCDU] section",
-    "PCDU-003": "PCDU UVLO protection — implemented in pcdu.py, missing [PCDU] section",
-    "PCDU-004": "PCDU power accounting — implemented in pcdu.py, missing [PCDU] section",
-    "GAP-014":  "SVF CLI (svf run/campaign/check/profiles) — implemented in cli.py, missing GAP requirement",
+    "PCDU-001": "PCDU LCL switching  -  implemented in pcdu.py, missing [PCDU] section in REQUIREMENTS.md",
+    "PCDU-002": "PCDU MPPT efficiency model  -  implemented in pcdu.py, missing [PCDU] section",
+    "PCDU-003": "PCDU UVLO protection  -  implemented in pcdu.py, missing [PCDU] section",
+    "PCDU-004": "PCDU power accounting  -  implemented in pcdu.py, missing [PCDU] section",
+    "GAP-014":  "SVF CLI (svf run/campaign/check/profiles)  -  implemented in cli.py, missing GAP requirement",
 }
 
 
@@ -159,7 +159,7 @@ class CheckResult:
         print("=" * width)
 
         if self.errors:
-            print(f"\n❌  ERRORS ({len(self.errors)}) — will cause silent failures:\n")
+            print(f"\n❌  ERRORS ({len(self.errors)})  -  will cause silent failures:\n")
             for e in self.errors:
                 print(f"    {e}")
 
@@ -177,7 +177,7 @@ class CheckResult:
         if self.ok():
             print("✅  All checks passed.")
         else:
-            print(f"❌  {len(self.errors)} error(s) — see above.")
+            print(f"❌  {len(self.errors)} error(s)  -  see above.")
         print("=" * width)
 
 
@@ -252,14 +252,14 @@ def check_wire_protocol_python_side(
       - Every key in ACTUATOR_FRAME_FIELD_TO_CMDSTORE_KEY is actually
         cmd_store.inject()'ed in _parse_actuator().
 
-    This self-validates the mapping table — if the implementation is updated
+    This self-validates the mapping table  -  if the implementation is updated
     without updating this script, the script will flag it rather than silently
     reporting false positives.
     """
     emulator_py = svf_root / "src" / "svf" / "models" / "dhs" / "obc_emulator.py"
     if not emulator_py.exists():
         result.warn(
-            f"[WIRE] {emulator_py.relative_to(svf_root)} not found — "
+            f"[WIRE] {emulator_py.relative_to(svf_root)} not found  -  "
             f"skipping Python-side verification"
         )
         return
@@ -413,8 +413,8 @@ def check_wire_protocol_c_side(
     that weren't propagated to the SVF packer.
 
     obsw_root may be:
-      - A directory (real openobsw checkout) — searched recursively
-      - A .txt file (gitingest snapshot) — searched directly
+      - A directory (real openobsw checkout)  -  searched recursively
+      - A .txt file (gitingest snapshot)  -  searched directly
 
     In single-workspace environments (Firebase IDX, GitHub Codespaces)
     where both repos can't coexist, pass the gitingest snapshot:
@@ -480,7 +480,7 @@ def check_wire_protocol_c_side(
                 result.warn(
                     f"[WIRE/C] obsw_sensor_frame_t has field '{c_field}' "
                     f"with no entry in SENSOR_FRAME_FIELD_TO_SVF_PORT. "
-                    f"SVF packer will not include it — add mapping if needed."
+                    f"SVF packer will not include it  -  add mapping if needed."
                 )
 
     if not actuator_fields:
@@ -521,7 +521,7 @@ def check_sensor_producer_consumer_symmetry(
 
     If a sensor model renames an output (e.g. aocs.mag.field_x →
     aocs.mag.b_x), the emulator reads the old name and gets None from
-    the store, which becomes 0.0 in the packed frame — the C OBSW sees
+    the store, which becomes 0.0 in the packed frame  -  the C OBSW sees
     an all-zero magnetic field and b-dot produces no output. No error
     is raised anywhere. This check catches that class of bug.
     """
@@ -645,7 +645,7 @@ def check_requirement_orphans(
 
     An ID that exists in tests but not in REQUIREMENTS.md is invisible to
     checkcov. It won't be caught by the CI gate and represents work that
-    was done without a governing requirement — the V&V claim is unfounded.
+    was done without a governing requirement  -  the V&V claim is unfounded.
 
     Known post-M23 IDs are listed in KNOWN_UNGOVERNED. They produce warnings
     (not errors) since they're expected to be backfilled. Any new unknown ID
@@ -653,7 +653,7 @@ def check_requirement_orphans(
     """
     req_file = svf_root / "REQUIREMENTS.md"
     if not req_file.exists():
-        result.warn("[REQ] REQUIREMENTS.md not found — skipping orphan check")
+        result.warn("[REQ] REQUIREMENTS.md not found  -  skipping orphan check")
         return
 
     defined_ids   = _parse_requirements_md_ids(req_file)
@@ -676,7 +676,7 @@ def check_requirement_orphans(
 
     for req_id, locations in sorted(all_code_refs.items()):
         if req_id in defined_ids:
-            continue   # governed — covered by checkcov
+            continue   # governed  -  covered by checkcov
         if req_id in KNOWN_UNGOVERNED:
             n_known += 1
             result.warn(
@@ -735,7 +735,7 @@ def check_hardware_profile_symmetry(
         bundled_dir = bundled_dir_actual
         result.note(
             "[PROFILE] Bundled profiles are in mission_mysat1/hardware_profiles/ "
-            "(srdb/hardware/ not yet created — see architecture doc)"
+            "(srdb/hardware/ not yet created  -  see architecture doc)"
         )
     else:
         result.warn(
@@ -746,7 +746,7 @@ def check_hardware_profile_symmetry(
         return
 
     if not mission_dir.exists():
-        result.note("[PROFILE] mission_mysat1/hardware_profiles/ not found — skipping symmetry check")
+        result.note("[PROFILE] mission_mysat1/hardware_profiles/ not found  -  skipping symmetry check")
         return
 
     mission_profiles = {p.name for p in mission_dir.glob("*.yaml")}
@@ -768,7 +768,7 @@ def check_hardware_profile_symmetry(
     for name in sorted(bundled_profiles - mission_profiles):
         result.note(
             f"[PROFILE] '{name}' bundled but not in mission_mysat1 "
-            f"(available for other missions — not an error)"
+            f"(available for other missions  -  not an error)"
         )
 
 
@@ -780,7 +780,7 @@ def check_hardware_profile_symmetry(
 # Model OUT ports that exist in code but have no SRDB ParameterDefinition.
 # Each entry needs a justification. New orphans not listed here are errors.
 KNOWN_NAMESPACE_GAPS: dict[str, str] = {
-    # Internal physics coupling — simulation bus signals, not TM observables.
+    # Internal physics coupling  -  simulation bus signals, not TM observables.
     # These are written by the dynamics model and read by sensor models; they
     # carry truth physics and are intentionally absent from the SRDB.
     "aocs.mag.true_x":   "Internal dynamics→magnetometer coupling; not a TM parameter",
@@ -828,7 +828,7 @@ KNOWN_NAMESPACE_GAPS: dict[str, str] = {
 }
 
 # All model factories to instantiate for port extraction.
-# Models that require a binary (FMU) at instantiation are excluded — they
+# Models that require a binary (FMU) at instantiation are excluded  -  they
 # declare their ports without loading the FMU so all work with mocks.
 _NAMESPACE_CHECK_MODELS: dict[str, tuple[str, str]] = {
     "magnetometer":    ("svf.models.aocs.magnetometer",   "make_magnetometer"),
@@ -854,7 +854,7 @@ def check_srdb_namespace(svf_root: Path, result: CheckResult) -> None:
     Verify that every OUT port declared by a NativeEquipment model factory
     has a corresponding ParameterDefinition in the SRDB baseline.
 
-    OUT ports are telemetry outputs — they should always be governed by the
+    OUT ports are telemetry outputs  -  they should always be governed by the
     SRDB. Missing definitions are flagged as errors unless listed in
     KNOWN_NAMESPACE_GAPS with a justification.
 
@@ -873,7 +873,7 @@ def check_srdb_namespace(svf_root: Path, result: CheckResult) -> None:
     # Load SRDB baseline
     srdb_dir = svf_root / "srdb" / "baseline"
     if not srdb_dir.exists():
-        result.warn("[SRDB-NS] srdb/baseline/ not found — skipping namespace check")
+        result.warn("[SRDB-NS] srdb/baseline/ not found  -  skipping namespace check")
         return
 
     try:
@@ -884,7 +884,7 @@ def check_srdb_namespace(svf_root: Path, result: CheckResult) -> None:
             loader.load_baseline(f)
         srdb = loader.build()
     except Exception as e:
-        result.warn(f"[SRDB-NS] Could not load SRDB: {e} — skipping namespace check")
+        result.warn(f"[SRDB-NS] Could not load SRDB: {e}  -  skipping namespace check")
         return
 
     srdb_names = set(srdb._parameters)
@@ -908,7 +908,7 @@ def check_srdb_namespace(svf_root: Path, result: CheckResult) -> None:
         mock_store = ParameterStore()
         mock_cmd   = CommandStore()
     except Exception as e:
-        result.warn(f"[SRDB-NS] Could not create mock infra: {e} — skipping namespace check")
+        result.warn(f"[SRDB-NS] Could not create mock infra: {e}  -  skipping namespace check")
         return
 
     all_model_out_ports: set[str] = set()
@@ -933,7 +933,7 @@ def check_srdb_namespace(svf_root: Path, result: CheckResult) -> None:
                 n_orphan_known += 1
                 result.note(
                     f"[SRDB-NS] '{port}' (model: {model_name}): "
-                    f"no SRDB definition — known gap: {KNOWN_NAMESPACE_GAPS[port]}"
+                    f"no SRDB definition  -  known gap: {KNOWN_NAMESPACE_GAPS[port]}"
                 )
             else:
                 n_orphan_errors += 1

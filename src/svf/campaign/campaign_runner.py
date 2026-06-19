@@ -138,7 +138,7 @@ class CampaignRunner:
     """
     Runs a collection of ``Procedure`` instances against a spacecraft.
 
-    Each procedure gets a **fresh spacecraft simulation** — state does not
+    Each procedure gets a **fresh spacecraft simulation**  -  state does not
     carry over between procedures. A failure or error in one procedure does
     not stop the campaign.
 
@@ -306,7 +306,7 @@ class CampaignRunner:
         t_start = time.monotonic()
 
         for proc_cls in self._procedures:
-            # Reload spacecraft for each procedure — fresh simulation state
+            # Reload spacecraft for each procedure  -  fresh simulation state
             fresh_master = SpacecraftLoader.load(self._spacecraft_cfg)
             fresh_store     = fresh_master._param_store
             fresh_cmd_store = fresh_master._command_store

@@ -13,13 +13,13 @@ where:
     B_dot  = (B_measured - B_prev) / dt   (finite difference)
     k_bdot = gain (Am²·s/T)
 
-This is NOT the flight algorithm — that lives in the OBSW.
+This is NOT the flight algorithm  -  that lives in the OBSW.
 This is a reference implementation for:
   1. Validating MAG/MTQ model physics before OBSW is available
   2. Level 3 closed-loop testing via ObcStub rules
   3. Regression testing when OBSW b-dot is updated
 
-Reference: Bdot law — Stickler & Alfriend (1976)
+Reference: Bdot law  -  Stickler & Alfriend (1976)
 Implements: SVF-DEV-038
 """
 
@@ -67,13 +67,13 @@ def make_bdot_controller(
                       Writes aocs.<mtq_id>.dipole_x/y/z.
 
     Inputs:
-        aocs.<id>.enable          — enable control (0=off, 1=on)
-        aocs.<mag_id>.field_x/y/z — measured magnetic field (T)
+        aocs.<id>.enable           -  enable control (0=off, 1=on)
+        aocs.<mag_id>.field_x/y/z  -  measured magnetic field (T)
 
     Outputs:
-        aocs.<mtq_id>.dipole_x/y/z — commanded dipole moments (Am²)
-        aocs.<id>.bdot_x/y/z       — estimated B-dot (T/s, for telemetry)
-        aocs.<id>.active           — 1 when controller is active
+        aocs.<mtq_id>.dipole_x/y/z  -  commanded dipole moments (Am²)
+        aocs.<id>.bdot_x/y/z        -  estimated B-dot (T/s, for telemetry)
+        aocs.<id>.active            -  1 when controller is active
     """
     _pfx     = f"aocs.{equipment_id}"
     _mag_pfx = f"aocs.{mag_id}"
@@ -131,7 +131,7 @@ def make_bdot_controller(
         else:
             bdot_x = bdot_y = bdot_z = 0.0
 
-        # Read live gains — updated via TC(20,1) S20 set
+        # Read live gains  -  updated via TC(20,1) S20 set
         _gain_e = store.read("aocs.ctrl.bdot_gain")
         _gain = _gain_e.value if _gain_e is not None else gain
         _dip_e = store.read("aocs.ctrl.bdot_max_dipole")

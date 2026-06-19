@@ -1,5 +1,5 @@
 """
-Tests for DualObcAdapter — dual-OBC topology.
+Tests for DualObcAdapter  -  dual-OBC topology.
 Implements: SVF-DEV-166, SVF-DEV-167, SVF-DEV-168
 """
 

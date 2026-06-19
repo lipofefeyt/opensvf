@@ -1,4 +1,4 @@
-"""PUS Service 5 — Event Reporting."""
+"""PUS Service 5  -  Event Reporting."""
 
 from __future__ import annotations
 
@@ -16,12 +16,12 @@ class EventSeverity:
 
 class PusService5:
     """
-    PUS Service 5 — Event Reporting.
+    PUS Service 5  -  Event Reporting.
 
-    TM(5,1) — Informative event
-    TM(5,2) — Low severity anomaly
-    TM(5,3) — Medium severity anomaly
-    TM(5,4) — High severity anomaly
+    TM(5,1)  -  Informative event
+    TM(5,2)  -  Low severity anomaly
+    TM(5,3)  -  Medium severity anomaly
+    TM(5,4)  -  High severity anomaly
     """
 
     @staticmethod
@@ -35,7 +35,7 @@ class PusService5:
     ) -> PusTmPacket:
         """Generate an event report TM(5, severity)."""
         if severity not in (1, 2, 3, 4):
-            raise ValueError(f"Invalid severity {severity} — must be 1-4")
+            raise ValueError(f"Invalid severity {severity}  -  must be 1-4")
         app_data = struct.pack(">H", event_id) + auxiliary_data
         return PusTmPacket(
             apid=tm_apid,

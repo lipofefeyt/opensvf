@@ -1,4 +1,4 @@
-"""Entry point for testosvf — runs the full OpenSVF test suite."""
+"""Entry point for testosvf  -  runs the full OpenSVF test suite."""
 import subprocess
 import sys
 

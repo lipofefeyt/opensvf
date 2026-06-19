@@ -17,10 +17,10 @@ class Verdict(enum.Enum):
     """
     ECSS-E-ST-10-02C compatible test verdict values.
 
-    PASS        — test executed and all conditions were met
-    FAIL        — test executed and at least one condition was not met
-    INCONCLUSIVE — test executed but the result cannot be determined
-    ERROR       — test could not be executed due to an infrastructure fault
+    PASS         -  test executed and all conditions were met
+    FAIL         -  test executed and at least one condition was not met
+    INCONCLUSIVE  -  test executed but the result cannot be determined
+    ERROR        -  test could not be executed due to an infrastructure fault
     """
     PASS = "PASS"
     FAIL = "FAIL"

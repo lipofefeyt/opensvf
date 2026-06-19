@@ -142,9 +142,9 @@ def test_safe_mode_bdot_reduces_angular_rate() -> None:
     final_rate = math.sqrt(
         rate_x.value**2 + rate_y.value**2 + rate_z.value**2
     )
-    # KDE starts with non-zero tumble — b-dot should have reduced it
+    # KDE starts with non-zero tumble  -  b-dot should have reduced it
     assert final_rate < 1.0, (
-        f"Angular rate {final_rate:.3f} rad/s — b-dot not effective"
+        f"Angular rate {final_rate:.3f} rad/s  -  b-dot not effective"
     )
 
 
@@ -181,7 +181,7 @@ def test_nominal_mode_adcs_controller_activates() -> None:
     # OBCEmulatorAdapter will send TC(8,1) to obsw_sim
     import threading
     def inject_nominal() -> None:
-        time.sleep(6.0)  # wall clock — simulation runs fast
+        time.sleep(6.0)  # wall clock  -  simulation runs fast
         cmd_store.inject("dhs.obc.mode_cmd", 1.0, source_id="test")
 
     t = threading.Thread(target=inject_nominal, daemon=True)
@@ -192,7 +192,7 @@ def test_nominal_mode_adcs_controller_activates() -> None:
     # RW torque commands should appear after NOMINAL transition
     rw_torque = cmd_store.peek("aocs.rw1.torque_cmd")
     assert rw_torque is not None, (
-        "RW torque_cmd never injected — ADCS controller did not activate"
+        "RW torque_cmd never injected  -  ADCS controller did not activate"
     )
 
 
@@ -210,4 +210,4 @@ def test_sensor_frames_drive_obsw_each_tick() -> None:
 
     obt = store.read("dhs.obc.obt")
     assert obt is not None
-    assert obt.value > 4.0, f"OBT only {obt.value:.1f}s — obsw_sim not cycling"
+    assert obt.value > 4.0, f"OBT only {obt.value:.1f}s  -  obsw_sim not cycling"

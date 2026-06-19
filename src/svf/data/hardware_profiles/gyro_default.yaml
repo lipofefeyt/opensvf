@@ -1,6 +1,6 @@
 hardware_id: gyro_default
 type: gyroscope
-description: "Generic MEMS gyroscope — representative smallsat parameters"
+description: "Generic MEMS gyroscope  -  representative smallsat parameters"
 vendor: generic
 params:
   arw_rad_s_sqrthz: 1.0e-4

@@ -1,5 +1,5 @@
 """
-Orbital Environment Model — M42
+Orbital Environment Model  -  M42
 SGP4 propagator + eclipse + solar irradiance + tilted-dipole magnetic field.
 
 Publishes orbital truth state to ParameterStore each tick so that sensor
@@ -114,7 +114,7 @@ def _ecef_to_geodetic(
 ) -> tuple[float, float, float]:
     """
     Convert ECEF (km) to (geocentric_lat_deg, lon_deg, alt_km).
-    Uses spherical Earth — adequate for dipole model.
+    Uses spherical Earth  -  adequate for dipole model.
     """
     x, y, z = r_ecef
     r   = _norm3(r_ecef)
@@ -129,7 +129,7 @@ def _ecef_to_geodetic(
 def _sun_unit_eci(jd: float) -> tuple[float, float, float]:
     """
     Low-precision sun direction unit vector in ECI J2000 (Vallado, 2013).
-    Accurate to ~0.01° — sufficient for eclipse and irradiance models.
+    Accurate to ~0.01°  -  sufficient for eclipse and irradiance models.
     """
     T   = (jd - 2451545.0) / 36525.0
     L   = math.radians((280.460 + 36000.77 * T) % 360.0)
@@ -186,7 +186,7 @@ def _dipole_field_ned(
     sin_lo = math.sin(lon)
     cos_lo = math.cos(lon)
 
-    # (R_ref / r)^3 — dipole field falls off as r^-3
+    # (R_ref / r)^3  -  dipole field falls off as r^-3
     ratio3 = (_R_IGRF_KM / r_km) ** 3
 
     # Radial component (positive outward)

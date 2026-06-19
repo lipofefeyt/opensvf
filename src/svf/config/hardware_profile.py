@@ -21,7 +21,7 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-# Path to bundled hardware profiles — inside the package so pip install works
+# Path to bundled hardware profiles  -  inside the package so pip install works
 _BUNDLED_PROFILES_DIR = Path(__file__).parent.parent / "data" / "hardware_profiles"
 
 

@@ -22,7 +22,7 @@ class SharedMemorySyncProtocol(SyncProtocol):
     SyncProtocol backed by a POSIX shared memory segment.
 
     Layout: one byte per registered model (0 = not ready, 1 = ready).
-    Single-byte writes are atomic on all architectures — no locks needed.
+    Single-byte writes are atomic on all architectures  -  no locks needed.
     ``wait_for_ready()`` spin-polls the flags, avoiding kernel scheduling
     overhead and achieving sub-ms tick-to-tick latency.
 
@@ -39,7 +39,7 @@ class SharedMemorySyncProtocol(SyncProtocol):
 
     Args:
         model_ids: Ordered list of model IDs to track.  Slot indices are
-                   assigned in list order — must match across all peers.
+                   assigned in list order  -  must match across all peers.
         name:      Shared memory segment name.  Auto-generated if None.
         create:    True to create and own the segment; False to attach.
     """
@@ -82,7 +82,7 @@ class SharedMemorySyncProtocol(SyncProtocol):
 
     @property
     def name(self) -> str:
-        """Shared memory segment name — pass to peers so they can attach."""
+        """Shared memory segment name  -  pass to peers so they can attach."""
         return self._shm.name
 
     def reset(self) -> None:
@@ -111,7 +111,7 @@ class SharedMemorySyncProtocol(SyncProtocol):
 
         missing = [mid for mid, i in zip(expected, indices) if self._buf[i] != 1]
         if missing:
-            logger.warning("ShmSync timeout — missing: %s", missing)
+            logger.warning("ShmSync timeout  -  missing: %s", missing)
             return False
         return True
 
@@ -136,4 +136,4 @@ class SharedMemorySyncProtocol(SyncProtocol):
         logger.info("SharedMemorySyncProtocol closed shm='%s'", self._shm.name)
 
     def __del__(self) -> None:
-        pass  # Never unlink in __del__ — explicit close() is the only safe path
+        pass  # Never unlink in __del__  -  explicit close() is the only safe path

@@ -1,6 +1,6 @@
 hardware_id: thr_default
 type: thruster
-description: "Generic cold gas thruster — representative smallsat parameters"
+description: "Generic cold gas thruster  -  representative smallsat parameters"
 vendor: generic
 params:
   max_thrust_n: 1.0

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# OpenSVF Full Setup — run once after clone or container rebuild
+# OpenSVF Full Setup  -  run once after clone or container rebuild
 # Usage: source scripts/setup-workspace.sh
 
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)

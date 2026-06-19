@@ -1,5 +1,5 @@
 ---
-title: "OpenSVF — Architecture Description Document"
+title: "OpenSVF  -  Architecture Description Document"
 subtitle: "SVF-ADD-001 | Issue 1.0"
 author: "Gonçalo Graças"
 date: "2026-05-23"
@@ -20,7 +20,7 @@ fontsize: 11pt
 geometry: "margin=2.5cm"
 header-left: "SVF-ADD-001"
 header-right: "OpenSVF Architecture Description Document"
-footer-left: "Issue 1.0 — 2026-05-23"
+footer-left: "Issue 1.0  -  2026-05-23"
 footer-right: "Page \\thepage"
 classoption: oneside
 ---
@@ -29,7 +29,7 @@ classoption: oneside
 
 ## Purpose
 
-This document describes the software architecture of **OpenSVF** — an open-source
+This document describes the software architecture of **OpenSVF**  -  an open-source
 spacecraft Software Validation Facility. It is intended for engineers who need to:
 
 - understand the structural decomposition and data flows in OpenSVF
@@ -45,15 +45,15 @@ which are covered by their own technical documentation:
 
 | Component | Scope boundary |
 |---|---|
-| `opensvf-kde` | C++/Eigen3 6-DOF physics FMU — FMI interface only |
-| `openobsw` | C11 flight software — wire protocol interface only (see SVF-ICD-001) |
-| YAMCS 5.12.6 | Ground station — XTCE MDB interface only |
+| `opensvf-kde` | C++/Eigen3 6-DOF physics FMU  -  FMI interface only |
+| `openobsw` | C11 flight software  -  wire protocol interface only (see SVF-ICD-001) |
+| YAMCS 5.12.6 | Ground station  -  XTCE MDB interface only |
 
 ## Applicable Documents
 
 | Reference | Title |
 |---|---|
-| ECSS-E-ST-70-41C | Space Engineering — Telemetry and Telecommand Packet Utilisation |
+| ECSS-E-ST-70-41C | Space Engineering  -  Telemetry and Telecommand Packet Utilisation |
 | ECSS-E-HB-40A | Software Engineering Handbook |
 | FMI 2.0 Specification | Functional Mock-up Interface for Model Exchange and Co-Simulation |
 | SVF-ICD-001 | OpenSVF Interface Control Document |
@@ -92,8 +92,8 @@ OpenSVF answers a single question:
 > *Does the flight software behave correctly against real physics and a real ground station?*
 
 It is not an AOCS design tool, a code generator, or a formal verification
-platform. It produces validation evidence — structured test results traceable to
-requirements — for spacecraft software teams that hand-code their flight algorithms.
+platform. It produces validation evidence  -  structured test results traceable to
+requirements  -  for spacecraft software teams that hand-code their flight algorithms.
 
 ## System Context
 
@@ -118,7 +118,7 @@ in a closed-loop simulation (Figure 1).
 └──────────────────────┬───────────────────────────────────┘
                        │ SVF Wire Protocol v3
 ┌──────────────────────▼───────────────────────────────────┐
-│  openobsw — C11 flight software                          │
+│  openobsw  -  C11 flight software                          │
 │  B-dot → MTQ dipoles | ADCS PD → RW torques             │
 │  PUS S1/3/5/8/17/20  |  FDIR FSM                        │
 └──────────────────────┬───────────────────────────────────┘
@@ -143,7 +143,7 @@ in a closed-loop simulation (Figure 1).
 └──────────────────────────────────────────────────────────┘
 ```
 
-*Figure 1 — Full system architecture. Arrows indicate primary data flow direction.*
+*Figure 1  -  Full system architecture. Arrows indicate primary data flow direction.*
 
 ## Validation Pyramid
 
@@ -194,9 +194,9 @@ against three pluggable interfaces:
 
 Controls the simulation clock. Two implementations:
 
-- **`SoftwareTickSource`** — runs as fast as the CPU allows; used for CI, unit
+- **`SoftwareTickSource`**  -  runs as fast as the CPU allows; used for CI, unit
   tests, and Monte Carlo sweeps
-- **`RealtimeTickSource`** — aligns ticks to wall-clock time via `RT_PREEMPT`
+- **`RealtimeTickSource`**  -  aligns ticks to wall-clock time via `RT_PREEMPT`
   timer; required for hardware-in-the-loop with real equipment
 
 `Equipment.suggested_dt()` may return a smaller step size than the configured
@@ -208,18 +208,18 @@ enabling variable-timestep co-simulation.
 Coordinates tick acknowledgement between `SimulationMaster` and equipment models.
 After completing a tick, each model signals readiness. Two implementations:
 
-- **`DdsSyncProtocol`** — Eclipse Cyclone DDS; publishes on `SVF/Sim/Tick`,
+- **`DdsSyncProtocol`**  -  Eclipse Cyclone DDS; publishes on `SVF/Sim/Tick`,
   subscribes on `SVF/Sim/Ready/{model_id}` with `KEEP_ALL` QoS
-- **`SharedMemorySyncProtocol`** — lock-free ring buffer for zero-copy
+- **`SharedMemorySyncProtocol`**  -  lock-free ring buffer for zero-copy
   inter-process synchronisation; required for real-time HIL
 
 ### Equipment
 
 Base class for all simulation models. Two concrete subtypes:
 
-- **`NativeEquipment`** — pure-Python closure; no compiled binary; used for all
+- **`NativeEquipment`**  -  pure-Python closure; no compiled binary; used for all
   SVF reference models (sensors, actuators, bus adapters, EPS, thermal)
-- **`FmuEquipment`** — FMI 2.0 co-simulation adapter; used for operator-supplied
+- **`FmuEquipment`**  -  FMI 2.0 co-simulation adapter; used for operator-supplied
   external physics and the `SpacecraftDynamics.fmu` from opensvf-kde
 
 FMU binaries (`SimpleCounter.fmu`, `SpacecraftDynamics.fmu`) are committed to
@@ -234,15 +234,15 @@ used exclusively for L2 integration tests of the `FmuEquipment` infrastructure.
 
 All inter-model data exchange passes through two in-memory stores:
 
-- **`ParameterStore`** — keyed telemetry values (TM parameters); models write
+- **`ParameterStore`**  -  keyed telemetry values (TM parameters); models write
   OUT ports and read IN ports using SRDB canonical names
-- **`CommandStore`** — keyed command values (TC parameters); commanding
+- **`CommandStore`**  -  keyed command values (TC parameters); commanding
   equipment writes here; controller models read commands
 
 Store keys are **SRDB canonical parameter names** of the form
 `domain.subsystem.parameter` (e.g. `aocs.mag1.field_x`, `dhs.obc.mode`).
 
-## SRDB — Spacecraft Reference Database
+## SRDB  -  Spacecraft Reference Database
 
 The SRDB is the shared parameter contract between opensvf, openobsw, and YAMCS.
 It is the single source of truth for:
@@ -252,7 +252,7 @@ It is the single source of truth for:
 - PUS service/subservice/parameter_id assignments
 - XTCE MDB generation (via `tools/generate_xtce.py`)
 
-Baseline definitions live in `srdb/baseline/*.yaml` — one file per subsystem domain:
+Baseline definitions live in `srdb/baseline/*.yaml`  -  one file per subsystem domain:
 
 | File | Domain |
 |---|---|
@@ -267,9 +267,9 @@ Baseline definitions live in `srdb/baseline/*.yaml` — one file per subsystem d
 
 | Range | Domain |
 |---|---|
-| 0x4001 – 0x400F | `dhs.*` — OBC health telemetry (current OBSW) |
-| 0x4010 – 0x403F | `obdh.mode.*` — mode management |
-| 0x4040 – 0x404F | `obdh.obc.*` — OBDH OBC health (future) |
+| 0x4001 – 0x400F | `dhs.*`  -  OBC health telemetry (current OBSW) |
+| 0x4010 – 0x403F | `obdh.mode.*`  -  mode management |
+| 0x4040 – 0x404F | `obdh.obc.*`  -  OBDH OBC health (future) |
 
 ## Auto-wiring
 
@@ -379,7 +379,7 @@ Standard pytest test functions and classes. Class names must end in `Suite` or
 
 Subclasses of `Procedure` (`src/svf/campaign/procedure.py`). Run via
 `svf campaign <campaign.yaml>`, not via pytest. These are operator-level test
-scripts — they exercise the full closed-loop system including the OBSW binary,
+scripts  -  they exercise the full closed-loop system including the OBSW binary,
 physics FMU, and YAMCS ground station.
 
 ## Traceability
@@ -393,7 +393,7 @@ after every `testosvf` run by collecting `@pytest.mark.requirement` markers.
 
 # Consistency Toolchain
 
-## `checkcons` — Cross-Repository Consistency
+## `checkcons`  -  Cross-Repository Consistency
 
 `checkcons` (`tools/srdb_consistency_check.py`) runs seven automated checks
 to detect divergence between the opensvf Python layer and the openobsw C layer:
@@ -409,7 +409,7 @@ to detect divergence between the opensvf Python layer and the openobsw C layer:
 | [7/7] SRDB namespace | Equipment OUT ports declared but absent from SRDB baseline |
 
 The C struct check ([3/7]) accepts either a real openobsw checkout or a
-gitingest snapshot file — the correct approach in single-workspace environments
+gitingest snapshot file  -  the correct approach in single-workspace environments
 where both repositories cannot coexist.
 
 ---
@@ -419,7 +419,7 @@ where both repositories cannot coexist.
 ## Configuration by `obsw.type`
 
 ```yaml
-# spacecraft.yaml — select OBC mode
+# spacecraft.yaml  -  select OBC mode
 obsw:
   type: stub    # No binary; uses ObcStub rule engine
   type: pipe    # SIL: runs obsw_sim as subprocess
@@ -428,7 +428,7 @@ obsw:
 
 ## Hardware Profile Resolution
 
-Equipment physics constants are overridden by hardware profiles — YAML files
+Equipment physics constants are overridden by hardware profiles  -  YAML files
 specifying sensor noise figures, actuator performance parameters, and thermal
 properties. Profile search order:
 
@@ -482,7 +482,7 @@ simulation infrastructure is instantiated. It catches:
 
 Every inter-component parameter has one canonical name defined in the SRDB. The
 OBSW, SVF, and YAMCS all use the same names. A parameter rename in the SRDB
-breaks the build — intentionally. This property is enforced by `checkcons` checks
+breaks the build  -  intentionally. This property is enforced by `checkcons` checks
 [2/7] and [4/7].
 
 ## Equipment as the Universal Abstraction
@@ -495,7 +495,7 @@ wiring changes between configurations.
 
 Every run is fully reproducible. Per-model seeds are derived deterministically
 from a master seed via SHA-256. Non-deterministic models require explicit seed
-injection — this is a deliberate design choice for a flight software validation
+injection  -  this is a deliberate design choice for a flight software validation
 platform where non-reproducible test failures are unacceptable.
 
 ---

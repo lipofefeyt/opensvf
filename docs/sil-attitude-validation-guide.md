@@ -1,7 +1,7 @@
 # SIL Attitude Validation Guide
 
 > **Status:** v1.0
-> **Milestone:** M13 — SIL Attitude Loop Closure
+> **Milestone:** M13  -  SIL Attitude Loop Closure
 > **Last updated:** 2026-04
 > **Author:** lipofefeyt
 
@@ -45,8 +45,8 @@ RW model   →  torque command  →  KDE (loop closed, NOMINAL)
 | opensvf | v0.6.0 | Python 3.12 |
 | openobsw | v0.5.0+ | C11 |
 | opensvf-kde | v0.1.0 | C++ / Eigen3 |
-| Cyclone DDS | 0.11.x | — |
-| FMI | 2.0 | — |
+| Cyclone DDS | 0.11.x |  -  |
+| FMI | 2.0 |  -  |
 
 ### Wire protocol
 
@@ -61,7 +61,7 @@ stdout 0xFF:      end-of-tick sync
 
 ## 3. Test Procedures
 
-### TC-ADCS-001 — B-dot detumbling reduces angular rate
+### TC-ADCS-001  -  B-dot detumbling reduces angular rate
 
 **Objective:** Confirm that b-dot running in real C OBSW reduces spacecraft angular rate when MTQ dipole commands are fed back into the physics engine.
 
@@ -89,7 +89,7 @@ stdout 0xFF:      end-of-tick sync
 
 ---
 
-### TC-ADCS-002 — MTQ dipole commands reach CommandStore
+### TC-ADCS-002  -  MTQ dipole commands reach CommandStore
 
 **Objective:** Validate the actuator frame pipeline: obsw_sim → type-0x03 → OBCEmulatorAdapter → CommandStore → MTQ.read_port().
 
@@ -108,7 +108,7 @@ cmd_store.peek("aocs.mtq.dipole_x") is not None
 
 ---
 
-### TC-ADCS-003 — ADCS PD controller activates on NOMINAL transition
+### TC-ADCS-003  -  ADCS PD controller activates on NOMINAL transition
 
 **Objective:** Validate that after SAFE→NOMINAL FSM transition, obsw_sim switches from b-dot to ADCS PD and produces RW torque commands.
 
@@ -131,9 +131,9 @@ cmd_store.peek("aocs.rw1.torque_cmd") is not None
 
 ---
 
-### TC-ADCS-004 — Sensor frames drive obsw_sim each tick
+### TC-ADCS-004  -  Sensor frames drive obsw_sim each tick
 
-**Objective:** Validate that sensor injection pipeline operates correctly — KDE provides truth state, sensor models add noise, OBCEmulatorAdapter packs and sends type-0x02 frames, obsw_sim advances OBT.
+**Objective:** Validate that sensor injection pipeline operates correctly  -  KDE provides truth state, sensor models add noise, OBCEmulatorAdapter packs and sends type-0x02 frames, obsw_sim advances OBT.
 
 **Procedure:**
 1. Run simulation for 5 seconds
@@ -165,7 +165,7 @@ store.read("dhs.obc.obt").value > 4.0  (OBT advanced by sensor ticks)
 | Kp | 0.5 | N·m/rad |
 | Kd | 0.1 | N·m·s/rad |
 | Max torque | 0.01 | N·m |
-| Target attitude | Identity quaternion [1,0,0,0] | — |
+| Target attitude | Identity quaternion [1,0,0,0] |  -  |
 
 ---
 

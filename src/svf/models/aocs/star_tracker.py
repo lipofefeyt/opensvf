@@ -88,7 +88,7 @@ def make_star_tracker(
                             Overrides built-in defaults when provided.
         hardware_dir:       Directory to search for profile YAML files.
     """
-    # Physics constants — per-instance locals, overridden by hardware profile
+    # Physics constants  -  per-instance locals, overridden by hardware profile
     sun_exclusion_deg  = 30.0
     sun_degraded_deg   = 45.0
     acquisition_time_s = 10.0
@@ -136,7 +136,7 @@ def make_star_tracker(
         if powered and not state["powered"]:
             state["mode"] = MODE_ACQUIRING
             state["acq_elapsed"] = 0.0
-            logger.info("[%s] Powered on at t=%.1fs — acquiring", equipment_id, t)
+            logger.info("[%s] Powered on at t=%.1fs  -  acquiring", equipment_id, t)
         elif not powered and state["powered"]:
             state["mode"] = MODE_OFF
             state["acq_elapsed"] = 0.0
@@ -162,7 +162,7 @@ def make_star_tracker(
                 dt,
             )
 
-        # Variable acquisition time — faster when spacecraft is slow
+        # Variable acquisition time  -  faster when spacecraft is slow
         gx = eq._port_values.get("aocs.gyro.rate_x", 0.0)
         gy = eq._port_values.get("aocs.gyro.rate_y", 0.0)
         gz = eq._port_values.get("aocs.gyro.rate_z", 0.0)

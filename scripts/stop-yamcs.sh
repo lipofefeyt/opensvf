@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stop YAMCS — kill by saved PID first, fall back to process pattern.
+# Stop YAMCS  -  kill by saved PID first, fall back to process pattern.
 _stopped=0
 
 if [ -f /tmp/yamcs.pid ]; then

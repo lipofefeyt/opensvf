@@ -85,7 +85,7 @@ def test_parameter_store_unknown_parameter_no_warning(
 def test_parameter_store_warning_does_not_raise(
     srdb: object
 ) -> None:
-    """Range violation warning never raises an exception — simulation continues."""
+    """Range violation warning never raises an exception  -  simulation continues."""
     store = ParameterStore(srdb=srdb)  # type: ignore[arg-type]
     # Should not raise even with out-of-range value
     store.write("eps.battery.soc", value=999.0, t=0.1, model_id="eps")
@@ -147,7 +147,7 @@ def test_command_store_range_violation_warns(
 def test_command_store_warning_does_not_raise(
     srdb: object
 ) -> None:
-    """TM injection warning never raises — command still stored."""
+    """TM injection warning never raises  -  command still stored."""
     store = CommandStore(srdb=srdb)  # type: ignore[arg-type]
     store.inject("eps.battery.soc", value=0.5)
     entry = store.peek("eps.battery.soc")

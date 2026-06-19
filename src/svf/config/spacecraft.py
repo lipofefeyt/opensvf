@@ -431,7 +431,7 @@ class SpacecraftLoader:
         module  = importlib.import_module(module_name)
         factory = getattr(module, factory_name)
 
-        # Build kwargs — only pass what the factory accepts
+        # Build kwargs  -  only pass what the factory accepts
         import inspect
         sig    = inspect.signature(factory)
         kwargs: dict[str, Any] = {}

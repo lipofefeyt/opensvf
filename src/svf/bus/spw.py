@@ -7,13 +7,13 @@ Models a SpaceWire network with:
 - RMAP read/write transaction routing by logical address
 - Error injection: link error, invalid address, RMAP error codes
 
-SpaceWire uses logical addressing — each node has a unique 8-bit
+SpaceWire uses logical addressing  -  each node has a unique 8-bit
 logical address. RMAP transactions are routed by the router to
 the correct target node.
 
 Port naming convention:
-    initiator_in    — initiator port (OBC/instrument)
-    node{n}_out     — target node ports
+    initiator_in     -  initiator port (OBC/instrument)
+    node{n}_out      -  target node ports
 
 RMAP transaction routing:
     WRITE: value read from CommandStore → injected to target node
@@ -36,7 +36,7 @@ from svf.stores.command_store import CommandStore
 
 logger = logging.getLogger(__name__)
 
-MAX_LOGICAL_ADDRESS = 254   # 0xFE — 0xFF reserved
+MAX_LOGICAL_ADDRESS = 254   # 0xFE  -  0xFF reserved
 MIN_LOGICAL_ADDRESS = 32    # 0x00-0x1F reserved by SpW standard
 
 

@@ -1,5 +1,5 @@
 """
-Tests for PUS Service 20 — On-Board Parameter Management.
+Tests for PUS Service 20  -  On-Board Parameter Management.
 Implements: PUS-008
 """
 
@@ -55,7 +55,7 @@ def test_s20_parameter_value_report() -> None:
 
 @pytest.mark.requirement("PUS-008")
 def test_s20_roundtrip_set_and_report() -> None:
-    """S20 set TC then value report TM — full roundtrip."""
+    """S20 set TC then value report TM  -  full roundtrip."""
     builder = PusTcBuilder()
     parser = PusTcParser()
     tm_builder = PusTmBuilder()

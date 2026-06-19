@@ -327,7 +327,7 @@ def test_load_all_baselines() -> None:
         params = srdb.by_domain(domain)
         assert len(params) > 0, f"No parameters found for domain {domain.value}"
 
-    # Confirm TM/TC split — both should exist
+    # Confirm TM/TC split  -  both should exist
     assert len(srdb.by_classification(Classification.TM)) > 0
     assert len(srdb.by_classification(Classification.TC)) > 0
 

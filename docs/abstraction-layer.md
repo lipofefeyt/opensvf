@@ -8,7 +8,7 @@
 
 ## Overview
 
-The SVF abstraction layer defines three interfaces that decouple the simulation core from its execution environment. Switching from software simulation to real-time execution is a one-line change at the composition root — the equipment models, test procedures, and campaign manager are unaffected.
+The SVF abstraction layer defines three interfaces that decouple the simulation core from its execution environment. Switching from software simulation to real-time execution is a one-line change at the composition root  -  the equipment models, test procedures, and campaign manager are unaffected.
 
 ---
 
@@ -62,8 +62,8 @@ class SyncProtocol(ABC):
 
 Default implementation using Eclipse Cyclone DDS.
 
-- `SVF/Sim/Tick` topic — master broadcasts tick with `(t, dt)`
-- `SVF/Sim/Ready/{model_id}` topic — each model acknowledges
+- `SVF/Sim/Tick` topic  -  master broadcasts tick with `(t, dt)`
+- `SVF/Sim/Ready/{model_id}` topic  -  each model acknowledges
 
 ```python
 from cyclonedds.domain import DomainParticipant
@@ -77,22 +77,22 @@ All DDS writers/readers use `KEEP_ALL` QoS to ensure late-joining models receive
 
 ### SharedMemorySyncProtocol (M41)
 
-One-byte-per-model POSIX shared memory segment with a pure spinwait. Single-byte writes are atomic on all architectures — no locks needed. Sub-ms latency for real-time HIL.
+One-byte-per-model POSIX shared memory segment with a pure spinwait. Single-byte writes are atomic on all architectures  -  no locks needed. Sub-ms latency for real-time HIL.
 
 ```python
 from svf.ground.shm_sync import SharedMemorySyncProtocol
 
-# SVF master process — creates and owns the segment
+# SVF master process  -  creates and owns the segment
 sync = SharedMemorySyncProtocol(model_ids=["mag", "gyro", "obc"])
 
-# Worker process — attach by name
+# Worker process  -  attach by name
 sync = SharedMemorySyncProtocol(
     model_ids=["mag", "gyro", "obc"],
     name=shared_name,
     create=False,
 )
 
-# Drop-in for DdsSyncProtocol — same interface
+# Drop-in for DdsSyncProtocol  -  same interface
 master = SimulationMaster(sync_protocol=sync, ...)
 ```
 
@@ -125,9 +125,9 @@ class ModelAdapter(ABC):
 ```
 ModelAdapter (ABC)
     └── Equipment (ABC)
-            ├── FmuEquipment     — wraps FMI 3.0 FMU
-            ├── NativeEquipment  — wraps Python step function
-            └── Bus (ABC)        — fault injection + typed ports
+            ├── FmuEquipment      -  wraps FMI 3.0 FMU
+            ├── NativeEquipment   -  wraps Python step function
+            └── Bus (ABC)         -  fault injection + typed ports
                     └── Mil1553Bus
 ```
 
@@ -188,7 +188,7 @@ def make_reaction_wheel(sync, store, cmd_store,
         command_store=cmd_store,
     )
 
-# Two independent instances — distinct port namespaces
+# Two independent instances  -  distinct port namespaces
 rw_x = make_reaction_wheel(sync, store, cmd_store, equipment_id="rw_x")
 rw_y = make_reaction_wheel(sync, store, cmd_store, equipment_id="rw_y")
 ```
@@ -260,8 +260,8 @@ snapshot = store.snapshot()  # dict[str, ParameterEntry]
 
 Properties:
 - Thread-safe (`threading.Lock`)
-- Late-joiner safe — `read()` returns last value regardless of when called
-- SRDB validation when `Srdb` instance attached — warns on range violation
+- Late-joiner safe  -  `read()` returns last value regardless of when called
+- SRDB validation when `Srdb` instance attached  -  warns on range violation
 
 ### CommandStore (TC)
 
@@ -278,9 +278,9 @@ entry = cmd_store.peek("aocs.rw1.torque_cmd")  # non-consuming read
 
 Properties:
 - Thread-safe
-- `take()` is atomic — read and consume in one operation
+- `take()` is atomic  -  read and consume in one operation
 - `peek()` for test assertions without consuming
-- SRDB validation — warns when TC-classified parameter injected to TM key
+- SRDB validation  -  warns when TC-classified parameter injected to TM key
 
 ---
 
@@ -300,7 +300,7 @@ store     = ParameterStore(srdb=srdb)
 cmd_store = CommandStore(srdb=srdb)
 ```
 
-Validation warnings (never raise — simulation continues):
+Validation warnings (never raise  -  simulation continues):
 - Value outside `valid_range`
 - Model writes to TC-classified parameter
 - Test injects to TM-classified parameter
@@ -344,4 +344,4 @@ master = SimulationMaster(
 master.run()
 ```
 
-Switching to real-time HIL (M41): swap `DdsSyncProtocol` for `SharedMemorySyncProtocol` (`svf.ground.shm_sync`). Everything else is unchanged — same `SyncProtocol` interface.
+Switching to real-time HIL (M41): swap `DdsSyncProtocol` for `SharedMemorySyncProtocol` (`svf.ground.shm_sync`). Everything else is unchanged  -  same `SyncProtocol` interface.

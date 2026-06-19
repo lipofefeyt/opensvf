@@ -77,7 +77,7 @@ class NominalOperationsLoop(Procedure):
         ctx.tc(service=17, subservice=1)
         ctx.expect_tm(service=17, subservice=2, timeout=5.0)
 
-        self.step("Send S20 parameter set — command RW torque 0.1 Nm")
+        self.step("Send S20 parameter set  -  command RW torque 0.1 Nm")
         ctx.tc(service=20, subservice=1, data=struct.pack(">Hf", 0x2021, 0.1))
 
         self.step("Verify RW spins up following torque command")

@@ -1,5 +1,5 @@
 ---
-title: "OpenSVF — Software Validation Specification"
+title: "OpenSVF  -  Software Validation Specification"
 subtitle: "SVF-SVS-001 | Issue 1.0"
 author: "Gonçalo Graças"
 date: "2026-05-23"
@@ -20,7 +20,7 @@ fontsize: 11pt
 geometry: "margin=2.5cm"
 header-left: "SVF-SVS-001"
 header-right: "OpenSVF Software Validation Specification"
-footer-left: "Issue 1.0 — 2026-05-23"
+footer-left: "Issue 1.0  -  2026-05-23"
 footer-right: "Page \\thepage"
 classoption: oneside
 ---
@@ -37,11 +37,11 @@ within which operators use OpenSVF to validate their own flight software.
 ## Scope
 
 This document covers validation of the `opensvf` Python package. It does not
-specify validation of the flight software under test (openobsw) — that is
+specify validation of the flight software under test (openobsw)  -  that is
 the operator's responsibility, and OpenSVF is the tool they use to discharge
 it. The distinction is important:
 
-> Levels 1–3 validate **OpenSVF itself** — that the simulation framework
+> Levels 1–3 validate **OpenSVF itself**  -  that the simulation framework
 > behaves correctly.
 >
 > Level 4 validates the **operator's OBSW** using OpenSVF as an instrument.
@@ -51,13 +51,13 @@ it. The distinction is important:
 
 | Reference | Title |
 |---|---|
-| ECSS-E-ST-70-41C | Space Engineering — Telemetry and Telecommand Packet Utilisation |
+| ECSS-E-ST-70-41C | Space Engineering  -  Telemetry and Telecommand Packet Utilisation |
 | ECSS-E-HB-40A | Software Engineering Handbook |
 | SVF-ADD-001 | OpenSVF Architecture Description Document |
 | SVF-ICD-001 | OpenSVF Interface Control Document |
 | `REQUIREMENTS.md` | OpenSVF Development Requirements (v1.1) |
 | `VALIDATION.md` | OpenSVF Validation Strategy (v1.0) |
-| `docs/sil-attitude-validation-guide.md` | SIL Attitude Validation — M13 Results |
+| `docs/sil-attitude-validation-guide.md` | SIL Attitude Validation  -  M13 Results |
 
 ## Terms and Abbreviations
 
@@ -84,7 +84,7 @@ OpenSVF answers a single question for the operator:
 
 This is structurally different from MIL (Model-In-the-Loop) validation in
 Simulink, which validates a design model against itself. OpenSVF validates
-the **actual flight C code** that will run on the target hardware — against
+the **actual flight C code** that will run on the target hardware  -  against
 a physics plant model, real sensor noise, and a real ground station. The
 statistical performance it measures is the performance of the code that
 flies, not a model of it.
@@ -124,25 +124,25 @@ dependencies and scope. CI covers L1 and L2 only.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  Level 4 — Operator Campaigns                            │
+│  Level 4  -  Operator Campaigns                            │
 │  Validates the OBSW using the validated SVF              │
 │  svf campaign <campaign.yaml> --report                   │
 ├──────────────────────────────────────────────────────────┤
-│  Level 3 — System / SIL Tests                            │
+│  Level 3  -  System / SIL Tests                            │
 │  Full spacecraft, real binaries, Renode / QEMU           │
 │  pytest tests/system/                                    │
 ├──────────────────────────────────────────────────────────┤
-│  Level 2 — Integration Tests                             │
+│  Level 2  -  Integration Tests                             │
 │  Two or more SVF blocks, FMU infrastructure, DDS sync   │
 │  testosvf  (tests/integration/)                          │
 ├──────────────────────────────────────────────────────────┤
-│  Level 1 — Unit Tests                                    │
+│  Level 1  -  Unit Tests                                    │
 │  Individual SVF classes, no binaries, no DDS             │
 │  testosvf  (tests/unit/)                                 │
 └──────────────────────────────────────────────────────────┘
 ```
 
-*Table 1 — Validation level summary*
+*Table 1  -  Validation level summary*
 
 | Level | Label | External prerequisites | Scope | CI |
 |---|---|---|---|---|
@@ -155,7 +155,7 @@ dependencies and scope. CI covers L1 and L2 only.
 
 # Test Environments
 
-## L1/L2 — CI Environment
+## L1/L2  -  CI Environment
 
 | Property | Value |
 |---|---|
@@ -167,7 +167,7 @@ dependencies and scope. CI covers L1 and L2 only.
 | DDS | Eclipse Cyclone DDS (installed via pip) |
 | Execution | Fast-as-possible (`SoftwareTickSource`) |
 
-## L3 — System Test Environment
+## L3  -  System Test Environment
 
 | Property | Value |
 |---|---|
@@ -185,7 +185,7 @@ L3 tests are excluded from the default `testosvf` run via `norecursedirs` in
 pytest tests/system/ -v
 ```
 
-## L4 — Campaign Environment
+## L4  -  Campaign Environment
 
 | Property | Value |
 |---|---|
@@ -204,8 +204,8 @@ A test passes when its `@pytest.mark.requirement` assertion suite completes
 without failure. The overall L1/L2 validation is accepted when:
 
 1. `testosvf` exits with code 0 (all ~453 tests pass)
-2. `checkosvf` exits with code 0 (mypy strict — zero type errors)
-3. `checkcov` exits with code 0 — all `BASELINED` requirements are covered
+2. `checkosvf` exits with code 0 (mypy strict  -  zero type errors)
+3. `checkcov` exits with code 0  -  all `BASELINED` requirements are covered
 
 **Requirement coverage rule:** Every `BASELINED` requirement must appear in
 `results/traceability.txt`, or have an entry in the `KNOWN_GAPS` dict in
@@ -264,15 +264,15 @@ SVF-DEV-002 :: tests/unit/test_simulation_master.py::SimulationSuite::test_...
 checkcov
 ```
 
-## `KNOWN_GAPS` — Non-pytest Evidence
+## `KNOWN_GAPS`  -  Non-pytest Evidence
 
 Some requirements are verified by means other than pytest markers:
 
-- **CI pipeline checks** — `checkcons` struct size check ([1/7]) verifies the
+- **CI pipeline checks**  -  `checkcons` struct size check ([1/7]) verifies the
   wire protocol struct byte counts match C layout without running pytest
-- **Hardware tests** — L3 tests that require `obsw_sim` are not run in CI but
+- **Hardware tests**  -  L3 tests that require `obsw_sim` are not run in CI but
   are covered in the KNOWN_GAPS with a reference to the L3 test file
-- **Script verification** — requirements verified by `svf validate` or `checkcov`
+- **Script verification**  -  requirements verified by `svf validate` or `checkcov`
   output inspection
 
 Every KNOWN_GAPS entry contains an explicit justification string. Undocumented
@@ -292,13 +292,13 @@ gaps are treated as uncovered requirements.
 
 ---
 
-# Level 1 — Unit Test Catalogue
+# Level 1  -  Unit Test Catalogue
 
 All L1 tests reside in `tests/unit/` and run via `testosvf`. Each test class
 must end in `Suite` or `Tests` (non-default `python_classes` in
 `pyproject.toml`). Test class names ending in `TestFoo` are silently ignored.
 
-*Table 2 — L1 unit test coverage summary*
+*Table 2  -  L1 unit test coverage summary*
 
 | Test file | Requirements covered | Area |
 |---|---|---|
@@ -339,12 +339,12 @@ must end in `Suite` or `Tests` (non-default `python_classes` in
 
 ---
 
-# Level 2 — Integration Test Catalogue
+# Level 2  -  Integration Test Catalogue
 
 All L2 tests reside in `tests/integration/` and run via `testosvf`. They
 require `models/SimpleCounter.fmu` to be present.
 
-*Table 3 — L2 integration test coverage summary*
+*Table 3  -  L2 integration test coverage summary*
 
 | Test file | Requirements covered | Area |
 |---|---|---|
@@ -358,12 +358,12 @@ require `models/SimpleCounter.fmu` to be present.
 
 ---
 
-# Level 3 — System / SIL Test Catalogue
+# Level 3  -  System / SIL Test Catalogue
 
 L3 tests reside in `tests/system/` and are excluded from default `testosvf`
 runs. They require external binaries. See Section 4 for environment setup.
 
-*Table 4 — L3 system test coverage summary*
+*Table 4  -  L3 system test coverage summary*
 
 | Test file | Requirements covered | Prerequisites |
 |---|---|---|
@@ -411,7 +411,7 @@ RW model:  torque command → KDE (NOMINAL loop)
 
 ## Test Procedures and Results
 
-*Table 5 — SIL ADCS validation results*
+*Table 5  -  SIL ADCS validation results*
 
 | Procedure ID | Title | Acceptance Criterion | Result |
 |---|---|---|---|
@@ -438,21 +438,21 @@ All tests use deterministic `seed=42` for exact replay.
 | Kp | 0.5 | N·m/rad |
 | Kd | 0.1 | N·m·s/rad |
 | Max torque | 0.01 | N·m |
-| Target attitude | [1, 0, 0, 0] | — |
+| Target attitude | [1, 0, 0, 0] |  -  |
 
 ## Validation Notes
 
 - TC-ADCS-001 uses a conservative threshold (1.0 rad/s). Full detumbling to
   near-zero rates requires 300–600 s depending on initial conditions.
 - RW torques are not yet fed back into the KDE FMU. TC-ADCS-003 validates that
-  the ADCS controller is active and producing commands — not that RW torques
+  the ADCS controller is active and producing commands  -  not that RW torques
   have closed the NOMINAL loop. RW feedback is planned for M14.
 - Star tracker acquisition time is ~10 s from cold start. TC-ADCS-003 injects
   NOMINAL at t≈5 s and relies on the ST entering TRACKING mode during the run.
 
 ---
 
-# Level 4 — Operator Campaign Catalogue
+# Level 4  -  Operator Campaign Catalogue
 
 L4 campaigns are in `mission_mysat1/campaigns/`. They validate the MySat-1
 OBSW configuration using OpenSVF. They are run via:
@@ -461,7 +461,7 @@ OBSW configuration using OpenSVF. They are run via:
 svf campaign mission_mysat1/campaigns/<name>.yaml --report
 ```
 
-*Table 6 — MySat-1 campaign summary*
+*Table 6  -  MySat-1 campaign summary*
 
 | Campaign file | Procedures | Mission requirements | Description |
 |---|---|---|---|
@@ -522,8 +522,8 @@ The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push
 and pull request:
 
 1. `pip install -e ".[dev]"` on Ubuntu 24.04 / Python 3.12
-2. `pytest tests/` — covers L1 and L2 (L3 excluded via `norecursedirs`)
-3. Renode ZynqMP job — runs on push to `main`, pulls `obsw_zynqmp.bin`
+2. `pytest tests/`  -  covers L1 and L2 (L3 excluded via `norecursedirs`)
+3. Renode ZynqMP job  -  runs on push to `main`, pulls `obsw_zynqmp.bin`
    artifact from the openobsw repository
 
 ---

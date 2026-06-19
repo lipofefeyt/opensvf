@@ -126,14 +126,14 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
     if errors:
         print(
-            f"\n[svf validate] FAIL — {len(errors)} error(s), "
+            f"\n[svf validate] FAIL  -  {len(errors)} error(s), "
             f"{len(warnings)} warning(s).",
             file=sys.stderr,
         )
         return 1
 
     print(
-        f"[svf validate] OK — {path.name} "
+        f"[svf validate] OK  -  {path.name} "
         f"({len(warnings)} warning(s))."
     )
     return 0
@@ -167,7 +167,7 @@ def cmd_check(args: argparse.Namespace) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="svf",
-        description="OpenSVF — Spacecraft Software Validation Facility",
+        description="OpenSVF  -  Spacecraft Software Validation Facility",
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true",

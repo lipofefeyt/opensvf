@@ -38,12 +38,12 @@ def make_kde_equipment(
     Create a KDE NativeEquipment wrapping the SpacecraftDynamics FMU.
 
     Inputs:
-        aocs.mtq.torque_x/y/z  — mechanical torques from MTQ (Nm)
+        aocs.mtq.torque_x/y/z   -  mechanical torques from MTQ (Nm)
 
     Outputs:
-        aocs.truth.rate_x/y/z           — true angular rates (rad/s)
-        aocs.mag.true_x/y/z             — true magnetic field (T)
-        aocs.attitude.quaternion_w/x/y/z — true attitude quaternion
+        aocs.truth.rate_x/y/z            -  true angular rates (rad/s)
+        aocs.mag.true_x/y/z              -  true magnetic field (T)
+        aocs.attitude.quaternion_w/x/y/z  -  true attitude quaternion
     """
     from svf.models.dynamics.fmu.DynamicsFmu import DynamicsFmu
 

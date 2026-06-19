@@ -1,4 +1,4 @@
-"""PUS Service 17 — Test (are-you-alive)."""
+"""PUS Service 17  -  Test (are-you-alive)."""
 
 from __future__ import annotations
 
@@ -8,12 +8,12 @@ from svf.pus.tm import PusTmPacket
 
 class PusService17:
     """
-    PUS Service 17 — Test.
+    PUS Service 17  -  Test.
 
-    TC(17,1) — Are-you-alive test request
-    TM(17,2) — Are-you-alive test response
-    TC(17,3) — On-board connection test request
-    TM(17,4) — On-board connection test response
+    TC(17,1)  -  Are-you-alive test request
+    TM(17,2)  -  Are-you-alive test response
+    TC(17,3)  -  On-board connection test request
+    TM(17,4)  -  On-board connection test response
     """
 
     @staticmethod
@@ -27,7 +27,7 @@ class PusService17:
         sequence_count: int,
         timestamp: int = 0,
     ) -> PusTmPacket:
-        """TM(17,2) — Are-you-alive response."""
+        """TM(17,2)  -  Are-you-alive response."""
         return PusTmPacket(
             apid=tm_apid,
             sequence_count=sequence_count,

@@ -32,7 +32,7 @@ pip install opensvf
 
 ## 60-second demo
 
-No flight binary needed — the MySat-1 reference mission runs in stub mode:
+No flight binary needed  -  the MySat-1 reference mission runs in stub mode:
 
 ```bash
 pip install opensvf
@@ -40,7 +40,7 @@ svf campaign mission_mysat1/campaigns/quickstart_campaign.yaml --report
 open results/quickstart_campaign_report.html
 ```
 
-The HTML report shows four PASS verdicts for AOCS requirements and flags four UNCOVERED EPS requirements — exactly where the gap is.
+The HTML report shows four PASS verdicts for AOCS requirements and flags four UNCOVERED EPS requirements  -  exactly where the gap is.
 
 ---
 
@@ -90,4 +90,4 @@ svf campaign campaign.yaml --report
 
 ---
 
-*Apache 2.0 — built by [lipofefeyt](https://github.com/lipofefeyt/opensvf)*
+*Apache 2.0  -  built by [lipofefeyt](https://github.com/lipofefeyt/opensvf)*

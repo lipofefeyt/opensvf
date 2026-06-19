@@ -1,5 +1,5 @@
-# Full closed-loop wiring — KDE + obsw_sim
-# No Python b-dot controller — obsw_sim handles AOCS internally
+# Full closed-loop wiring  -  KDE + obsw_sim
+# No Python b-dot controller  -  obsw_sim handles AOCS internally
 # MTQ dipoles injected by OBCEmulatorAdapter via CommandStore each tick
 
 connections:

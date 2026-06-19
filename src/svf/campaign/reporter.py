@@ -17,7 +17,7 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OpenSVF — {{ record.campaign_name or "Validation Report" }}</title>
+<title>OpenSVF  -  {{ record.campaign_name or "Validation Report" }}</title>
 <style>
     :root {
         --bg: #f8fafc; --card-bg: #ffffff; --text: #1e293b;

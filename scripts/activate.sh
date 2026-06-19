@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# OpenSVF fast activation — source every terminal
+# OpenSVF fast activation  -  source every terminal
 # Usage: source scripts/activate.sh (or auto-sourced from .bashrc)
 # Works in: WSL2 native, dev container, GitHub Codespaces
 
@@ -36,5 +36,5 @@ alias regen-xtce='python3 $REPO/tools/generate_xtce.py > $REPO/yamcs/mdb/opensvf
 # ── Demo ──────────────────────────────────────────────────────────────
 alias svf-demo='python3 $REPO/scripts/demo_yamcs.py'
 
-echo "[opensvf] activated — repo: $REPO"
+echo "[opensvf] activated  -  repo: $REPO"
 echo "[opensvf] aliases: testosvf checkosvf checkcov checkcons yamcs-start svf-demo"

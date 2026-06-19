@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# OpenSVF + YAMCS Demo — one command to run everything
+# OpenSVF + YAMCS Demo  -  one command to run everything
 # Usage: bash scripts/demo.sh
 
 set -e
@@ -32,9 +32,9 @@ echo "YAMCS UI:   http://localhost:8090"
 echo "Instance:   opensvf | Processor: realtime"
 echo ""
 echo "tmux shortcuts:"
-echo "  Ctrl+B 0  — YAMCS window"
-echo "  Ctrl+B 1  — SVF demo window"  
-echo "  Ctrl+B d  — detach (keeps running)"
+echo "  Ctrl+B 0   -  YAMCS window"
+echo "  Ctrl+B 1   -  SVF demo window"  
+echo "  Ctrl+B d   -  detach (keeps running)"
 echo ""
 echo "Attaching to demo window in 3s... (Ctrl+B d to detach)"
 sleep 3

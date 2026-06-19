@@ -5,12 +5,12 @@ Models a spacecraft thruster with propellant mass tracking,
 temperature model, and minimum pulse width enforcement.
 
 Ports:
-  IN:  aocs.<id>.enable      — 1=fire, 0=off
-       aocs.<id>.thrust_cmd  — commanded thrust [N]
-  OUT: aocs.<id>.thrust      — actual thrust [N]
-       aocs.<id>.temperature — thruster temperature [degC]
-       aocs.<id>.propellant  — remaining propellant [kg]
-       aocs.<id>.status      — 0=off, 1=nominal, 2=low_prop, 3=empty, 4=over_temp
+  IN:  aocs.<id>.enable       -  1=fire, 0=off
+       aocs.<id>.thrust_cmd   -  commanded thrust [N]
+  OUT: aocs.<id>.thrust       -  actual thrust [N]
+       aocs.<id>.temperature  -  thruster temperature [degC]
+       aocs.<id>.propellant   -  remaining propellant [kg]
+       aocs.<id>.status       -  0=off, 1=nominal, 2=low_prop, 3=empty, 4=over_temp
 
 Physics:
   Δm = thrust / (Isp × g0) × dt   (propellant consumption)
@@ -35,14 +35,14 @@ logger = logging.getLogger(__name__)
 # Physical constant
 _G0_M_S2 = 9.80665
 
-# Public status codes — importable by tests and external consumers
+# Public status codes  -  importable by tests and external consumers
 STATUS_OFF       = 0.0
 STATUS_NOMINAL   = 1.0
 STATUS_LOW_PROP  = 2.0
 STATUS_EMPTY     = 3.0
 STATUS_OVER_TEMP = 4.0
 
-# Public defaults — exported for tests
+# Public defaults  -  exported for tests
 INITIAL_PROPELLANT_KG = 0.5
 AMBIENT_TEMP_C        = 20.0
 
@@ -64,7 +64,7 @@ def make_thruster(
         hardware_profile: Profile name (e.g. 'thr_moog_monarc_1').
         hardware_dir:     Directory to search for profile YAML files.
     """
-    # Physics constants — per-instance locals
+    # Physics constants  -  per-instance locals
     max_thrust_n           = 1.0
     min_thrust_n           = 0.01
     isp_s                  = 70.0
@@ -74,7 +74,7 @@ def make_thruster(
     max_temp_c             = 120.0
     cooling_rate           = 0.05
     low_propellant_frac    = 0.1
-    min_on_time_s          = 0.01  # noqa: F841 — reserved for future use
+    min_on_time_s          = 0.01  # noqa: F841  -  reserved for future use
 
     if hardware_profile is not None:
         from svf.config.hardware_profile import load_hardware_profile
@@ -116,7 +116,7 @@ def make_thruster(
         elif new_temp >= max_temp_c:
             status = STATUS_OVER_TEMP
             thrust = 0.0
-            logger.warning("[%s] t=%.1fs over-temperature %.1f°C — thrust cut off",
+            logger.warning("[%s] t=%.1fs over-temperature %.1f°C  -  thrust cut off",
                            equipment_id, t, new_temp)
         elif new_prop <= 0.0:
             status = STATUS_EMPTY

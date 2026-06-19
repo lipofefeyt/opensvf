@@ -1,5 +1,5 @@
 ---
-title: "OpenSVF — Interface Control Document"
+title: "OpenSVF  -  Interface Control Document"
 subtitle: "SVF-ICD-001 | Issue 1.0"
 author: "Gonçalo Graças"
 date: "2026-05-23"
@@ -20,7 +20,7 @@ fontsize: 11pt
 geometry: "margin=2.5cm"
 header-left: "SVF-ICD-001"
 header-right: "OpenSVF Interface Control Document"
-footer-left: "Issue 1.0 — 2026-05-23"
+footer-left: "Issue 1.0  -  2026-05-23"
 footer-right: "Page \\thepage"
 classoption: oneside
 ---
@@ -52,7 +52,7 @@ Four interfaces are defined:
 
 | Reference | Title |
 |---|---|
-| ECSS-E-ST-70-41C | Space Engineering — Telemetry and Telecommand Packet Utilisation |
+| ECSS-E-ST-70-41C | Space Engineering  -  Telemetry and Telecommand Packet Utilisation |
 | FMI 2.0 Specification | Functional Mock-up Interface for Model Exchange and Co-Simulation |
 | OMG XTCE 1.2 | XML Telemetry and Command Exchange |
 | SVF-ADD-001 | OpenSVF Architecture Description Document |
@@ -85,8 +85,8 @@ The SVF Wire Protocol v3 is a binary framing protocol used for bidirectional
 communication between `OBCEmulatorAdapter` (opensvf) and the openobsw binary
 (`obsw_sim` or Renode UART terminal). Communication uses either:
 
-- **Pipe mode** — the OBSW binary stdin/stdout stream
-- **Socket mode** — a TCP connection to Renode UART terminal (default port 3456)
+- **Pipe mode**  -  the OBSW binary stdin/stdout stream
+- **Socket mode**  -  a TCP connection to Renode UART terminal (default port 3456)
 
 All data sent by opensvf is called *upstream* (SVF → OBSW). All data sent by
 openobsw is called *downstream* (OBSW → SVF).
@@ -96,7 +96,7 @@ The C reference implementation of this protocol lives in
 
 ## Frame Format
 
-Every frame — upstream and downstream — uses the same envelope:
+Every frame  -  upstream and downstream  -  uses the same envelope:
 
 ```
 ┌────────────┬──────────────────────┬──────────────────────┐
@@ -105,13 +105,13 @@ Every frame — upstream and downstream — uses the same envelope:
 └────────────┴──────────────────────┴──────────────────────┘
 ```
 
-- **`type_byte`** — identifies the frame content (see Table 1)
-- **`length`** — number of body bytes, big-endian unsigned 16-bit integer
-- **`body`** — frame payload; length is bounded to [1, 4096] bytes
+- **`type_byte`**  -  identifies the frame content (see Table 1)
+- **`length`**  -  number of body bytes, big-endian unsigned 16-bit integer
+- **`body`**  -  frame payload; length is bounded to [1, 4096] bytes
 
 ## Frame Type Codes
 
-*Table 1 — Frame type codes*
+*Table 1  -  Frame type codes*
 
 | Type | Hex | Direction | Body content |
 |---|---|---|---|
@@ -129,7 +129,7 @@ downstream by the OBSW (OBSW → SVF):
 0xFF   (1 byte, no length prefix, no body)
 ```
 
-The `0xFF` byte is **not** a framed message — it is a bare byte that signals the
+The `0xFF` byte is **not** a framed message  -  it is a bare byte that signals the
 OBSW has finished processing the current tick and has emitted all frames for that
 tick. `OBCEmulatorAdapter._collect_until_sync()` reads frames until `0xFF` is
 received or the sync timeout expires.
@@ -158,14 +158,14 @@ SVF                                          OBSW
 opensvf always sends the sensor frame before TCs. If no TC is queued,
 a TC(17,1) heartbeat ping is sent automatically.
 
-## Sensor Frame — `obsw_sensor_frame_t`
+## Sensor Frame  -  `obsw_sensor_frame_t`
 
 **Size:** 47 bytes  
 **Byte order:** Little-endian  
 **Python struct format:** `<3fB4fB3fBf`
 
 ```c
-/* obsw_sensor_frame_t — #pragma pack(1), little-endian */
+/* obsw_sensor_frame_t  -  #pragma pack(1), little-endian */
 typedef struct {
     float    mag_x,  mag_y,  mag_z;   /* [T]       magnetic field vector  */
     uint8_t  mag_valid;                /* 1=valid, 0=invalid               */
@@ -178,23 +178,23 @@ typedef struct {
 } obsw_sensor_frame_t;                /* Total: 47 bytes                  */
 ```
 
-*Table 2 — Sensor frame field layout*
+*Table 2  -  Sensor frame field layout*
 
 | Offset | Size | Field | Unit | Notes |
 |---|---|---|---|---|
 | 0 | 4 | `mag_x` | T | Magnetometer X measurement |
 | 4 | 4 | `mag_y` | T | Magnetometer Y measurement |
 | 8 | 4 | `mag_z` | T | Magnetometer Z measurement |
-| 12 | 1 | `mag_valid` | — | 1 if magnetometer output is valid |
-| 13 | 4 | `st_q_w` | — | Star tracker quaternion scalar component |
-| 17 | 4 | `st_q_x` | — | Star tracker quaternion X |
-| 21 | 4 | `st_q_y` | — | Star tracker quaternion Y |
-| 25 | 4 | `st_q_z` | — | Star tracker quaternion Z |
-| 29 | 1 | `st_valid` | — | 1 if star tracker output is valid |
+| 12 | 1 | `mag_valid` |  -  | 1 if magnetometer output is valid |
+| 13 | 4 | `st_q_w` |  -  | Star tracker quaternion scalar component |
+| 17 | 4 | `st_q_x` |  -  | Star tracker quaternion X |
+| 21 | 4 | `st_q_y` |  -  | Star tracker quaternion Y |
+| 25 | 4 | `st_q_z` |  -  | Star tracker quaternion Z |
+| 29 | 1 | `st_valid` |  -  | 1 if star tracker output is valid |
 | 30 | 4 | `gyro_x` | rad/s | Gyroscope X angular rate |
 | 34 | 4 | `gyro_y` | rad/s | Gyroscope Y angular rate |
 | 38 | 4 | `gyro_z` | rad/s | Gyroscope Z angular rate |
-| 42 | 1 | `gyro_valid` | — | 1 if gyroscope output is valid |
+| 42 | 1 | `gyro_valid` |  -  | 1 if gyroscope output is valid |
 | 43 | 4 | `sim_time` | s | Simulation epoch time |
 
 **Source mapping:** `OBCEmulatorAdapter._send_sensor_frame()` reads the sensor
@@ -209,16 +209,16 @@ The `*_valid` flags are set from status ports thresholded at 0.5.
 | `st_valid` | `aocs.str1.validity` | Thresholded: > 0.5 → valid |
 | `gyro_x/y/z` | `aocs.gyro.rate_x/y/z` | Noisy measurement from gyroscope model |
 | `gyro_valid` | `aocs.gyro.status` | Thresholded: > 0.5 → valid |
-| `sim_time` | — | Simulation time `t` passed to `do_step()` |
+| `sim_time` |  -  | Simulation time `t` passed to `do_step()` |
 
-## Actuator Frame — `obsw_actuator_frame_t`
+## Actuator Frame  -  `obsw_actuator_frame_t`
 
 **Size:** 29 bytes  
 **Byte order:** Little-endian  
 **Python struct format:** `<6fBf`
 
 ```c
-/* obsw_actuator_frame_t — #pragma pack(1), little-endian */
+/* obsw_actuator_frame_t  -  #pragma pack(1), little-endian */
 typedef struct {
     float    mtq_x,        mtq_y,        mtq_z;       /* [Am²] MTQ dipole  */
     float    rw_torque_x,  rw_torque_y,  rw_torque_z; /* [Nm]  RW torques  */
@@ -227,7 +227,7 @@ typedef struct {
 } obsw_actuator_frame_t;      /* Total: 29 bytes                           */
 ```
 
-*Table 3 — Actuator frame field layout*
+*Table 3  -  Actuator frame field layout*
 
 | Offset | Size | Field | Unit | Notes |
 |---|---|---|---|---|
@@ -237,7 +237,7 @@ typedef struct {
 | 12 | 4 | `rw_torque_x` | Nm | Reaction wheel 1 torque command |
 | 16 | 4 | `rw_torque_y` | Nm | Reaction wheel 2 torque command |
 | 20 | 4 | `rw_torque_z` | Nm | Reaction wheel 3 torque command |
-| 24 | 1 | `controller_mode` | — | 0 = b-dot active, 1 = ADCS PD active |
+| 24 | 1 | `controller_mode` |  -  | 0 = b-dot active, 1 = ADCS PD active |
 | 25 | 4 | `sim_time` | s | Simulation epoch time from OBSW |
 
 **Sink mapping:** `OBCEmulatorAdapter._parse_actuator()` injects the parsed
@@ -257,7 +257,7 @@ values into `CommandStore` using the following SRDB canonical names:
 The OBSW must implement the following PUS-C services to interoperate with
 opensvf:
 
-*Table 4 — Required PUS service support*
+*Table 4  -  Required PUS service support*
 
 | Service | Subservice | Direction | When emitted | opensvf use |
 |---|---|---|---|---|
@@ -301,7 +301,7 @@ opensvf sends TC(8,1) when `dhs.obc.mode_cmd` is set to `1` (NOMINAL):
 
 User data: `[0x00, 0x01, 0x00]` (mode = NOMINAL = 1).
 
-### S5 Event IDs — Mode Transitions
+### S5 Event IDs  -  Mode Transitions
 
 `OBCEmulatorAdapter._on_s5()` parses the event ID from bytes [17:19] of the
 TM(5,1) packet (big-endian uint16):
@@ -325,13 +325,13 @@ Offset  Size  Field
 0–5      6    PUS-C primary header (CCSDS)
 6–16    11    PUS-C secondary header (version, svc=3, subsvc=25, ...)
 17       1    set_id = 0x03  (DHS OBC HK set)
-18       1    mode         uint8  — 0=SAFE, 1=NOMINAL, 2=PAYLOAD
-19–22    4    obt          uint32 BE — on-board time [s]
-23       1    watchdog_status  uint8  — 0=nominal, 1=timeout_warning, 2=reset
-24       1    memory_used_pct  uint8  — mass memory utilisation [%]
-25       1    health       uint8  — 0=nominal, 1=degraded, 2=failed
-26–27    2    reset_count  uint16 BE — resets since launch
-28       1    cpu_load     uint8  — CPU utilisation [%]
+18       1    mode         uint8   -  0=SAFE, 1=NOMINAL, 2=PAYLOAD
+19–22    4    obt          uint32 BE  -  on-board time [s]
+23       1    watchdog_status  uint8   -  0=nominal, 1=timeout_warning, 2=reset
+24       1    memory_used_pct  uint8   -  mass memory utilisation [%]
+25       1    health       uint8   -  0=nominal, 1=degraded, 2=failed
+26–27    2    reset_count  uint16 BE  -  resets since launch
+28       1    cpu_load     uint8   -  CPU utilisation [%]
 end–2    2    CRC-16/CCITT
 ```
 
@@ -339,13 +339,13 @@ end–2    2    CRC-16/CCITT
 
 ```python
 _DHS_OBC_HK_FMT = ">BIBBBHB"
-# B  — mode         (uint8)
-# I  — obt          (uint32 BE)
-# B  — watchdog     (uint8)
-# B  — memory_used  (uint8)
-# B  — health       (uint8)
-# H  — reset_count  (uint16 BE)
-# B  — cpu_load     (uint8)
+# B   -  mode         (uint8)
+# I   -  obt          (uint32 BE)
+# B   -  watchdog     (uint8)
+# B   -  memory_used  (uint8)
+# B   -  health       (uint8)
+# H   -  reset_count  (uint16 BE)
+# B   -  cpu_load     (uint8)
 ```
 
 The byte at offset 17 (`set_id`) is read separately and must equal `0x03`
@@ -353,15 +353,15 @@ before the HK fields are parsed.
 
 ### SRDB Mapping
 
-*Table 5 — TM(3,25) HK field to SRDB parameter mapping*
+*Table 5  -  TM(3,25) HK field to SRDB parameter mapping*
 
 | Offset | HK field | SRDB parameter | PUS param_id | Unit |
 |---|---|---|---|---|
 | 18 | `mode` | `dhs.obc.mode` | 0x4001 | 0/1/2 |
 | 19–22 | `obt` | `dhs.obc.obt` | 0x4003 | s |
-| 23 | `watchdog_status` | `dhs.obc.watchdog_status` | 0x4004 | — |
+| 23 | `watchdog_status` | `dhs.obc.watchdog_status` | 0x4004 |  -  |
 | 24 | `memory_used_pct` | `dhs.obc.memory_used_pct` | 0x4006 | % |
-| 25 | `health` | `dhs.obc.health` | 0x4008 | — |
+| 25 | `health` | `dhs.obc.health` | 0x4008 |  -  |
 | 26–27 | `reset_count` | `dhs.obc.reset_count` | 0x4009 | count |
 | 28 | `cpu_load` | `dhs.obc.cpu_load` | 0x400A | % |
 
@@ -369,7 +369,7 @@ All fields are within APID `0x103`, service 3, subservice 25.
 
 ## Transport Configuration
 
-*Table 6 — Transport parameters by OBC mode*
+*Table 6  -  Transport parameters by OBC mode*
 
 | Parameter | Pipe mode | Socket (Renode) mode |
 |---|---|---|
@@ -400,7 +400,7 @@ The `SpacecraftDynamics.fmu` exposes the following interface as seen by
 opensvf. All port names use SRDB canonical names; the `make_kde_equipment()`
 factory maps them to FMU variable references internally.
 
-*Table 7 — KDE FMU input ports (SVF → FMU)*
+*Table 7  -  KDE FMU input ports (SVF → FMU)*
 
 | SRDB parameter | Unit | Description |
 |---|---|---|
@@ -408,7 +408,7 @@ factory maps them to FMU variable references internally.
 | `aocs.mtq.torque_y` | Nm | Magnetorquer mechanical torque Y |
 | `aocs.mtq.torque_z` | Nm | Magnetorquer mechanical torque Z |
 
-*Table 8 — KDE FMU output ports (FMU → SVF)*
+*Table 8  -  KDE FMU output ports (FMU → SVF)*
 
 | SRDB parameter | Unit | Description |
 |---|---|---|
@@ -418,10 +418,10 @@ factory maps them to FMU variable references internally.
 | `aocs.mag.true_x` | T | True magnetic field X (body frame) |
 | `aocs.mag.true_y` | T | True magnetic field Y |
 | `aocs.mag.true_z` | T | True magnetic field Z |
-| `aocs.attitude.quaternion_w` | — | True attitude quaternion scalar |
-| `aocs.attitude.quaternion_x` | — | True attitude quaternion X |
-| `aocs.attitude.quaternion_y` | — | True attitude quaternion Y |
-| `aocs.attitude.quaternion_z` | — | True attitude quaternion Z |
+| `aocs.attitude.quaternion_w` |  -  | True attitude quaternion scalar |
+| `aocs.attitude.quaternion_x` |  -  | True attitude quaternion X |
+| `aocs.attitude.quaternion_y` |  -  | True attitude quaternion Y |
+| `aocs.attitude.quaternion_z` |  -  | True attitude quaternion Z |
 
 ## Step Synchronisation
 
@@ -433,7 +433,7 @@ On each tick:
 3. `FmuEquipment` calls `fmi2DoStep(t, dt)` on the FMU
 4. `FmuEquipment` reads FMU output variables into OUT ports
 
-The FMU must not advance time autonomously — it must respect the co-simulation
+The FMU must not advance time autonomously  -  it must respect the co-simulation
 step boundaries imposed by `SimulationMaster`.
 
 ## FMU Binary Location
@@ -465,7 +465,7 @@ by `YamcsBridge` / `TtcEquipment` within the SVF equipment layer.
 
 ## Network Endpoints
 
-*Table 9 — YAMCS network interface*
+*Table 9  -  YAMCS network interface*
 
 | Stream | Protocol | Address | Port | Direction |
 |---|---|---|---|---|
@@ -507,11 +507,11 @@ to `int32`. All other parameters use `float32`.
 
 ### Container Definitions
 
-*Table 10 — XTCE container definitions*
+*Table 10  -  XTCE container definitions*
 
 | Container | Service | Subservice | Description |
 |---|---|---|---|
-| `PUS_Packet` | — | — | Abstract root; matches all PUS packets |
+| `PUS_Packet` |  -  |  -  | Abstract root; matches all PUS packets |
 | `TM_1_1_Accept` | 1 | 1 | TC acceptance success |
 | `TM_1_7_Complete` | 1 | 7 | TC completion success |
 | `TM_3_25_HK` | 3 | 25 | Housekeeping parameter report |
@@ -534,7 +534,7 @@ bytes 6–16 = `[PUS version+spare][svc][subsvc][...timestamp...]`.
 
 ### TC Definitions
 
-*Table 11 — XTCE TC (MetaCommand) definitions*
+*Table 11  -  XTCE TC (MetaCommand) definitions*
 
 | MetaCommand | Service | Subservice | Arguments |
 |---|---|---|---|
@@ -562,7 +562,7 @@ The Spacecraft Reference Database (SRDB) is the shared parameter namespace
 contract between opensvf, openobsw, and YAMCS. Every inter-component parameter
 has exactly one canonical name, one PUS service assignment, and one SRDB entry.
 
-The SRDB baseline lives in `srdb/baseline/*.yaml` — one file per subsystem
+The SRDB baseline lives in `srdb/baseline/*.yaml`  -  one file per subsystem
 domain. The `SrdbLoader` parses all baseline files into a single unified
 registry at runtime.
 
@@ -604,15 +604,15 @@ The following parameters are emitted by openobsw in APID `0x103`, S3(25),
 set_id=3. The PUS parameter IDs are fixed and must not be changed without
 updating both the OBSW and opensvf simultaneously.
 
-*Table 12 — DHS OBC HK PUS parameter ID allocation*
+*Table 12  -  DHS OBC HK PUS parameter ID allocation*
 
 | SRDB canonical name | param_id | dtype | Unit | Valid range |
 |---|---|---|---|---|
-| `dhs.obc.mode` | `0x4001` | int | — | [0, 2] |
+| `dhs.obc.mode` | `0x4001` | int |  -  | [0, 2] |
 | `dhs.obc.obt` | `0x4003` | float | s | [0, 3.156×10⁷] |
-| `dhs.obc.watchdog_status` | `0x4004` | int | — | [0, 2] |
+| `dhs.obc.watchdog_status` | `0x4004` | int |  -  | [0, 2] |
 | `dhs.obc.memory_used_pct` | `0x4006` | float | % | [0, 100] |
-| `dhs.obc.health` | `0x4008` | int | — | [0, 2] |
+| `dhs.obc.health` | `0x4008` | int |  -  | [0, 2] |
 | `dhs.obc.reset_count` | `0x4009` | int | count | [0, 65535] |
 | `dhs.obc.cpu_load` | `0x400A` | float | % | [0, 100] |
 

@@ -65,15 +65,15 @@ class Mil1553Bus(Bus):
     MIL-STD-1553B bus adapter.
 
     Models a dual-redundant 1553 bus (A/B) with:
-    - One Bus Controller (BC) port — connects to OBC
-    - Up to 30 Remote Terminal (RT) ports — connect to equipment
+    - One Bus Controller (BC) port  -  connects to OBC
+    - Up to 30 Remote Terminal (RT) ports  -  connect to equipment
     - Subaddress-to-parameter routing
     - Broadcast command support (RT address 31)
     - Automatic bus A/B switchover on BUS_ERROR fault
 
     Port naming convention:
-        bc_in         — BC port (type: MIL1553_BC), receives from OBC
-        rt{n}_out     — RT ports (type: MIL1553_RT), connects to equipment
+        bc_in          -  BC port (type: MIL1553_BC), receives from OBC
+        rt{n}_out      -  RT ports (type: MIL1553_RT), connects to equipment
 
     Subaddress routing:
         BC_to_RT: value read from ParameterStore (OBC output)
@@ -165,12 +165,12 @@ class Mil1553Bus(Bus):
                   check for faults, write as OBC telemetry
         """
         
-        # Check for BUS_ERROR — switch to redundant bus (once per fault)
+        # Check for BUS_ERROR  -  switch to redundant bus (once per fault)
         if self.has_fault(FaultType.BUS_ERROR, "all", t):
             if not getattr(self, "_bus_switched", False):
                 new_bus = "B" if self._active_bus == "A" else "A"
                 logger.warning(
-                    f"[{self._bus_id}] BUS_ERROR detected — "
+                    f"[{self._bus_id}] BUS_ERROR detected  -  "
                     f"switching from bus {self._active_bus} to {new_bus}"
                 )
                 self._active_bus = new_bus

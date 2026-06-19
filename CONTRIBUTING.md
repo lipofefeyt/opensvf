@@ -23,11 +23,11 @@ checkcov     # verify requirement coverage
 
 ## Code Standards
 
-- **Type annotations** everywhere — `mypy` strict mode must pass (`checkosvf`)
-- **Tests for everything** — every new test must have `@pytest.mark.requirement()`
-- **No test without a requirement** — if you need a test, define the requirement first
-- **SRDB canonical names** for all parameters — `domain.subsystem.parameter`
-- **Conventional commits** — `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`
+- **Type annotations** everywhere  -  `mypy` strict mode must pass (`checkosvf`)
+- **Tests for everything**  -  every new test must have `@pytest.mark.requirement()`
+- **No test without a requirement**  -  if you need a test, define the requirement first
+- **SRDB canonical names** for all parameters  -  `domain.subsystem.parameter`
+- **Conventional commits**  -  `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`
 
 ---
 
@@ -35,7 +35,7 @@ checkcov     # verify requirement coverage
 
 Equipment models are the core building blocks of SVF simulations. There are two approaches depending on your needs.
 
-### Option A — NativeEquipment (Python only)
+### Option A  -  NativeEquipment (Python only)
 
 Best for simple models or when you want full Python control:
 
@@ -64,7 +64,7 @@ rw = NativeEquipment(
 )
 ```
 
-### Option B — FmuEquipment (FMI 3.0)
+### Option B  -  FmuEquipment (FMI 3.0)
 
 Best for physics-heavy models or when sharing models with other simulation tools. Author FMUs in Python using pythonfmu:
 
@@ -162,7 +162,7 @@ Add your equipment parameters to the appropriate domain baseline in `srdb/baseli
 
 ### Add requirements
 
-Add equipment-specific requirements to `REQUIREMENTS.md` under the relevant functional area — or create a new one (e.g. `[RW]` for reaction wheel):
+Add equipment-specific requirements to `REQUIREMENTS.md` under the relevant functional area  -  or create a new one (e.g. `[RW]` for reaction wheel):
 
 ```
 **RW-001** `[RW]` `BASELINED`
@@ -292,18 +292,18 @@ runcampaign campaigns/aocs_rw_validation.yaml
 ### Branching
 
 ```
-main        — always green, tagged for releases
-feat/xxx    — feature branches
-fix/xxx     — bug fixes
+main         -  always green, tagged for releases
+feat/xxx     -  feature branches
+fix/xxx      -  bug fixes
 ```
 
 ## Before submitting a PR
  
 ```bash
-checkosvf   # mypy strict — must be clean
-testosvf    # full test suite — must be green
-checkcov    # requirement coverage — no unexpected gaps
-checkcons   # SRDB cross-repo consistency — no ungoverned requirements
+checkosvf   # mypy strict  -  must be clean
+testosvf    # full test suite  -  must be green
+checkcov    # requirement coverage  -  no unexpected gaps
+checkcons   # SRDB cross-repo consistency  -  no ungoverned requirements
 ```
  
 ### Adding a new SVF-DEV requirement
@@ -331,7 +331,7 @@ Implements: SVF-DEV-xxx, EQP-xxx
 ## Questions
 
 Open an issue on GitHub. Tag it with the appropriate label:
-- `type: feature` — new capability
-- `type: bug` — something broken
-- `type: docs` — documentation improvement
-- `type: spike` — research or investigation needed
+- `type: feature`  -  new capability
+- `type: bug`  -  something broken
+- `type: docs`  -  documentation improvement
+- `type: spike`  -  research or investigation needed

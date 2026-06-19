@@ -5,11 +5,11 @@ Intercepts Equipment.read_port() and write_port() to inject
 standardised faults without modifying model physics code.
 
 Fault types:
-  stuck  — output fixed value regardless of physics
-  noise  — add Gaussian noise to value
-  bias   — add constant offset to value
-  scale  — multiply value by factor (efficiency degradation)
-  fail   — output 0.0 (complete failure)
+  stuck   -  output fixed value regardless of physics
+  noise   -  add Gaussian noise to value
+  bias    -  add constant offset to value
+  scale   -  multiply value by factor (efficiency degradation)
+  fail    -  output 0.0 (complete failure)
 
 Usage (via ProcedureContext):
   ctx.inject_equipment_fault(

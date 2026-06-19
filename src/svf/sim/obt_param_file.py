@@ -10,7 +10,7 @@ File format (one entry per line):
     # OBT and VALUE must be numeric. PARAM_NAME is an arbitrary string.
 
 Example:
-    # Initial spacecraft state — replay from TM dump 2025-03-01T14:00:00Z
+    # Initial spacecraft state  -  replay from TM dump 2025-03-01T14:00:00Z
     0.0    eps.battery.soc              0.72
     0.0    aocs.rw1.speed_rpm           3200.0
     60.0   eps.solar_array.illumination 0.0

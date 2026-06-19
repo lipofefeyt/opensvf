@@ -9,15 +9,15 @@ Gaussian noise is added per axis. Fix is lost during eclipse
 (configurable) or cold acquisition period.
 
 Ports:
-  IN:  <id>.power_enable    — 1=powered
-       <id>.truth.pos_x/y/z — true ECI position [m] from KDE
-       <id>.truth.vel_x/y/z — true ECI velocity [m/s] from KDE
-       <id>.eclipse          — 1=eclipse (from CSS model)
-  OUT: <id>.position_x/y/z  — measured ECI position [m]
-       <id>.velocity_x/y/z  — measured ECI velocity [m/s]
-       <id>.fix              — 1=valid fix, 0=no fix
-       <id>.altitude_km      — altitude above sphere [km]
-       <id>.status           — 0=off, 1=acquiring, 2=fix, 3=eclipse_outage
+  IN:  <id>.power_enable     -  1=powered
+       <id>.truth.pos_x/y/z  -  true ECI position [m] from KDE
+       <id>.truth.vel_x/y/z  -  true ECI velocity [m/s] from KDE
+       <id>.eclipse           -  1=eclipse (from CSS model)
+  OUT: <id>.position_x/y/z   -  measured ECI position [m]
+       <id>.velocity_x/y/z   -  measured ECI velocity [m/s]
+       <id>.fix               -  1=valid fix, 0=no fix
+       <id>.altitude_km       -  altitude above sphere [km]
+       <id>.status            -  0=off, 1=acquiring, 2=fix, 3=eclipse_outage
 
 Implements: SVF-DEV-081
 """
@@ -38,13 +38,13 @@ logger = logging.getLogger(__name__)
 
 _EARTH_RADIUS_M = 6_371_000.0
 
-# Public status codes — importable by tests and external consumers
+# Public status codes  -  importable by tests and external consumers
 STATUS_OFF            = 0.0
 STATUS_ACQUIRING      = 1.0
 STATUS_FIX            = 2.0
 STATUS_ECLIPSE_OUTAGE = 3.0
 
-# Default acquisition time — exported so tests can reference it
+# Default acquisition time  -  exported so tests can reference it
 ACQUISITION_TIME_S = 30.0
 
 
@@ -67,11 +67,11 @@ def make_gps(
         hardware_profile: Profile name (e.g. 'gps_novatel_oem7').
         hardware_dir:     Directory to search for profile YAML files.
     """
-    # Physics constants — per-instance locals
+    # Physics constants  -  per-instance locals
     position_noise_m   = 5.0
     velocity_noise_m_s = 0.05
     acquisition_time_s = ACQUISITION_TIME_S
-    update_rate_hz     = 1.0  # noqa: F841 — reserved for future decimation
+    update_rate_hz     = 1.0  # noqa: F841  -  reserved for future decimation
     eclipse_outage     = True
 
     if hardware_profile is not None:

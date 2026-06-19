@@ -1,5 +1,5 @@
 """
-SVF Integration Test — Spacecraft Dynamics FMU Bridge
+SVF Integration Test  -  Spacecraft Dynamics FMU Bridge
 Exercises the FMPy bridge to the compiled C++ kinematics and dynamics engine.
 Implements: KDE-001, KDE-002, KDE-003, SVF-DEV-061
 """

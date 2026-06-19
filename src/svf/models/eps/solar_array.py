@@ -1,5 +1,5 @@
 """
-SVF Solar Array Equipment — F3 fidelity
+SVF Solar Array Equipment  -  F3 fidelity
 Nonlinear I-V curve model with temperature derating.
 
 Physics (F3):
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 MAX_POWER_W: float = 100.0
 PANEL_EFFICIENCY: float = 0.90
 
-# Derived STC parameters — at illumination=1, temp=T_ref: P = MAX_POWER_W * PANEL_EFFICIENCY
+# Derived STC parameters  -  at illumination=1, temp=T_ref: P = MAX_POWER_W * PANEL_EFFICIENCY
 _P_STC       = MAX_POWER_W * PANEL_EFFICIENCY   # 90 W
 _FILL_FACTOR = 0.78
 _VOC_NOM     = 24.0                             # open-circuit voltage [V]
@@ -47,7 +47,7 @@ def make_solar_array(
     equipment_id: str = "solar_array",
     hardware_profile: Optional[str] = None,
     hardware_dir: Optional[str] = None,
-    # Legacy flat params — override voc/isc via profile instead
+    # Legacy flat params  -  override voc/isc via profile instead
     max_power_w: float = MAX_POWER_W,
     panel_efficiency: float = PANEL_EFFICIENCY,
 ) -> NativeEquipment:
@@ -55,14 +55,14 @@ def make_solar_array(
     Create a Solar Array NativeEquipment.
 
     Inputs:
-        eps.solar_array.illumination      — solar illumination fraction (0=eclipse, 1=full sun)
-        eps.solar_array.panel_temp_degc   — panel temperature in °C (from thermal model)
+        eps.solar_array.illumination       -  solar illumination fraction (0=eclipse, 1=full sun)
+        eps.solar_array.panel_temp_degc    -  panel temperature in °C (from thermal model)
 
     Outputs:
-        eps.solar_array.generated_power   — generated power [W]
-        eps.solar_array.generated_current — output current at MPP [A]
-        eps.solar_array.generated_voltage — MPP voltage [V]
-        eps.solar_array.efficiency        — instantaneous efficiency relative to STC
+        eps.solar_array.generated_power    -  generated power [W]
+        eps.solar_array.generated_current  -  output current at MPP [A]
+        eps.solar_array.generated_voltage  -  MPP voltage [V]
+        eps.solar_array.efficiency         -  instantaneous efficiency relative to STC
     """
     # Derive STC max from legacy params if caller passed them explicitly
     p_stc       = max_power_w * panel_efficiency
@@ -102,7 +102,7 @@ def make_solar_array(
             eq.write_port(f"{_pfx}.efficiency",        0.0)
             return
 
-        # MPPT assumed — operating at maximum power point
+        # MPPT assumed  -  operating at maximum power point
         p_max = isc * voc * fill_factor
         # Approximate MPP voltage from fill factor
         v_mpp = voc * (1.0 - (1.0 - fill_factor) ** 0.5)

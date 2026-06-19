@@ -9,12 +9,12 @@ The internal cavity temperature is exposed as thermal.cavity.temp_degc
 so equipment models can use it as their ambient reference.
 
 Ports:
-  IN:  thermal.solar_illumination  — 0=eclipse, 1=full sun (from CSS)
-       thermal.equipment_power_w   — total equipment dissipation [W]
-  OUT: thermal.{node_id}.temp_degc — node temperature [degC]
-       thermal.cavity.temp_degc    — internal cavity temperature [degC]
-       thermal.min_temp_degc       — coldest node [degC]
-       thermal.max_temp_degc       — hottest node [degC]
+  IN:  thermal.solar_illumination   -  0=eclipse, 1=full sun (from CSS)
+       thermal.equipment_power_w    -  total equipment dissipation [W]
+  OUT: thermal.{node_id}.temp_degc  -  node temperature [degC]
+       thermal.cavity.temp_degc     -  internal cavity temperature [degC]
+       thermal.min_temp_degc        -  coldest node [degC]
+       thermal.max_temp_degc        -  hottest node [degC]
 
 Implements: SVF-DEV-082
 """

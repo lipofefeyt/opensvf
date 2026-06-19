@@ -42,7 +42,7 @@ def _sync() -> _NoSync:
 
 
 # ---------------------------------------------------------------------------
-# CSS (Coarse Sun Sensor) — SVF-DEV-139
+# CSS (Coarse Sun Sensor)  -  SVF-DEV-139
 # ---------------------------------------------------------------------------
 
 class CssBehaviorTests:
@@ -96,7 +96,7 @@ class CssBehaviorTests:
 
 
 # ---------------------------------------------------------------------------
-# Gyroscope — SVF-DEV-140
+# Gyroscope  -  SVF-DEV-140
 # ---------------------------------------------------------------------------
 
 class GyroscopeBehaviorTests:
@@ -160,7 +160,7 @@ class GyroscopeBehaviorTests:
 
 
 # ---------------------------------------------------------------------------
-# Magnetometer — SVF-DEV-141
+# Magnetometer  -  SVF-DEV-141
 # ---------------------------------------------------------------------------
 
 class MagnetometerBehaviorTests:
@@ -213,7 +213,7 @@ class MagnetometerBehaviorTests:
 
 
 # ---------------------------------------------------------------------------
-# Magnetorquer — SVF-DEV-142
+# Magnetorquer  -  SVF-DEV-142
 # ---------------------------------------------------------------------------
 
 class MagnetorquerBehaviorTests:
@@ -262,7 +262,7 @@ class MagnetorquerBehaviorTests:
 
 
 # ---------------------------------------------------------------------------
-# Reaction Wheel — SVF-DEV-143
+# Reaction Wheel  -  SVF-DEV-143
 # ---------------------------------------------------------------------------
 
 class ReactionWheelBehaviorTests:
@@ -320,7 +320,7 @@ class ReactionWheelBehaviorTests:
 
 
 # ---------------------------------------------------------------------------
-# Star Tracker — SVF-DEV-144
+# Star Tracker  -  SVF-DEV-144
 # ---------------------------------------------------------------------------
 
 class StarTrackerBehaviorTests:
@@ -362,7 +362,7 @@ class StarTrackerBehaviorTests:
         )
         st.initialise()
 
-        # Only 5s elapsed — less than default acquisition_time_s=10s
+        # Only 5s elapsed  -  less than default acquisition_time_s=10s
         for i in range(50):
             st.receive("aocs.str1.power_enable", 1.0)
             st.receive("aocs.str1.sun_angle", 90.0)
@@ -403,7 +403,7 @@ class StarTrackerBehaviorTests:
 
 
 # ---------------------------------------------------------------------------
-# B-dot Controller — SVF-DEV-145
+# B-dot Controller  -  SVF-DEV-145
 # ---------------------------------------------------------------------------
 
 class BdotControllerBehaviorTests:
@@ -420,7 +420,7 @@ class BdotControllerBehaviorTests:
         )
         bdot.initialise()
 
-        # Step 1: set initial field — controller stores B_prev
+        # Step 1: set initial field  -  controller stores B_prev
         bdot.receive("aocs.bdot.enable", 1.0)
         bdot.receive("aocs.mag.field_x", 30e-6)
         bdot.receive("aocs.mag.field_y", 0.0)

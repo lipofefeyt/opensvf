@@ -55,11 +55,11 @@ def make_battery(
     Create a Battery NativeEquipment.
 
     Inputs:
-        eps.battery.charge_current — charge current in Amps (positive=charging)
+        eps.battery.charge_current  -  charge current in Amps (positive=charging)
 
     Outputs:
-        eps.battery.soc     — state of charge (0.0 to 1.0)
-        eps.battery.voltage — terminal voltage in Volts
+        eps.battery.soc      -  state of charge (0.0 to 1.0)
+        eps.battery.voltage  -  terminal voltage in Volts
     """
     state = {"soc": max(SOC_MIN, min(SOC_MAX, initial_soc))}
 

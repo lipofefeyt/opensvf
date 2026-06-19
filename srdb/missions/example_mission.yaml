@@ -1,4 +1,4 @@
-# SVF SRDB — Example Mission Override
+# SVF SRDB  -  Example Mission Override
 # Demonstrates mission-level customisation of domain baselines.
 # This file overrides specific parameters for a fictional LEO mission.
 
@@ -14,7 +14,7 @@ parameters:
     description: Solar array generated power (200W panel)
     valid_range: [0.0, 220.0]
 
-  # Mission-specific parameter — payload power consumption
+  # Mission-specific parameter  -  payload power consumption
   eps.payload.power:
     description: Payload power consumption
     unit: W

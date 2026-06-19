@@ -1,5 +1,5 @@
 """
-Tests for PUS Service 5 — Event Reporting.
+Tests for PUS Service 5  -  Event Reporting.
 Implements: PUS-006
 """
 

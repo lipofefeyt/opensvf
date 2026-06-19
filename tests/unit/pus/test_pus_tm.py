@@ -39,7 +39,7 @@ def test_build_and_parse_roundtrip(
     parser: PusTmParser,
     packet: PusTmPacket,
 ) -> None:
-    """Build a TM packet and parse it back — roundtrip integrity."""
+    """Build a TM packet and parse it back  -  roundtrip integrity."""
     raw = builder.build(packet)
     parsed = parser.parse(raw)
 

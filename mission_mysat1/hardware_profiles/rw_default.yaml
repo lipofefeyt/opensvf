@@ -1,6 +1,6 @@
 hardware_id: rw_default
 type: reaction_wheel
-description: "Generic reaction wheel — representative smallsat parameters"
+description: "Generic reaction wheel  -  representative smallsat parameters"
 vendor: generic
 params:
   max_speed_rpm: 6000.0

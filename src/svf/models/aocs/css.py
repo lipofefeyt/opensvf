@@ -49,12 +49,12 @@ def make_css(
         hardware_dir:     Directory to search for profile YAML files.
 
     Inputs:
-        aocs.<id>.illumination — solar illumination fraction (0=eclipse, 1=sun)
-        aocs.truth.rate_x/y/z — true body rates (shared, from dynamics)
+        aocs.<id>.illumination  -  solar illumination fraction (0=eclipse, 1=sun)
+        aocs.truth.rate_x/y/z  -  true body rates (shared, from dynamics)
 
     Outputs:
-        aocs.<id>.sun_x/y/z   — estimated sun unit vector in body frame
-        aocs.<id>.validity     — 1=valid (sun visible), 0=invalid (eclipse)
+        aocs.<id>.sun_x/y/z    -  estimated sun unit vector in body frame
+        aocs.<id>.validity      -  1=valid (sun visible), 0=invalid (eclipse)
     """
     eclipse_threshold = 0.05
     noise_std         = 0.01

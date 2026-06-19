@@ -1,5 +1,5 @@
 """
-HIL Adapter — plug-in point for the OBC model.
+HIL Adapter  -  plug-in point for the OBC model.
 
 Defines the interface that all OBC implementations must satisfy.
 Swapping from software stub to a real hardware-in-the-loop binary

@@ -37,7 +37,7 @@ from typing import Optional
 # PUS-C version
 PUS_VERSION = 0b010
 
-# Sequence flags — standalone packet
+# Sequence flags  -  standalone packet
 SEQ_STANDALONE = 0b11
 
 # CRC-16/CCITT lookup table

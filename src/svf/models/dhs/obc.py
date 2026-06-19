@@ -1,6 +1,6 @@
 """
 SVF OBC Equipment
-On-Board Computer model — PUS TC router + DHS behaviour.
+On-Board Computer model  -  PUS TC router + DHS behaviour.
 
 M7: PUS TC parsing, S1/S3/S5/S17/S20 service routing
 M8: Mode state machine, OBT, watchdog, memory, CPU load
@@ -181,7 +181,7 @@ class ObcEquipment(HilAdapter):
         )
 
     def do_step(self, t: float, dt: float) -> None:
-        """Advance OBC by one tick — DHS state + PUS routing."""
+        """Advance OBC by one tick  -  DHS state + PUS routing."""
         # ── S19 reactions deferred from previous tick ─────────────────
         pending, self._pending_reactions = self._pending_reactions, []
         for tc_bytes in pending:
@@ -315,13 +315,13 @@ class ObcEquipment(HilAdapter):
     # ── HilAdapter interface ──────────────────────────────────────────────────
 
     def connect(self) -> None:
-        """No-op — software stub requires no external connection."""
+        """No-op  -  software stub requires no external connection."""
 
     def disconnect(self) -> None:
-        """No-op — software stub has no connection to close."""
+        """No-op  -  software stub has no connection to close."""
 
     def is_connected(self) -> bool:
-        """Always True — software stub is always ready."""
+        """Always True  -  software stub is always ready."""
         return True
 
     # ── PUS TC routing (unchanged from M7) ───────────────────────────────────
@@ -633,7 +633,7 @@ class ObcEquipment(HilAdapter):
                     f"svf.tm.{p.service}.{p.subservice}.received",
                     float(self._tm_seq), self._obt, self.equipment_id,
                 )
-        # Collect S19 reactions for S5 events — dispatched next tick
+        # Collect S19 reactions for S5 events  -  dispatched next tick
         for p in packets:
             if p.service == 5 and len(p.app_data) >= 2:
                 event_id = struct.unpack_from(">H", p.app_data)[0]

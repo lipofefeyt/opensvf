@@ -1,5 +1,5 @@
 """
-Tests for PUS Service 3 — Housekeeping.
+Tests for PUS Service 3  -  Housekeeping.
 Implements: PUS-005
 """
 

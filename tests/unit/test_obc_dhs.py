@@ -125,7 +125,7 @@ def test_obc_watchdog_warning_on_timeout(
     obc: ObcEquipment
 ) -> None:
     """Watchdog goes to WARNING after timeout period."""
-    # Don't kick watchdog — period is 10s
+    # Don't kick watchdog  -  period is 10s
     for i in range(12):
         obc.do_step(t=float(i), dt=1.0)
     assert obc.watchdog_status == WDG_WARNING

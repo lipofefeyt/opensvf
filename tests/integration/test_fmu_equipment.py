@@ -1,6 +1,6 @@
 """
 Integration tests for FmuEquipment and SimulationMaster with FMU models.
-Uses SimpleCounter.fmu — a minimal test-double FMU (counter += dt).
+Uses SimpleCounter.fmu  -  a minimal test-double FMU (counter += dt).
 EPS physics is now tested via native NativeEquipment in tests/unit/test_eps_models.py.
 
 Requires compiled FMU binaries in models/.
@@ -120,7 +120,7 @@ def test_parameter_map_fallback_to_raw_name(
 def test_fmu_equipment_step(
     sync: _NoSync, store: ParameterStore, cmd_store: CommandStore
 ) -> None:
-    """FmuEquipment steps correctly — counter increments by dt each step."""
+    """FmuEquipment steps correctly  -  counter increments by dt each step."""
     eq = FmuEquipment(
         fmu_path=COUNTER_FMU,
         equipment_id="counter",

@@ -1,4 +1,4 @@
-"""Shim — logic lives in svf.tools.checkcons (installed via pip)."""
+"""Shim  -  logic lives in svf.tools.checkcons (installed via pip)."""
 from svf.tools.checkcons import *  # noqa: F401, F403
 from svf.tools.checkcons import (  # noqa: F401
     main,

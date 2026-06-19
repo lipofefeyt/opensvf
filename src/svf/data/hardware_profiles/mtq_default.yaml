@@ -1,6 +1,6 @@
 hardware_id: mtq_default
 type: magnetorquer
-description: "Generic magnetorquer — representative smallsat parameters"
+description: "Generic magnetorquer  -  representative smallsat parameters"
 vendor: generic
 params:
   max_dipole_am2: 10.0

@@ -1,4 +1,4 @@
-"""PUS Service 11 — Time-Based Scheduling."""
+"""PUS Service 11  -  Time-Based Scheduling."""
 
 from __future__ import annotations
 
@@ -76,13 +76,13 @@ class TimeBasedScheduler:
 
 class PusService11:
     """
-    PUS Service 11 — Time-Based Scheduling.
+    PUS Service 11  -  Time-Based Scheduling.
 
-    TC(11,4)  — Insert Activity (time-tagged TC)
-    TC(11,5)  — Delete Activity by request_id
-    TC(11,6)  — Delete All Activities
-    TC(11,17) — Enable Schedule
-    TC(11,18) — Disable Schedule
+    TC(11,4)   -  Insert Activity (time-tagged TC)
+    TC(11,5)   -  Delete Activity by request_id
+    TC(11,6)   -  Delete All Activities
+    TC(11,17)  -  Enable Schedule
+    TC(11,18)  -  Disable Schedule
 
     TC(11,4) app_data format (SVF pragmatic subset):
         4B CUC coarse time tag  (big-endian uint32)

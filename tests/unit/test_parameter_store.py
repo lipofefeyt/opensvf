@@ -29,7 +29,7 @@ def test_read_unknown_parameter() -> None:
 
 @pytest.mark.requirement("SVF-DEV-033")
 def test_overwrite_returns_latest() -> None:
-    """Second write overwrites the first — reader always gets latest."""
+    """Second write overwrites the first  -  reader always gets latest."""
     store = ParameterStore()
     store.write("voltage", value=3.7, t=0.1, model_id="power")
     store.write("voltage", value=3.9, t=0.2, model_id="power")
@@ -86,7 +86,7 @@ def test_late_reader_sees_value() -> None:
     """A reader that connects after a write still sees the value."""
     store = ParameterStore()
     store.write("voltage", value=3.7, t=0.1, model_id="power")
-    # Reader connects "late" — no subscription needed
+    # Reader connects "late"  -  no subscription needed
     entry = store.read("voltage")
     assert entry is not None
     assert entry.value == pytest.approx(3.7)

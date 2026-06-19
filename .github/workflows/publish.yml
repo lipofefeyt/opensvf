@@ -48,7 +48,7 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        # Uses OIDC trusted publishing — no API token needed.
+        # Uses OIDC trusted publishing  -  no API token needed.
         # One-time setup on PyPI:
         #   1. Go to https://pypi.org/manage/account/publishing/
         #   2. Add publisher: owner=lipofefeyt repo=opensvf workflow=publish.yml env=pypi

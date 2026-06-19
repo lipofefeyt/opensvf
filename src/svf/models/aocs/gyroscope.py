@@ -1,14 +1,14 @@
 """
-SVF Gyroscope Equipment — F3 fidelity
+SVF Gyroscope Equipment  -  F3 fidelity
 Measures angular rate in body frame.
 Used for attitude rate estimation and b-dot control.
 
 Physics (F3):
-- Angle random walk (ARW) — white noise on rate
-- Bias instability — first-order Gauss-Markov flicker floor
-- Rate random walk — integrated white noise on bias
-- Scale factor error — per-axis gain offset (PPM)
-- Cross-axis coupling — misalignment between sense axes
+- Angle random walk (ARW)  -  white noise on rate
+- Bias instability  -  first-order Gauss-Markov flicker floor
+- Rate random walk  -  integrated white noise on bias
+- Scale factor error  -  per-axis gain offset (PPM)
+- Cross-axis coupling  -  misalignment between sense axes
 - Temperature-dependent noise and warm-up model
 
 Implements: SVF-DEV-038
@@ -51,13 +51,13 @@ def make_gyroscope(
         hardware_dir:     Directory to search for profile YAML files.
 
     Inputs:
-        aocs.<id>.power_enable — power on/off
-        aocs.truth.rate_x/y/z  — true angular rates (shared, from dynamics)
+        aocs.<id>.power_enable  -  power on/off
+        aocs.truth.rate_x/y/z   -  true angular rates (shared, from dynamics)
 
     Outputs:
-        aocs.<id>.rate_x/y/z   — measured rates with noise + bias
-        aocs.<id>.temperature  — gyro temperature
-        aocs.<id>.status       — 0=off, 1=nominal
+        aocs.<id>.rate_x/y/z    -  measured rates with noise + bias
+        aocs.<id>.temperature   -  gyro temperature
+        aocs.<id>.status        -  0=off, 1=nominal
     """
     # F3 noise parameters
     arw_std          = 1e-4   # angle random walk [rad/s/√Hz]
@@ -71,7 +71,7 @@ def make_gyroscope(
     sf_y = 100e-6
     sf_z = 100e-6
 
-    # Cross-axis coupling [rad — misalignment between sense axes]
+    # Cross-axis coupling [rad  -  misalignment between sense axes]
     cxy = 1e-3   # Y-axis leakage into X measurement
     cxz = 5e-4
     cyx = 1e-3
@@ -163,7 +163,7 @@ def make_gyroscope(
         by = state["rrw_y"] + state["gm_y"]
         bz = state["rrw_z"] + state["gm_z"]
 
-        # ARW (white noise on angle — PSD = arw_std²)
+        # ARW (white noise on angle  -  PSD = arw_std²)
         noise_std = arw_std / sqrt_dt + temp_noise_coeff * max(
             0.0, state["temperature"] - nominal_temp_c
         )

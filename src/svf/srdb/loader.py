@@ -35,7 +35,7 @@ class Srdb:
     Loaded and validated spacecraft reference database.
 
     Holds the complete set of ParameterDefinition objects parsed
-    from one or more YAML files. Immutable after construction —
+    from one or more YAML files. Immutable after construction  - 
     use SrdbLoader to build instances.
 
     Usage:
@@ -103,8 +103,8 @@ class SrdbLoader:
     Builds an Srdb from one or more YAML files.
 
     Load order:
-      1. load_baseline() — one or more domain baseline files
-      2. load_mission()  — optional mission override (last-writer wins
+      1. load_baseline()  -  one or more domain baseline files
+      2. load_mission()   -  optional mission override (last-writer wins
                            for all fields except classification)
 
     Usage:
@@ -136,7 +136,7 @@ class SrdbLoader:
         for name, fields in parameters.items():
             if name in self._baseline:
                 raise SrdbLoadError(
-                    f"{path}: duplicate parameter name '{name}' — "
+                    f"{path}: duplicate parameter name '{name}'  -  "
                     f"already defined in a previously loaded baseline"
                 )
             defn = self._parse_definition(name, fields, path)
@@ -153,7 +153,7 @@ class SrdbLoader:
         Mission overrides are applied on top of baselines at build() time.
         New parameters not in any baseline are added.
         Existing parameters may have any field overridden except
-        classification — attempting to change classification raises
+        classification  -  attempting to change classification raises
         SrdbLoadError.
         """
         logger.info(f"Loading SRDB mission overrides: {path}")
@@ -176,7 +176,7 @@ class SrdbLoader:
                 if baseline_cls != mission_cls:
                     raise SrdbLoadError(
                         f"{path}: cannot change classification of '{name}' "
-                        f"from {baseline_cls} to {mission_cls} — "
+                        f"from {baseline_cls} to {mission_cls}  -  "
                         f"TM/TC classification is immutable after baselining"
                     )
             self._mission_overrides[name] = fields
@@ -201,7 +201,7 @@ class SrdbLoader:
                     name, merged_fields, Path("mission")
                 )
             else:
-                # New parameter — parse from scratch
+                # New parameter  -  parse from scratch
                 merged[name] = self._parse_definition(
                     name, fields, Path("mission")
                 )
@@ -225,7 +225,7 @@ class SrdbLoader:
                 key = match.group(1)
                 if key in keys_seen and key != "pus":
                     raise SrdbLoadError(
-                        f"{path}: duplicate parameter key '{key}' — "
+                        f"{path}: duplicate parameter key '{key}'  -  "
                         f"YAML would silently overwrite it"
                     )
                 keys_seen.add(key)

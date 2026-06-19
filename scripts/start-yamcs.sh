@@ -17,7 +17,7 @@ fi
 # YAMCS binary detection
 YAMCS_BIN=$(find /opt/yamcs /tmp/yamcs -name "yamcsd" 2>/dev/null | head -1)
 if [ -z "$YAMCS_BIN" ]; then
-    echo "YAMCS not found — downloading..."
+    echo "YAMCS not found  -  downloading..."
     mkdir -p /tmp/yamcs
     curl -sL https://github.com/yamcs/yamcs/releases/download/yamcs-5.12.6/yamcs-5.12.6-linux-x86_64.tar.gz \
         -o /tmp/yamcs.tar.gz
@@ -60,7 +60,7 @@ YAMCS_PID=$!
 echo $YAMCS_PID > /tmp/yamcs.pid
 echo "YAMCS PID: $YAMCS_PID"
 
-# Wait for YAMCS HTTP — but only count it ready AFTER new process starts
+# Wait for YAMCS HTTP  -  but only count it ready AFTER new process starts
 sleep 2
 for i in $(seq 1 20); do
     if kill -0 $YAMCS_PID 2>/dev/null && \

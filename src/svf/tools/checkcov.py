@@ -18,9 +18,9 @@ from pathlib import Path
 # Requirements that are BASELINED/IMPLEMENTED but verified by process/CI, not code.
 KNOWN_GAPS: dict[str, str] = {
     "SVF-DEV-060": "Verified by validate_fmpy.py script",
-    "SVF-DEV-136": "Verified by generate_xtce.py tool — XTCE output inspected manually",
+    "SVF-DEV-136": "Verified by generate_xtce.py tool  -  XTCE output inspected manually",
     "SVF-DEV-137": "Verified by start-yamcs.sh/stop-yamcs.sh scripts in CI",
-    "SVF-DEV-138": "Verified by yamcs.opensvf.yaml config — PusPacketPreprocessor with useLocalGenerationTime=true",
+    "SVF-DEV-138": "Verified by yamcs.opensvf.yaml config  -  PusPacketPreprocessor with useLocalGenerationTime=true",
     "SVF-DEV-070": "Verified by JUnit XML presence in results/",
     "SVF-DEV-072": "Verified by traceability.txt generation",
     "SVF-DEV-080": "Verified by pyproject.toml presence",
@@ -28,22 +28,22 @@ KNOWN_GAPS: dict[str, str] = {
     "SVF-DEV-087": "Verified by CI pipeline coverage gate",
     "SVF-DEV-088": "Verified by CI pipeline mypy gate",
 
-    # 1553 bus fault injection — tested via test_bus.py (generic bus)
+    # 1553 bus fault injection  -  tested via test_bus.py (generic bus)
     # and test_mil1553.py. Specific fault type markers need adding.
     "1553-007": "Verified by test_fault_is_active_immediately in test_bus.py",
     "1553-008": "Verified by test_fault_expires_after_duration in test_bus.py",
     "1553-009": "Verified by test_fault_injected_via_command_store in test_bus.py and test_mil1553.py",
 
-    # svf_command_schedule — implemented, test marker pending
+    # svf_command_schedule  -  implemented, test marker pending
     "SVF-DEV-048": "Verified by test_tc_pwr_003_charging_in_sunlight (uses svf_command_schedule)",
 
     # Reporting
     "SVF-DEV-071": "Verified by JUnit XML and HTML report generation in CI",
 
-    # Hardware/infrastructure — verified by CI or hardware tests
+    # Hardware/infrastructure  -  verified by CI or hardware tests
     "SVF-DEV-100": "Verified by tests/hardware/test_aarch64_obsw.py (excluded from default run)",
     "SVF-DEV-101": "Verified by tests/hardware/test_renode_zynqmp.py (excluded from default run)",
-    "SVF-DEV-130": "Verified by HardwareProfile bundled search — exercised by every campaign run",
+    "SVF-DEV-130": "Verified by HardwareProfile bundled search  -  exercised by every campaign run",
 }
 
 
@@ -77,7 +77,7 @@ EQUIPMENT_FIDELITY: dict[str, tuple[str, str, str]] = {
     "dynamics": ("F3", "KDE Dynamics (FMI)", "Add flex modes from modal test data for F4"),
     # Functional stubs
     "obc_stub": ("F1", "OBC Stub",         "Use OBCEmulatorAdapter for F4"),
-    "obc_emulator": ("F4", "OBC Emulator", "Already F4 — real OBSW binary in the loop"),
+    "obc_emulator": ("F4", "OBC Emulator", "Already F4  -  real OBSW binary in the loop"),
 }
 
 
@@ -114,7 +114,7 @@ def fidelity_report(srdb_dir: Path) -> bool:
     """
     Print fidelity coverage section.
 
-    Returns True if the report is clean (no errors — inconsistencies between
+    Returns True if the report is clean (no errors  -  inconsistencies between
     a model's declared fidelity and its SRDB calibration state are errors).
     Warnings are printed for F2 models with uncalibrated TM parameters (upgrade
     candidates). These are informational and do not affect the exit code.
@@ -122,7 +122,7 @@ def fidelity_report(srdb_dir: Path) -> bool:
     Implements: SVF-DEV-155
     """
     if not srdb_dir.exists():
-        print("\n[fidelity] srdb/baseline/ not found — skipping fidelity report")
+        print("\n[fidelity] srdb/baseline/ not found  -  skipping fidelity report")
         return True
 
     # Load SRDB
@@ -134,7 +134,7 @@ def fidelity_report(srdb_dir: Path) -> bool:
         from svf.srdb.loader import SrdbLoader
         from svf.srdb.definitions import Classification
     except ImportError as e:
-        print(f"\n[fidelity] Cannot import SVF SRDB — skipping: {e}")
+        print(f"\n[fidelity] Cannot import SVF SRDB  -  skipping: {e}")
         return True
 
     loader = SrdbLoader()

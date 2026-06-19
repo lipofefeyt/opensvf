@@ -1,6 +1,6 @@
 # MySat-1 Quickstart
 
-MySat-1 is the reference mission bundled with OpenSVF. It is a minimal 3U CubeSat that demonstrates the full validation workflow — from written requirements through test procedures to an HTML campaign report — with **no compiled binary or FMU needed**.
+MySat-1 is the reference mission bundled with OpenSVF. It is a minimal 3U CubeSat that demonstrates the full validation workflow  -  from written requirements through test procedures to an HTML campaign report  -  with **no compiled binary or FMU needed**.
 
 ---
 
@@ -25,8 +25,8 @@ open results/quickstart_campaign_report.html   # or xdg-open on Linux
 
 The report shows:
 
-- **4 PASS** — AOCS detumbling and attitude procedures
-- **4 UNCOVERED** — EPS requirements (no EPS procedures written yet — intentional gap)
+- **4 PASS**  -  AOCS detumbling and attitude procedures
+- **4 UNCOVERED**  -  EPS requirements (no EPS procedures written yet  -  intentional gap)
 
 ---
 

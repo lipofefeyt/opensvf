@@ -47,7 +47,7 @@ class SafeToNominalTransition(Procedure):
         ctx.wait(0.5)
         ctx.assert_parameter("dhs.obc.mode", less_than=0.5)
 
-        self.step("Send mode command — NOMINAL")
+        self.step("Send mode command  -  NOMINAL")
         ctx.inject("dhs.obc.mode_cmd", 1.0)
         ctx.wait(1.0)
 
@@ -60,7 +60,7 @@ class SafeToNominalTransition(Procedure):
 
 class WatchdogNominal(Procedure):
     id          = "TC-FDIR-003"
-    title       = "Watchdog nominal — kick resets counter"
+    title       = "Watchdog nominal  -  kick resets counter"
     requirement = "OBC-001"
 
     def run(self, ctx: ProcedureContext) -> None:
@@ -83,7 +83,7 @@ class FdirChain(Procedure):
     """RW stall fault detected by OBC stub rule triggers SAFE mode + S5 event."""
 
     id          = "TC-FDIR-004"
-    title       = "FDIR chain — RW stall triggers SAFE via OBC stub rule"
+    title       = "FDIR chain  -  RW stall triggers SAFE via OBC stub rule"
     requirement = "MIS-FDIR-003"
 
     def run(self, ctx: ProcedureContext) -> None:
@@ -97,7 +97,7 @@ class FdirChain(Procedure):
         ctx.wait(5.0)
         ctx.assert_parameter("aocs.rw1.speed", greater_than=100.0)
 
-        self.step("Arm OBC stub FDIR rule — RW stall detection")
+        self.step("Arm OBC stub FDIR rule  -  RW stall detection")
         if ctx._master is not None:
             for model in ctx._master._models:
                 if isinstance(model, ObcStub):

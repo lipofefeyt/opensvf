@@ -27,7 +27,7 @@ jobs:
         run: pytest tests/ --junitxml=results/junit.xml -v
 
   # ------------------------------------------------------------------ #
-  # Renode system test — downloads ZynqMP binary from openobsw CI     #
+  # Renode system test  -  downloads ZynqMP binary from openobsw CI     #
   # and validates TC(17,1) ping/pong via socket transport             #
   # Runs on push to main only                                          #
   # ------------------------------------------------------------------ #
