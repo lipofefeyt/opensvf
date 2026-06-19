@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<display typeId="org.csstudio.opibuilder.Display" version="1.0">
+  <auto_zoom_to_fit_all>false</auto_zoom_to_fit_all>
+  <show_grid>false</show_grid>
+  <background_color><color red="26" green="32" blue="53"/></background_color>
+  <foreground_color><color red="200" green="215" blue="240"/></foreground_color>
+  <height>510</height>
+  <width>900</width>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Rectangle">
+    <name>header_bg</name>
+    <x>0</x><y>0</y><width>900</width><height>56</height>
+    <fill>true</fill>
+    <line_width>0</line_width>
+    <background_color><color red="13" green="21" blue="37"/></background_color>
+    <foreground_color><color red="13" green="21" blue="37"/></foreground_color>
+    <line_color><color red="13" green="21" blue="37"/></line_color>
+    <transparent>false</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Label">
+    <name>title</name>
+    <x>16</x><y>12</y><width>560</width><height>32</height>
+    <text>OPENSVF  ·  EARLY ORBIT OPERATIONS</text>
+    <font><fontdata fontName="Liberation Mono" height="15" style="1"/></font>
+    <foreground_color><color red="100" green="196" blue="255"/></foreground_color>
+    <background_color><color red="13" green="21" blue="37"/></background_color>
+    <transparent>true</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Label">
+    <name>mode_badge</name>
+    <x>690</x><y>16</y><width>200</width><height>24</height>
+    <text>B-DOT DETUMBLING  ●</text>
+    <font><fontdata fontName="Liberation Mono" height="10" style="1"/></font>
+    <foreground_color><color red="80" green="220" blue="80"/></foreground_color>
+    <background_color><color red="13" green="21" blue="37"/></background_color>
+    <transparent>true</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Rectangle">
+    <name>header_rule</name>
+    <x>0</x><y>55</y><width>900</width><height>2</height>
+    <fill>true</fill>
+    <line_width>0</line_width>
+    <background_color><color red="45" green="64" blue="112"/></background_color>
+    <foreground_color><color red="45" green="64" blue="112"/></foreground_color>
+    <line_color><color red="45" green="64" blue="112"/></line_color>
+    <transparent>false</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Rectangle">
+    <name>ctrl_panel</name>
+    <x>10</x><y>66</y><width>300</width><height>162</height>
+    <fill>true</fill>
+    <background_color><color red="30" green="45" blue="72"/></background_color>
+    <foreground_color><color red="45" green="64" blue="112"/></foreground_color>
+    <line_color><color red="45" green="64" blue="112"/></line_color>
+    <transparent>false</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Label">
+    <name>ctrl_section</name>
+    <x>20</x><y>72</y><width>280</width><height>16</height>
+    <text>CONTROLLER  /  PUS S20</text>
+    <font><fontdata fontName="Liberation Mono" height="8" style="1"/></font>
+    <foreground_color><color red="136" green="153" blue="187"/></foreground_color>
+    <background_color><color red="30" green="45" blue="72"/></background_color>
+    <transparent>true</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Label">
+    <name>gain_sublabel</name>
+    <x>20</x><y>94</y><width>280</width><height>16</height>
+    <text>B-dot Gain  [A·m²·s/T]</text>
+    <font><fontdata fontName="Liberation Mono" height="8" style="0"/></font>
+    <foreground_color><color red="136" green="153" blue="187"/></foreground_color>
+    <background_color><color red="30" green="45" blue="72"/></background_color>
+    <transparent>true</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.TextUpdate">
+    <name>bdot_gain</name>
+    <pv_name>/opensvf/bdot_gain</pv_name>
+    <x>20</x><y>112</y><width>280</width><height>58</height>
+    <precision>0</precision>
+    <format_type>1</format_type>
+    <show_units>false</show_units>
+    <font><fontdata fontName="Liberation Mono" height="32" style="1"/></font>
+    <foreground_color><color red="255" green="208" blue="96"/></foreground_color>
+    <background_color><color red="30" green="45" blue="72"/></background_color>
+    <transparent>true</transparent>
+    <horizontal_alignment>0</horizontal_alignment>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Label">
+    <name>gain_hint</name>
+    <x>20</x><y>174</y><width>280</width><height>46</height>
+    <text>TC_20_1_SetBdotGain  →  uplink
+TC_20_3_GetBdotGain  →  readback</text>
+    <font><fontdata fontName="Liberation Mono" height="8" style="0"/></font>
+    <foreground_color><color red="72" green="95" blue="138"/></foreground_color>
+    <background_color><color red="30" green="45" blue="72"/></background_color>
+    <transparent>true</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Rectangle">
+    <name>mtq_panel</name>
+    <x>320</x><y>66</y><width>570</width><height>162</height>
+    <fill>true</fill>
+    <background_color><color red="30" green="45" blue="72"/></background_color>
+    <foreground_color><color red="45" green="64" blue="112"/></foreground_color>
+    <line_color><color red="45" green="64" blue="112"/></line_color>
+    <transparent>false</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Label">
+    <name>mtq_section</name>
+    <x>330</x><y>72</y><width>550</width><height>16</height>
+    <text>MTQ DIPOLE COMMANDS  [A·m²]  —  Controller Output</text>
+    <font><fontdata fontName="Liberation Mono" height="8" style="1"/></font>
+    <foreground_color><color red="136" green="153" blue="187"/></foreground_color>
+    <background_color><color red="30" green="45" blue="72"/></background_color>
+    <transparent>true</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Label">
+    <name>axis_x_lbl</name>
+    <x>330</x><y>98</y><width>20</width><height>36</height>
+    <text>X</text>
+    <font><fontdata fontName="Liberation Mono" height="18" style="1"/></font>
+    <foreground_color><color red="255" green="100" blue="100"/></foreground_color>
+    <background_color><color red="30" green="45" blue="72"/></background_color>
+    <transparent>true</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.TextUpdate">
+    <name>mtq_dipole_x</name>
+    <pv_name>/opensvf/mtq_dipole_x</pv_name>
+    <x>354</x><y>96</y><width>525</width><height>40</height>
+    <precision>4</precision>
+    <format_type>2</format_type>
+    <show_units>false</show_units>
+    <font><fontdata fontName="Liberation Mono" height="20" style="0"/></font>
+    <foreground_color><color red="255" green="100" blue="100"/></foreground_color>
+    <background_color><color red="30" green="45" blue="72"/></background_color>
+    <transparent>true</transparent>
+    <horizontal_alignment>0</horizontal_alignment>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Label">
+    <name>axis_y_lbl</name>
+    <x>330</x><y>140</y><width>20</width><height>36</height>
+    <text>Y</text>
+    <font><fontdata fontName="Liberation Mono" height="18" style="1"/></font>
+    <foreground_color><color red="100" green="220" blue="100"/></foreground_color>
+    <background_color><color red="30" green="45" blue="72"/></background_color>
+    <transparent>true</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.TextUpdate">
+    <name>mtq_dipole_y</name>
+    <pv_name>/opensvf/mtq_dipole_y</pv_name>
+    <x>354</x><y>138</y><width>525</width><height>40</height>
+    <precision>4</precision>
+    <format_type>2</format_type>
+    <show_units>false</show_units>
+    <font><fontdata fontName="Liberation Mono" height="20" style="0"/></font>
+    <foreground_color><color red="100" green="220" blue="100"/></foreground_color>
+    <background_color><color red="30" green="45" blue="72"/></background_color>
+    <transparent>true</transparent>
+    <horizontal_alignment>0</horizontal_alignment>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Label">
+    <name>axis_z_lbl</name>
+    <x>330</x><y>182</y><width>20</width><height>36</height>
+    <text>Z</text>
+    <font><fontdata fontName="Liberation Mono" height="18" style="1"/></font>
+    <foreground_color><color red="100" green="180" blue="255"/></foreground_color>
+    <background_color><color red="30" green="45" blue="72"/></background_color>
+    <transparent>true</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.TextUpdate">
+    <name>mtq_dipole_z</name>
+    <pv_name>/opensvf/mtq_dipole_z</pv_name>
+    <x>354</x><y>180</y><width>525</width><height>40</height>
+    <precision>4</precision>
+    <format_type>2</format_type>
+    <show_units>false</show_units>
+    <font><fontdata fontName="Liberation Mono" height="20" style="0"/></font>
+    <foreground_color><color red="100" green="180" blue="255"/></foreground_color>
+    <background_color><color red="30" green="45" blue="72"/></background_color>
+    <transparent>true</transparent>
+    <horizontal_alignment>0</horizontal_alignment>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Rectangle">
+    <name>trend_rule</name>
+    <x>0</x><y>237</y><width>900</width><height>2</height>
+    <fill>true</fill>
+    <line_width>0</line_width>
+    <background_color><color red="45" green="64" blue="112"/></background_color>
+    <foreground_color><color red="45" green="64" blue="112"/></foreground_color>
+    <line_color><color red="45" green="64" blue="112"/></line_color>
+    <transparent>false</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Label">
+    <name>trend_section</name>
+    <x>16</x><y>244</y><width>860</width><height>16</height>
+    <text>LIVE TREND  —  MTQ Dipole Commands  (gain uplink will produce a visible step)</text>
+    <font><fontdata fontName="Liberation Mono" height="8" style="1"/></font>
+    <foreground_color><color red="136" green="153" blue="187"/></foreground_color>
+    <background_color><color red="26" green="32" blue="53"/></background_color>
+    <transparent>true</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.XYGraph">
+    <name>dipole_trend</name>
+    <x>10</x><y>262</y><width>880</width><height>242</height>
+    <background_color><color red="20" green="28" blue="48"/></background_color>
+    <foreground_color><color red="200" green="215" blue="240"/></foreground_color>
+    <plot_area_background_color><color red="14" green="20" blue="38"/></plot_area_background_color>
+    <title></title>
+    <show_toolbar>false</show_toolbar>
+    <axis_count>2</axis_count>
+    <axis_0-time_format>10</axis_0-time_format>
+    <axis_0-auto_scale>true</axis_0-auto_scale>
+    <axis_0-show_grid>true</axis_0-show_grid>
+    <axis_0-grid_color><color red="35" green="50" blue="85"/></axis_0-grid_color>
+    <axis_0-foreground_color><color red="136" green="153" blue="187"/></axis_0-foreground_color>
+    <axis_1-title>Dipole [A·m²]</axis_1-title>
+    <axis_1-auto_scale>true</axis_1-auto_scale>
+    <axis_1-show_grid>true</axis_1-show_grid>
+    <axis_1-grid_color><color red="35" green="50" blue="85"/></axis_1-grid_color>
+    <axis_1-foreground_color><color red="136" green="153" blue="187"/></axis_1-foreground_color>
+    <trace_count>3</trace_count>
+    <trace_0-name>MTQ X</trace_0-name>
+    <trace_0-y_pv>/opensvf/mtq_dipole_x</trace_0-y_pv>
+    <trace_0-trace_color><color red="255" green="100" blue="100"/></trace_0-trace_color>
+    <trace_0-line_width>2</trace_0-line_width>
+    <trace_0-buffer_size>600</trace_0-buffer_size>
+    <trace_1-name>MTQ Y</trace_1-name>
+    <trace_1-y_pv>/opensvf/mtq_dipole_y</trace_1-y_pv>
+    <trace_1-trace_color><color red="100" green="220" blue="100"/></trace_1-trace_color>
+    <trace_1-line_width>2</trace_1-line_width>
+    <trace_1-buffer_size>600</trace_1-buffer_size>
+    <trace_2-name>MTQ Z</trace_2-name>
+    <trace_2-y_pv>/opensvf/mtq_dipole_z</trace_2-y_pv>
+    <trace_2-trace_color><color red="100" green="180" blue="255"/></trace_2-trace_color>
+    <trace_2-line_width>2</trace_2-line_width>
+    <trace_2-buffer_size>600</trace_2-buffer_size>
+  </widget>
+
+</display>

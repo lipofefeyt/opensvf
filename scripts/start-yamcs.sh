@@ -15,7 +15,7 @@ if ! command -v java &>/dev/null; then
 fi
 
 # YAMCS binary detection
-YAMCS_BIN=$(find /tmp/yamcs -name "yamcsd" 2>/dev/null | head -1)
+YAMCS_BIN=$(find /opt/yamcs /tmp/yamcs -name "yamcsd" 2>/dev/null | head -1)
 if [ -z "$YAMCS_BIN" ]; then
     echo "YAMCS not found — downloading..."
     mkdir -p /tmp/yamcs
@@ -55,8 +55,9 @@ rm -f /tmp/yamcs-data/_global.rdb/LOCK
 rm -f /tmp/yamcs-data/opensvf.rdb/LOCK
 
 echo "Starting YAMCS 5.12.6..."
-"$YAMCS_BIN" --etc-dir "$REPO/yamcs/etc" > /tmp/yamcs.log 2>&1 &
+"$YAMCS_BIN" --etc-dir "$REPO/yamcs/etc" --cache-dir /tmp/yamcs-cache > /tmp/yamcs.log 2>&1 &
 YAMCS_PID=$!
+echo $YAMCS_PID > /tmp/yamcs.pid
 echo "YAMCS PID: $YAMCS_PID"
 
 # Wait for YAMCS HTTP — but only count it ready AFTER new process starts
@@ -66,6 +67,16 @@ for i in $(seq 1 20); do
        curl -sf http://localhost:8090/api/ > /dev/null 2>&1; then
         echo "YAMCS ready at http://localhost:8090"
         echo "Log: /tmp/yamcs.log"
+        # Upload display files from yamcs/displays/ into the displays bucket
+        for _opi in "$REPO"/yamcs/displays/*.opi; do
+            [ -f "$_opi" ] || continue
+            _fname=$(basename "$_opi")
+            curl -sf -X POST \
+                "http://localhost:8090/api/buckets/opensvf/displays/objects/$_fname" \
+                --data-binary "@$_opi" \
+                -H "Content-Type: application/octet-stream" && \
+                echo "Display uploaded: $_fname"
+        done
         exit 0
     fi
     if ! kill -0 $YAMCS_PID 2>/dev/null; then

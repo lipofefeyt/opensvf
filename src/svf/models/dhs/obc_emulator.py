@@ -484,8 +484,11 @@ class OBCEmulatorAdapter(HilAdapter):
         self._obt += dt
 
         self._send_sensor_frame(t)
-        self._send_tcs(t)
+        n_tcs = self._send_tcs(t)
 
+        # Each frame sent to the binary produces exactly one 0xFF sync byte.
+        # Drain the sensor-frame sync first (primary — governs desync counter),
+        # then drain one sync per TC frame so the buffer never accumulates.
         tm_packets, synced = self._collect_until_sync(self._sync_timeout)
         if not synced:
             self._consecutive_desync += 1
@@ -500,6 +503,10 @@ class OBCEmulatorAdapter(HilAdapter):
                 )
         else:
             self._consecutive_desync = 0
+
+        for _ in range(n_tcs):
+            extra, _ = self._collect_until_sync(timeout=1.0)
+            tm_packets.extend(extra)
 
         for pkt in tm_packets:
             self._parse_tm(pkt, t)
@@ -568,7 +575,8 @@ class OBCEmulatorAdapter(HilAdapter):
     # TC building (type 0x01)                                             #
     # ------------------------------------------------------------------ #
 
-    def _send_tcs(self, t: float) -> None:
+    def _send_tcs(self, t: float) -> int:
+        """Send queued TC frames to the binary. Returns the number of frames sent."""
         frames: list[bytes] = []
 
         mode_cmd = self.read_port("dhs.obc.mode_cmd")
@@ -587,9 +595,6 @@ class OBCEmulatorAdapter(HilAdapter):
             frames.append(self._build_s9_set_obt(time_sync))
             self._port_values["dhs.obc.time_sync_cmd"] = -1.0
 
-        if not frames:
-            frames.append(self._build_s17_ping())
-
         # FreeRTOS TMTC task queue depth is 4 (obsw/task/tmtc.h).
         # Excess TCs are dropped silently by the OBSW — warn before sending.
         if len(frames) > _FREERTOS_TC_QUEUE_DEPTH:
@@ -604,13 +609,17 @@ class OBCEmulatorAdapter(HilAdapter):
 
         for frame in frames:
             self._write_typed_frame(FRAME_TC, frame)
+        return len(frames)
 
     def _build_s9_set_obt(self, obt_seconds: float) -> bytes:
         tc = PusService9.build_set_obt(obt_seconds, tc_apid=self._apid)
         return PusTcBuilder().build(tc)
 
     def _build_s17_ping(self) -> bytes:
-        return bytes.fromhex("1801c0000003201101" + "00")
+        # PUS-A TC(17,1): primary [type=TC, sec_hdr=1, APID] + secondary [0x11, svc, subsvc, src_id]
+        # Length field = secondary_size - 1 = (1+1+1+2) - 1 = 4
+        apid_word = 0x1800 | (self._apid & 0x7FF)
+        return struct.pack(">HHHBBBH", apid_word, 0xC000, 0x0004, 0x11, 17, 1, 0)
 
     def _build_s8_recover_nominal(self) -> bytes:
         user_data = bytes([0x00, 0x01, 0x00])
@@ -883,6 +892,14 @@ class OBCEmulatorAdapter(HilAdapter):
 
     def receive_tc(self, raw_tc: bytes, t: float = 0.0) -> list[PusTmPacket]:
         self._write_typed_frame(FRAME_TC, raw_tc)
+        # Drain pending sync blocks so TM from this TC reaches YAMCS on this tick,
+        # not 2 ticks later.  Short timeout: binary responds in microseconds.
+        for _ in range(3):
+            tm_packets, synced = self._collect_until_sync(timeout=0.3)
+            for pkt in tm_packets:
+                self._parse_tm(pkt, t)
+            if not synced:
+                break
         return []
 
     def get_tm_queue(self) -> list[PusTmPacket]:
