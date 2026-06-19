@@ -723,6 +723,91 @@ parameters:
       subservice: 1
       parameter_id: 0x20A1
 
+  # ── Body dynamics state (rigid body integrator, M49) ──────────────────────
+
+  aocs.body.omega_x:
+    description: True body angular velocity X (rad/s)
+    unit: rad/s
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: rigid_body
+    valid_range: [-10.0, 10.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x20C0
+
+  aocs.body.omega_y:
+    description: True body angular velocity Y (rad/s)
+    unit: rad/s
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: rigid_body
+    valid_range: [-10.0, 10.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x20C1
+
+  aocs.body.omega_z:
+    description: True body angular velocity Z (rad/s)
+    unit: rad/s
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: rigid_body
+    valid_range: [-10.0, 10.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x20C2
+
+  aocs.body.omega_norm:
+    description: True body angular velocity magnitude (rad/s)
+    unit: rad/s
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: rigid_body
+    valid_range: [0.0, 10.0]
+    pus:
+      apid: 0x101
+      service: 3
+      subservice: 25
+      parameter_id: 0x20C3
+
+  aocs.body.b_true_x:
+    description: True B-field in body frame X - internal sim port, wires to mag.true_x
+    unit: T
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: rigid_body
+    valid_range: [-1.0e-3, 1.0e-3]
+
+  aocs.body.b_true_y:
+    description: True B-field in body frame Y - internal sim port, wires to mag.true_y
+    unit: T
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: rigid_body
+    valid_range: [-1.0e-3, 1.0e-3]
+
+  aocs.body.b_true_z:
+    description: True B-field in body frame Z - internal sim port, wires to mag.true_z
+    unit: T
+    dtype: float
+    classification: TM
+    domain: AOCS
+    model_id: rigid_body
+    valid_range: [-1.0e-3, 1.0e-3]
+
   # ── AOCS FDIR Thresholds (S20 tunable) ─────────────────────────────────────
 
   aocs.fdir.rate_ool_high:

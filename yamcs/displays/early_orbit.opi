@@ -4,7 +4,7 @@
   <show_grid>false</show_grid>
   <background_color><color red="26" green="32" blue="53"/></background_color>
   <foreground_color><color red="200" green="215" blue="240"/></foreground_color>
-  <height>510</height>
+  <height>810</height>
   <width>900</width>
 
   <widget typeId="org.csstudio.opibuilder.widgets.Rectangle">
@@ -210,7 +210,7 @@ TC_20_3_GetBdotGain  →  readback</text>
   <widget typeId="org.csstudio.opibuilder.widgets.Label">
     <name>trend_section</name>
     <x>16</x><y>244</y><width>860</width><height>16</height>
-    <text>LIVE TREND   -   MTQ Dipole Commands  (gain uplink will produce a visible step)</text>
+    <text>LIVE TREND   -   MTQ Dipole Commands  (Demo C: gain uplink produces visible step)</text>
     <font><fontdata fontName="Liberation Mono" height="8" style="1"/></font>
     <foreground_color><color red="136" green="153" blue="187"/></foreground_color>
     <background_color><color red="26" green="32" blue="53"/></background_color>
@@ -252,6 +252,171 @@ TC_20_3_GetBdotGain  →  readback</text>
     <trace_2-trace_color><color red="100" green="180" blue="255"/></trace_2-trace_color>
     <trace_2-line_width>2</trace_2-line_width>
     <trace_2-buffer_size>600</trace_2-buffer_size>
+  </widget>
+
+
+  <!-- ══ BODY RATE CONVERGENCE (M49) ══════════════════════════════════ -->
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Rectangle">
+    <name>body_rate_rule</name>
+    <x>0</x><y>507</y><width>900</width><height>2</height>
+    <fill>true</fill>
+    <line_width>0</line_width>
+    <background_color><color red="45" green="64" blue="112"/></background_color>
+    <foreground_color><color red="45" green="64" blue="112"/></foreground_color>
+    <line_color><color red="45" green="64" blue="112"/></line_color>
+    <transparent>false</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Label">
+    <name>body_rate_section</name>
+    <x>16</x><y>514</y><width>860</width><height>16</height>
+    <text>BODY ANGULAR RATE   -   Detumbling Convergence  (Demo B: omega_norm should decay to near zero)</text>
+    <font><fontdata fontName="Liberation Mono" height="8" style="1"/></font>
+    <foreground_color><color red="136" green="153" blue="187"/></foreground_color>
+    <background_color><color red="26" green="32" blue="53"/></background_color>
+    <transparent>true</transparent>
+  </widget>
+
+  <!-- omega_norm large numeric readout -->
+  <widget typeId="org.csstudio.opibuilder.widgets.Label">
+    <name>omega_norm_lbl</name>
+    <x>10</x><y>534</y><width>120</width><height>16</height>
+    <text>|omega| [rad/s]</text>
+    <font><fontdata fontName="Liberation Mono" height="8" style="0"/></font>
+    <foreground_color><color red="136" green="153" blue="187"/></foreground_color>
+    <background_color><color red="26" green="32" blue="53"/></background_color>
+    <transparent>true</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.TextUpdate">
+    <name>omega_norm</name>
+    <pv_name>/opensvf/omega_norm</pv_name>
+    <x>10</x><y>552</y><width>200</width><height>50</height>
+    <precision>4</precision>
+    <format_type>2</format_type>
+    <show_units>false</show_units>
+    <font><fontdata fontName="Liberation Mono" height="26" style="1"/></font>
+    <foreground_color><color red="255" green="208" blue="96"/></foreground_color>
+    <background_color><color red="26" green="32" blue="53"/></background_color>
+    <transparent>true</transparent>
+    <horizontal_alignment>0</horizontal_alignment>
+  </widget>
+
+  <!-- omega x/y/z smaller readouts -->
+  <widget typeId="org.csstudio.opibuilder.widgets.Label">
+    <name>omega_x_lbl</name>
+    <x>220</x><y>534</y><width>200</width><height>16</height>
+    <text>X [rad/s]</text>
+    <font><fontdata fontName="Liberation Mono" height="8" style="0"/></font>
+    <foreground_color><color red="255" green="100" blue="100"/></foreground_color>
+    <background_color><color red="26" green="32" blue="53"/></background_color>
+    <transparent>true</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.TextUpdate">
+    <name>omega_x</name>
+    <pv_name>/opensvf/omega_x</pv_name>
+    <x>220</x><y>552</y><width>200</width><height>30</height>
+    <precision>5</precision>
+    <format_type>2</format_type>
+    <show_units>false</show_units>
+    <font><fontdata fontName="Liberation Mono" height="14" style="0"/></font>
+    <foreground_color><color red="255" green="100" blue="100"/></foreground_color>
+    <background_color><color red="26" green="32" blue="53"/></background_color>
+    <transparent>true</transparent>
+    <horizontal_alignment>0</horizontal_alignment>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Label">
+    <name>omega_y_lbl</name>
+    <x>440</x><y>534</y><width>200</width><height>16</height>
+    <text>Y [rad/s]</text>
+    <font><fontdata fontName="Liberation Mono" height="8" style="0"/></font>
+    <foreground_color><color red="100" green="220" blue="100"/></foreground_color>
+    <background_color><color red="26" green="32" blue="53"/></background_color>
+    <transparent>true</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.TextUpdate">
+    <name>omega_y</name>
+    <pv_name>/opensvf/omega_y</pv_name>
+    <x>440</x><y>552</y><width>200</width><height>30</height>
+    <precision>5</precision>
+    <format_type>2</format_type>
+    <show_units>false</show_units>
+    <font><fontdata fontName="Liberation Mono" height="14" style="0"/></font>
+    <foreground_color><color red="100" green="220" blue="100"/></foreground_color>
+    <background_color><color red="26" green="32" blue="53"/></background_color>
+    <transparent>true</transparent>
+    <horizontal_alignment>0</horizontal_alignment>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.Label">
+    <name>omega_z_lbl</name>
+    <x>660</x><y>534</y><width>200</width><height>16</height>
+    <text>Z [rad/s]</text>
+    <font><fontdata fontName="Liberation Mono" height="8" style="0"/></font>
+    <foreground_color><color red="100" green="180" blue="255"/></foreground_color>
+    <background_color><color red="26" green="32" blue="53"/></background_color>
+    <transparent>true</transparent>
+  </widget>
+
+  <widget typeId="org.csstudio.opibuilder.widgets.TextUpdate">
+    <name>omega_z</name>
+    <pv_name>/opensvf/omega_z</pv_name>
+    <x>660</x><y>552</y><width>200</width><height>30</height>
+    <precision>5</precision>
+    <format_type>2</format_type>
+    <show_units>false</show_units>
+    <font><fontdata fontName="Liberation Mono" height="14" style="0"/></font>
+    <foreground_color><color red="100" green="180" blue="255"/></foreground_color>
+    <background_color><color red="26" green="32" blue="53"/></background_color>
+    <transparent>true</transparent>
+    <horizontal_alignment>0</horizontal_alignment>
+  </widget>
+
+  <!-- Omega convergence trend chart -->
+  <widget typeId="org.csstudio.opibuilder.widgets.XYGraph">
+    <name>omega_trend</name>
+    <x>10</x><y>592</y><width>880</width><height>210</height>
+    <background_color><color red="20" green="28" blue="48"/></background_color>
+    <foreground_color><color red="200" green="215" blue="240"/></foreground_color>
+    <plot_area_background_color><color red="14" green="20" blue="38"/></plot_area_background_color>
+    <title></title>
+    <show_toolbar>false</show_toolbar>
+    <axis_count>2</axis_count>
+    <axis_0-time_format>10</axis_0-time_format>
+    <axis_0-auto_scale>true</axis_0-auto_scale>
+    <axis_0-show_grid>true</axis_0-show_grid>
+    <axis_0-grid_color><color red="35" green="50" blue="85"/></axis_0-grid_color>
+    <axis_0-foreground_color><color red="136" green="153" blue="187"/></axis_0-foreground_color>
+    <axis_1-title>Angular Rate [rad/s]</axis_1-title>
+    <axis_1-auto_scale>true</axis_1-auto_scale>
+    <axis_1-show_grid>true</axis_1-show_grid>
+    <axis_1-grid_color><color red="35" green="50" blue="85"/></axis_1-grid_color>
+    <axis_1-foreground_color><color red="136" green="153" blue="187"/></axis_1-foreground_color>
+    <trace_count>4</trace_count>
+    <trace_0-name>|omega| (norm)</trace_0-name>
+    <trace_0-y_pv>/opensvf/omega_norm</trace_0-y_pv>
+    <trace_0-trace_color><color red="255" green="208" blue="96"/></trace_0-trace_color>
+    <trace_0-line_width>2</trace_0-line_width>
+    <trace_0-buffer_size>600</trace_0-buffer_size>
+    <trace_1-name>omega X</trace_1-name>
+    <trace_1-y_pv>/opensvf/omega_x</trace_1-y_pv>
+    <trace_1-trace_color><color red="255" green="100" blue="100"/></trace_1-trace_color>
+    <trace_1-line_width>1</trace_1-line_width>
+    <trace_1-buffer_size>600</trace_1-buffer_size>
+    <trace_2-name>omega Y</trace_2-name>
+    <trace_2-y_pv>/opensvf/omega_y</trace_2-y_pv>
+    <trace_2-trace_color><color red="100" green="220" blue="100"/></trace_2-trace_color>
+    <trace_2-line_width>1</trace_2-line_width>
+    <trace_2-buffer_size>600</trace_2-buffer_size>
+    <trace_3-name>omega Z</trace_3-name>
+    <trace_3-y_pv>/opensvf/omega_z</trace_3-y_pv>
+    <trace_3-trace_color><color red="100" green="180" blue="255"/></trace_3-trace_color>
+    <trace_3-line_width>1</trace_3-line_width>
+    <trace_3-buffer_size>600</trace_3-buffer_size>
   </widget>
 
 </display>

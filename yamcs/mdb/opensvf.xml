@@ -30,6 +30,19 @@
       <!-- PUS-C primary + secondary header fields -->
       <Parameter name="pus_svc"    parameterTypeRef="uint8"/>
       <Parameter name="pus_subsvc" parameterTypeRef="uint8"/>
+      <!-- S250(2) SVF body state fields (synthesised by opensvf BodyStateReporter) -->
+      <Parameter name="omega_x" parameterTypeRef="float32">
+        <LongDescription>Body angular velocity X [rad/s]</LongDescription>
+      </Parameter>
+      <Parameter name="omega_y" parameterTypeRef="float32">
+        <LongDescription>Body angular velocity Y [rad/s]</LongDescription>
+      </Parameter>
+      <Parameter name="omega_z" parameterTypeRef="float32">
+        <LongDescription>Body angular velocity Z [rad/s]</LongDescription>
+      </Parameter>
+      <Parameter name="omega_norm" parameterTypeRef="float32">
+        <LongDescription>Body angular velocity magnitude [rad/s]</LongDescription>
+      </Parameter>
       <!-- S250(1) SVF actuator status fields (synthesised by opensvf, not OBSW) -->
       <Parameter name="mtq_dipole_x" parameterTypeRef="float32">
         <LongDescription>MTQ dipole command X [A·m²]</LongDescription>
@@ -467,6 +480,47 @@
           <ParameterRefEntry parameterRef="mtq_dipole_z">
             <LocationInContainerInBits referenceLocation="containerStart">
               <FixedValue>200</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+        </EntryList>
+      </SequenceContainer>
+
+
+      <!-- TM(250,2) SVF body state  -  synthesised by opensvf BodyStateReporter -->
+      <!-- Layout after primary(6B) + secondary(11B) = byte 17:                  -->
+      <!--   omega_x:    float32 BE at bit 136                                   -->
+      <!--   omega_y:    float32 BE at bit 168                                   -->
+      <!--   omega_z:    float32 BE at bit 200                                   -->
+      <!--   omega_norm: float32 BE at bit 232                                   -->
+      <SequenceContainer name="TM_250_2_BodyState">
+        <LongDescription>Body angular velocity synthesised by opensvf rigid-body integrator</LongDescription>
+        <BaseContainer containerRef="PUS_Packet">
+          <RestrictionCriteria>
+            <ComparisonList>
+              <Comparison parameterRef="pus_svc"    value="250" comparisonOperator="=="/>
+              <Comparison parameterRef="pus_subsvc" value="2"   comparisonOperator="=="/>
+            </ComparisonList>
+          </RestrictionCriteria>
+        </BaseContainer>
+        <EntryList>
+          <ParameterRefEntry parameterRef="omega_x">
+            <LocationInContainerInBits referenceLocation="containerStart">
+              <FixedValue>136</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+          <ParameterRefEntry parameterRef="omega_y">
+            <LocationInContainerInBits referenceLocation="containerStart">
+              <FixedValue>168</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+          <ParameterRefEntry parameterRef="omega_z">
+            <LocationInContainerInBits referenceLocation="containerStart">
+              <FixedValue>200</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+          <ParameterRefEntry parameterRef="omega_norm">
+            <LocationInContainerInBits referenceLocation="containerStart">
+              <FixedValue>232</FixedValue>
             </LocationInContainerInBits>
           </ParameterRefEntry>
         </EntryList>

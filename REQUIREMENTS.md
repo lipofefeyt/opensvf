@@ -240,6 +240,9 @@ The platform shall provide a MIB import adapter. Assigned to M10.
 **SVF-DEV-180** `[SDB]` `BASELINED`
 The SRDB `dhs.obc.freertos.*` parameter namespace shall reserve PUS parameter IDs 0x4020–0x402F for FreeRTOS-specific runtime telemetry (task stack high-water marks, tick miss counter, context switch rate). No openobsw implementation is required at this milestone; the reservation prevents future parameter ID collisions when openobsw begins emitting FreeRTOS health metrics. Assigned to M43.
 
+**SVF-DEV-181** `[SIM]` `BASELINED`
+The SVF shall provide a minimal rigid-body attitude dynamics integrator (`make_rigid_body_dynamics`) that propagates spacecraft angular velocity and quaternion attitude using Euler's equation and first-order Euler integration. The integrator shall accept MTQ torque in body frame as input, rotate the NED orbital B-field into body frame using the integrated attitude quaternion, and output body angular velocity, attitude quaternion, and body-frame B-field. No external physics engine (KDE FMU) shall be required. The model shall close the B-dot detumbling loop such that omega_norm decreases monotonically over a 600-second simulation with default 3U CubeSat inertia. Assigned to M49.
+
 ---
 
 ## Generic Equipment Contract Requirements [EQP]
@@ -1001,6 +1004,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-178   | SIM  | IMPLEMENTED | M43 | test_equipment_timeout_raises_equipment_timeout_error |
 | SVF-DEV-179   | DHS  | IMPLEMENTED | M43 | test_stack_overflow_diagnostic_increments_counter |
 | SVF-DEV-180   | SDB  | BASELINED   | M43 | test_freertos_parameter_namespace_reserved |
+| SVF-DEV-181   | SIM  | BASELINED   | M49 | test_rigid_body_detumbling_convergence |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |

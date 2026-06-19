@@ -12,43 +12,52 @@ Usage:
 
 Then open http://localhost:8090 in your browser.
 
-Scenario: early orbit  -  spacecraft attitude sensors not yet calibrated.
-B-dot detumbling is active; geomagnetic field varies with orbital motion.
+Scenario: early orbit B-dot detumbling convergence.
+Spacecraft starts tumbling at 3 deg/s; B-dot controller converges it to
+near-zero body rate over ~5-10 minutes (visible in YAMCS strip charts).
 
 Demo A  -  Are-You-Alive:
     Commanding → TC_17_1_AreYouAlive → Send
     Packets: TM(1,1) acceptance → TM(17,2) pong → TM(1,7) completion
 
-Demo B  -  Real-time B-dot gain upload:
-    Observe: TM(3,25) AOCS_HK reports bdot_gain=10000.0 every 5 s
-             MTQ dipole (aocs.mtq.*) is non-zero  -  controller is active
-    1. Commanding → TC_20_1_SetBdotGain → value: 75000.0 → Send
-       Packets: TM(1,1) acceptance → TM(1,7) completion
-       TM(3,25) AOCS_HK: bdot_gain jumps to 75000.0 within 5 s
-       MTQ dipole: increases ~7.5× proportionally
+Demo B  -  Watch detumbling convergence (no commands needed):
+    Telemetry → Parameters → omega_norm (TM 250,2 BodyState, every tick)
+    omega_norm starts at ~0.065 rad/s (3.7 deg/s) and converges to < 0.005 rad/s.
+    MTQ dipoles (TM 250,1 ActuatorStatus) track the B-dot and decrease as rate drops.
+
+Demo C  -  Real-time gain tuning:
+    Observe: TM(3,25) AOCS_HK reports bdot_gain every 5 s
+    1. Commanding → TC_20_1_SetBdotGain → value: 150000.0 → Send
+       Convergence accelerates (higher gain = stronger braking torque)
     2. (optional readback) Commanding → TC_20_3_GetBdotGain → Send
-       Packets: TM(1,1) → TM(20,2) ParamReport (s20_param_value=75000.0) → TM(1,7)
+       Packets: TM(1,1) → TM(20,2) ParamReport (s20_param_value=150000.0) → TM(1,7)
 """
-from svf.stores.parameter_store import ParameterStore
-from svf.stores.command_store import CommandStore
-from svf.sim.software_tick import RealtimeTickSource
-from svf.sim.simulation import SimulationMaster
-from svf.models.ttc.ttc import TtcEquipment
-from svf.models.dhs.obc_emulator import OBCEmulatorAdapter
-from svf.models.environment.orbital_environment import OrbitalEnvironment
-from svf.models.aocs.magnetometer import make_magnetometer
-from svf.config.wiring import WiringMap, Connection
-from svf.core.equipment import Equipment, PortDefinition, PortDirection
-from svf.pus.tm import PusTmPacket, PusTmBuilder
-from svf.ground.yamcs_bridge import YamcsBridge
-from svf.ground.dds_sync import DdsSyncProtocol
-from cyclonedds.domain import DomainParticipant
 import argparse
 import logging
+import math
 import os
 import struct
 import sys
 from pathlib import Path
+
+from cyclonedds.domain import DomainParticipant
+
+from svf.config.wiring import Connection, WiringMap
+from svf.core.abstractions import SyncProtocol
+from svf.core.equipment import Equipment, PortDefinition, PortDirection
+from svf.ground.dds_sync import DdsSyncProtocol
+from svf.ground.yamcs_bridge import YamcsBridge
+from svf.models.aocs.magnetometer import make_magnetometer
+from svf.models.aocs.magnetorquer import make_magnetorquer
+from svf.models.dhs.obc_emulator import OBCEmulatorAdapter
+from svf.models.dynamics.rigid_body import make_rigid_body_dynamics
+from svf.models.environment.orbital_environment import OrbitalEnvironment
+from svf.models.ttc.ttc import TtcEquipment
+from svf.pus.tm import PusTmBuilder, PusTmPacket
+from svf.sim.simulation import SimulationMaster
+from svf.sim.software_tick import RealtimeTickSource
+from svf.stores.command_store import CommandStore
+from svf.stores.parameter_store import ParameterStore
 
 # ISS TLE  -  epoch 2021-001, ISS orbit (51.6° inc, ~400 km)
 # Provides a time-varying geomagnetic field as the spacecraft moves through orbit.
@@ -76,11 +85,11 @@ class ActuatorReporter(Equipment):
     def __init__(
         self,
         bridge: YamcsBridge,
-        sync_protocol: object,
+        sync_protocol: SyncProtocol,
         store: ParameterStore,
         command_store: CommandStore,
     ) -> None:
-        super().__init__(  # type: ignore[arg-type]
+        super().__init__(
             "actuator_reporter", sync_protocol, store, command_store
         )
         self._bridge = bridge
@@ -110,6 +119,60 @@ class ActuatorReporter(Equipment):
             sequence_count=self._seq & 0x3FFF,
             service=250,
             subservice=1,
+            timestamp=int(t),
+            app_data=app_data,
+        )
+        self._seq += 1
+        self._bridge.send_tm(self._builder.build(pkt))
+
+
+class BodyStateReporter(Equipment):
+    """
+    Synthesises a TM(250,2) packet each tick carrying the current body angular
+    velocity (omega_x/y/z + omega_norm) from the rigid-body integrator and
+    forwards it to YAMCS. Makes detumbling convergence directly visible as a
+    real-time strip chart without any OBSW changes.
+    """
+
+    def __init__(
+        self,
+        bridge: YamcsBridge,
+        sync_protocol: SyncProtocol,
+        store: ParameterStore,
+        command_store: CommandStore,
+    ) -> None:
+        super().__init__(
+            "body_state_reporter", sync_protocol, store, command_store
+        )
+        self._bridge = bridge
+        self._builder = PusTmBuilder()
+        self._seq = 0
+
+    def _declare_ports(self) -> list[PortDefinition]:
+        return [
+            PortDefinition("aocs.body.omega_x",    PortDirection.IN),
+            PortDefinition("aocs.body.omega_y",    PortDirection.IN),
+            PortDefinition("aocs.body.omega_z",    PortDirection.IN),
+            PortDefinition("aocs.body.omega_norm", PortDirection.IN),
+        ]
+
+    def initialise(self, start_time: float = 0.0) -> None:
+        pass
+
+    def teardown(self) -> None:
+        pass
+
+    def do_step(self, t: float, dt: float) -> None:
+        ox   = self.read_port("aocs.body.omega_x")
+        oy   = self.read_port("aocs.body.omega_y")
+        oz   = self.read_port("aocs.body.omega_z")
+        norm = self.read_port("aocs.body.omega_norm")
+        app_data = struct.pack(">ffff", ox, oy, oz, norm)
+        pkt = PusTmPacket(
+            apid=0,
+            sequence_count=self._seq & 0x3FFF,
+            service=250,
+            subservice=2,
             timestamp=int(t),
             app_data=app_data,
         )
@@ -191,9 +254,25 @@ def main() -> None:
         equipment_id="orbital",
     )
 
-    # Magnetometer  -  noise model; reads true B field from orbital environment
+    # Magnetometer  -  noise model; reads true B field from rigid body (body frame)
     mag = make_magnetometer(sync, store, cmd_store, equipment_id="mag", seed=42)
     cmd_store.inject("aocs.mag.power_enable", 1.0, source_id="demo_init")
+
+    # Magnetorquer  -  reads OBSW dipole commands, computes torque for rigid body
+    mtq = make_magnetorquer(sync, store, cmd_store, equipment_id="mtq")
+    cmd_store.inject("aocs.mtq.power_enable", 1.0, source_id="demo_init")
+
+    # Rigid body  -  integrates attitude; closes the B-dot detumbling loop
+    # Initial condition: 3 deg/s tumble on each axis
+    rigid_body = make_rigid_body_dynamics(
+        sync, store, cmd_store,
+        equipment_id="rigid_body",
+        omega0=(
+            3.0 * math.pi / 180.0,
+            2.0 * math.pi / 180.0,
+            1.0 * math.pi / 180.0,
+        ),
+    )
 
     obc = OBCEmulatorAdapter(
         sim_path=obsw_sim,
@@ -211,23 +290,46 @@ def main() -> None:
         yamcs_bridge=bridge,
     )
 
-    # Wire NED B-field (orbital) → magnetometer body-frame true input.
-    # NED ≈ body is a valid approximation while attitude is unknown (early orbit).
+    # Closed-loop detumbling wiring:
+    #   orbital NED B → rigid_body (frame rotation)
+    #   rigid_body body-frame B → magnetometer true input
+    #   magnetometer output → MTQ B-field input (for torque calculation)
+    #   MTQ torque → rigid_body dynamics input
     wiring = WiringMap([
-        Connection("orbital", "orbital.mag_field_n", "mag", "aocs.mag.true_x",
-                   description="NED north → mag body-x"),
-        Connection("orbital", "orbital.mag_field_e", "mag", "aocs.mag.true_y",
-                   description="NED east  → mag body-y"),
-        Connection("orbital", "orbital.mag_field_d", "mag", "aocs.mag.true_z",
-                   description="NED down  → mag body-z"),
+        Connection("orbital",    "orbital.mag_field_n",      "rigid_body", "orbital.mag_field_n",
+                   description="NED B north → rigid body"),
+        Connection("orbital",    "orbital.mag_field_e",      "rigid_body", "orbital.mag_field_e",
+                   description="NED B east → rigid body"),
+        Connection("orbital",    "orbital.mag_field_d",      "rigid_body", "orbital.mag_field_d",
+                   description="NED B down → rigid body"),
+        Connection("rigid_body", "aocs.body.b_true_x",       "mag",        "aocs.mag.true_x",
+                   description="Body-frame B → mag true X"),
+        Connection("rigid_body", "aocs.body.b_true_y",       "mag",        "aocs.mag.true_y",
+                   description="Body-frame B → mag true Y"),
+        Connection("rigid_body", "aocs.body.b_true_z",       "mag",        "aocs.mag.true_z",
+                   description="Body-frame B → mag true Z"),
+        Connection("mag",        "aocs.mag.field_x",         "mtq",        "aocs.mtq.b_field_x",
+                   description="MAG measured B → MTQ X"),
+        Connection("mag",        "aocs.mag.field_y",         "mtq",        "aocs.mtq.b_field_y",
+                   description="MAG measured B → MTQ Y"),
+        Connection("mag",        "aocs.mag.field_z",         "mtq",        "aocs.mtq.b_field_z",
+                   description="MAG measured B → MTQ Z"),
+        Connection("mtq",        "aocs.mtq.torque_x",        "rigid_body", "aocs.mtq.torque_x",
+                   description="MTQ torque X → rigid body"),
+        Connection("mtq",        "aocs.mtq.torque_y",        "rigid_body", "aocs.mtq.torque_y",
+                   description="MTQ torque Y → rigid body"),
+        Connection("mtq",        "aocs.mtq.torque_z",        "rigid_body", "aocs.mtq.torque_z",
+                   description="MTQ torque Z → rigid body"),
     ])
 
-    actuator_reporter = ActuatorReporter(bridge, sync, store, cmd_store)
+    actuator_reporter  = ActuatorReporter(bridge, sync, store, cmd_store)
+    body_state_reporter = BodyStateReporter(bridge, sync, store, cmd_store)
 
     master = SimulationMaster(
         tick_source=RealtimeTickSource(),
         sync_protocol=sync,
-        models=[orbital, mag, obc, ttc, actuator_reporter],
+        models=[orbital, rigid_body, mag, mtq, obc, ttc,
+                actuator_reporter, body_state_reporter],
         dt=1.0,
         stop_time=args.duration,
         sync_timeout=10.0,
@@ -236,26 +338,28 @@ def main() -> None:
         wiring=wiring,
     )
 
+    omega0_deg = math.degrees(math.sqrt(
+        (3.0*math.pi/180.0)**2 + (2.0*math.pi/180.0)**2 + (1.0*math.pi/180.0)**2
+    ))
     print("Simulation running (realtime, 1 tick/s).")
     print()
-    print("─── Demo A: Are-You-Alive ────────────────────────────────────")
+    print(f"  Initial body rate: {omega0_deg:.2f} deg/s")
+    print("  Closed-loop B-dot detumbling active.")
+    print()
+    print("─── Demo A: Are-You-Alive ───────────────────────────────────────────")
     print("  Commanding → TC_17_1_AreYouAlive → Send")
-    print("  Expect: TM(1,1) acceptance  →  TM(17,2) pong  →  TM(1,7) completion")
+    print("  Expect: TM(1,1) acceptance → TM(17,2) pong → TM(1,7) completion")
     print()
-    print("─── Demo B: Real-time B-dot gain upload ─────────────────────")
-    print("  Scenario: early orbit, attitude sensors not calibrated.")
-    print("  B-dot detumbling active  -  MTQ dipole tracks orbital dB/dt.")
+    print("─── Demo B: Watch detumbling convergence (no commands needed) ───────")
+    print("  Telemetry → Parameters → omega_norm  (TM 250,2 BodyState, every tick)")
+    print(f"  Starts at ~{omega0_deg:.3f} rad/s, converges to < 0.005 rad/s in ~5-10 min")
+    print("  MTQ dipoles (TM 250,1) decrease as body rate drops")
     print()
-    print("  Observe baseline in Telemetry → Parameters:")
-    print("    bdot_gain = 10000.0  (TM 3,25 AOCS_HK, every 5 s)")
-    print("    aocs.mtq.dipole_* ≠ 0  (B-dot active)")
-    print()
-    print("  Step 1 → TC_20_1_SetBdotGain → value: 75000.0 → Send")
-    print("    TM(3,25) AOCS_HK: bdot_gain → 75000.0 (within 5 s)")
-    print("    MTQ dipole: increases ~7.5× proportionally")
-    print()
-    print("  Step 2 (optional readback) → TC_20_3_GetBdotGain → Send")
-    print("    TM(20,2) ParamReport: s20_param_value = 75000.0")
+    print("─── Demo C: Real-time gain tuning ───────────────────────────────────")
+    print("  Commanding → TC_20_1_SetBdotGain → value: 150000.0 → Send")
+    print("    Convergence accelerates (stronger braking torque)")
+    print("  Commanding → TC_20_3_GetBdotGain → Send")
+    print("    TM(20,2) ParamReport: s20_param_value = 150000.0")
     print()
     print("Ctrl+C to stop.\n")
 
