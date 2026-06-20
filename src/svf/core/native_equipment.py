@@ -1,8 +1,19 @@
 """
-SVF NativeEquipment
-Wraps a plain Python class as an Equipment implementation.
-Replaces NativeModelAdapter.
-Implements: SVF-DEV-015
+SVF NativeEquipment - SMP 2.0 compliant simulation model base.
+
+Every instance of NativeEquipment satisfies the ISmpModel interface
+(ECSS-E-ST-40-07C) via SmpEquipmentMixin. Factory functions across
+svf.models.* return NativeEquipment, so all opensvf physics models are
+SMP 2.0 portable without any per-model changes.
+
+SMP 2.0 lifecycle on any returned instance::
+
+    model.smp_publish()    # registers SmpFields derived from declared ports
+    model.smp_configure()  # no-op by default; override for parametric models
+    model.smp_connect()    # no-op; WiringLoader handles port linkage
+    model.initialise()     # existing ModelAdapter initialisation
+
+Implements: SVF-DEV-015, SVF-DEV-183
 """
 
 from __future__ import annotations
@@ -74,7 +85,7 @@ class NativeEquipment(SmpEquipmentMixin, Equipment):
         return list(self._port_definitions)
 
     def initialise(self, start_time: float = 0.0) -> None:
-        logger.info(f"[{self._equipment_id}] NativeEquipment initialised")
+        logger.info("[%s] NativeEquipment initialised", self._equipment_id)
 
     def suggested_dt(self) -> Optional[float]:
         """Default: no preference  -  use SimulationMaster's fixed dt."""
@@ -84,4 +95,4 @@ class NativeEquipment(SmpEquipmentMixin, Equipment):
         self._step_fn(self, t, dt)
 
     def teardown(self) -> None:
-        logger.info(f"[{self._equipment_id}] NativeEquipment teardown")
+        logger.info("[%s] NativeEquipment teardown", self._equipment_id)
