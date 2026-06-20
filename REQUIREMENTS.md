@@ -243,6 +243,12 @@ The SRDB `dhs.obc.freertos.*` parameter namespace shall reserve PUS parameter ID
 **SVF-DEV-181** `[SIM]` `BASELINED`
 The SVF shall provide a minimal rigid-body attitude dynamics integrator (`make_rigid_body_dynamics`) that propagates spacecraft angular velocity and quaternion attitude using Euler's equation and first-order Euler integration. The integrator shall accept MTQ torque in body frame as input, rotate the NED orbital B-field into body frame using the integrated attitude quaternion, and output body angular velocity, attitude quaternion, and body-frame B-field. No external physics engine (KDE FMU) shall be required. The model shall close the B-dot detumbling loop such that omega_norm decreases monotonically over a 600-second simulation with default 3U CubeSat inertia. Assigned to M49.
 
+**SVF-DEV-182** `[SMP]` `BASELINED`
+The SVF shall define an `ISmpModel` abstract base class exposing the SMP 2.0 IModel interface (ECSS-E-ST-40-07C §4.7.1). The interface shall declare the seven lifecycle states (`Created`, `Publishing`, `Configured`, `Connected`, `Initialised`, `Executing`, `Terminated`) as a `SmpState` enum, a frozen `SmpField` dataclass carrying name, kind, direction, unit, and description, and three abstract lifecycle methods: `smp_publish()`, `smp_configure()`, and `smp_connect()`. Assigned to M50.
+
+**SVF-DEV-183** `[SMP]` `BASELINED`
+The SVF shall provide a `SmpEquipmentMixin` class that, when mixed with `Equipment`, implements `ISmpModel` by deriving the SMP 2.0 field catalogue from the equipment's declared ports. `smp_publish()` shall convert each `PortDefinition` to an `SmpField(kind="Float64")`, preserving direction, unit, and description. `smp_configure()` and `smp_connect()` shall advance the lifecycle state machine and be no-ops by default. The pre-publish state shall be `Created`. Assigned to M50.
+
 ---
 
 ## Generic Equipment Contract Requirements [EQP]
@@ -1005,6 +1011,8 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-179   | DHS  | IMPLEMENTED | M43 | test_stack_overflow_diagnostic_increments_counter |
 | SVF-DEV-180   | SDB  | BASELINED   | M43 | test_freertos_parameter_namespace_reserved |
 | SVF-DEV-181   | SIM  | BASELINED   | M49 | test_rigid_body_detumbling_convergence |
+| SVF-DEV-182   | SMP  | BASELINED   | M50 | test_smp_state_enum_has_required_values |
+| SVF-DEV-183   | SMP  | BASELINED   | M50 | test_publish_builds_field_catalogue |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
