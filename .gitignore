@@ -1,3 +1,6 @@
+# Literature
+.docs
+
 # Python
 __pycache__/
 *.pyc
