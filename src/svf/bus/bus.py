@@ -15,6 +15,7 @@ from typing import Optional
 
 from svf.core.abstractions import SyncProtocol
 from svf.core.equipment import Equipment, PortDefinition
+from svf.smp.mixin import SmpEquipmentMixin
 from svf.stores.parameter_store import ParameterStore
 from svf.stores.command_store import CommandStore
 
@@ -63,7 +64,7 @@ class BusFault:
         return self.target == "all" or self.target == equipment_id
 
 
-class Bus(Equipment):
+class Bus(SmpEquipmentMixin, Equipment):
     """
     Abstract base class for spacecraft bus adapters.
 

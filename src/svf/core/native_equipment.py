@@ -11,7 +11,8 @@ import logging
 from typing import Callable, Optional
 
 from svf.core.abstractions import SyncProtocol
-from svf.core.equipment import Equipment, PortDefinition, PortDirection
+from svf.core.equipment import Equipment, PortDefinition
+from svf.smp.mixin import SmpEquipmentMixin
 from svf.stores.parameter_store import ParameterStore
 from svf.stores.command_store import CommandStore
 
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 StepFn = Callable[["NativeEquipment", float, float], None]
 
 
-class NativeEquipment(Equipment):
+class NativeEquipment(SmpEquipmentMixin, Equipment):
     """
     Wraps a plain Python step function as Equipment.
 

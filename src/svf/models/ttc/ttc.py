@@ -12,6 +12,7 @@ from typing import Optional, Protocol, runtime_checkable
 
 from svf.core.abstractions import SyncProtocol
 from svf.core.equipment import Equipment, PortDefinition, PortDirection
+from svf.smp.mixin import SmpEquipmentMixin
 from svf.stores.parameter_store import ParameterStore
 from svf.stores.command_store import CommandStore
 from svf.pus.tc import PusTcBuilder, PusTcPacket
@@ -32,7 +33,7 @@ class ObcInterface(Protocol):
     def get_tm_by_service(self, service: int, subservice: int) -> list[PusTmPacket]: ...
 
 
-class TtcEquipment(Equipment):
+class TtcEquipment(SmpEquipmentMixin, Equipment):
     """
     TTC Equipment  -  ground-to-spacecraft interface.
 

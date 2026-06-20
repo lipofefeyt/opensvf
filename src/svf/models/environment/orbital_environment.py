@@ -40,6 +40,7 @@ from typing import Optional
 
 from svf.core.abstractions import SyncProtocol
 from svf.core.equipment import Equipment, PortDefinition, PortDirection
+from svf.smp.mixin import SmpEquipmentMixin
 from svf.stores.command_store import CommandStore
 from svf.stores.parameter_store import ParameterStore
 
@@ -217,7 +218,7 @@ def _dipole_field_ned(
 
 # ── Equipment class ────────────────────────────────────────────────────────────
 
-class OrbitalEnvironment(Equipment):
+class OrbitalEnvironment(SmpEquipmentMixin, Equipment):
     """
     Orbital environment truth model.
 
