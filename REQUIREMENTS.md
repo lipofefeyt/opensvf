@@ -246,6 +246,9 @@ The SVF shall provide a minimal rigid-body attitude dynamics integrator (`make_r
 **SVF-DEV-182** `[SMP]` `BASELINED`
 The SVF shall define an `ISmpModel` abstract base class exposing the SMP 2.0 IModel interface (ECSS-E-ST-40-07C §4.7.1). The interface shall declare the seven lifecycle states (`Created`, `Publishing`, `Configured`, `Connected`, `Initialised`, `Executing`, `Terminated`) as a `SmpState` enum, a frozen `SmpField` dataclass carrying name, kind, direction, unit, and description, and three abstract lifecycle methods: `smp_publish()`, `smp_configure()`, and `smp_connect()`. Assigned to M50.
 
+**SVF-DEV-184** `[SMP]` `BASELINED`
+The SVF shall provide a `generate_smpcat` tool (`tools/generate_smpcat.py`) that produces a well-formed SMP 2.0 Catalogue XML document (ECSS-E-ST-40-07C namespace `http://www.esa.int/2005/10/Smp`) from the SRDB baseline. The catalogue shall group parameters by domain into `Package` elements and by subsystem into `Model` elements. Each SRDB parameter shall appear as a `Field` element carrying `Type="Float64"`, a `Kind` of `Output` for TM parameters or `Input` for TC parameters, and a `Unit` attribute when the SRDB entry has a non-empty unit. The total field count shall equal the number of SRDB parameters. Assigned to M50.
+
 **SVF-DEV-183** `[SMP]` `BASELINED`
 The SVF shall provide a `SmpEquipmentMixin` class that, when mixed with `Equipment`, implements `ISmpModel` by deriving the SMP 2.0 field catalogue from the equipment's declared ports. `smp_publish()` shall convert each `PortDefinition` to an `SmpField(kind="Float64")`, preserving direction, unit, and description. `smp_configure()` and `smp_connect()` shall advance the lifecycle state machine and be no-ops by default. The pre-publish state shall be `Created`. Assigned to M50.
 
@@ -1013,6 +1016,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-181   | SIM  | BASELINED   | M49 | test_rigid_body_detumbling_convergence |
 | SVF-DEV-182   | SMP  | BASELINED   | M50 | test_smp_state_enum_has_required_values |
 | SVF-DEV-183   | SMP  | BASELINED   | M50 | test_publish_builds_field_catalogue |
+| SVF-DEV-184   | SMP  | BASELINED   | M50 | test_field_count_matches_srdb |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
