@@ -246,6 +246,9 @@ The SVF shall provide a minimal rigid-body attitude dynamics integrator (`make_r
 **SVF-DEV-182** `[SMP]` `BASELINED`
 The SVF shall define an `ISmpModel` abstract base class exposing the SMP 2.0 IModel interface (ECSS-E-ST-40-07C §4.7.1). The interface shall declare the seven lifecycle states (`Created`, `Publishing`, `Configured`, `Connected`, `Initialised`, `Executing`, `Terminated`) as a `SmpState` enum, a frozen `SmpField` dataclass carrying name, kind, direction, unit, and description, and three abstract lifecycle methods: `smp_publish()`, `smp_configure()`, and `smp_connect()`. Assigned to M50.
 
+**SVF-DEV-187** `[SMP]` `BASELINED`
+The SVF shall provide an L2 round-trip smoke test (`tests/integration/test_smp_roundtrip.py`) that verifies the SMP 2.0 lifecycle is transparent to simulation correctness. A `MinimalSmpHost` class shall implement the SMP 2.0 Simulation Environment hosting contract (publish, configure, connect, initialise, step). Tests shall verify: (1) state is CONNECTED after host initialise; (2) OUT port store values after N steps are identical whether the model is run via MinimalSmpHost or the direct Equipment path; (3) Output SmpField names appear as written ParameterStore entries after stepping; (4) a NativeEquipment ISmpModel runs correctly alongside a FmuEquipment (`SimpleCounter.fmu`) co-model. Assigned to M50.
+
 **SVF-DEV-186** `[SMP]` `BASELINED`
 The SVF shall provide parametrized L1 contract tests (`tests/unit/test_smp_contracts.py`) that verify every native simulation model and bus adapter satisfies the `ISmpModel` interface. Tests shall cover: (1) the model is an `ISmpModel` instance; (2) initial state is `CREATED`; (3) `smp_publish()` registers a non-empty field catalogue; (4) all catalogue fields have `kind="Float64"`; (5) the full `publish -> configure -> connect` lifecycle advances state to `CONNECTED`. The test matrix shall include all AOCS sensors and actuators, the B-dot controller, rigid-body dynamics, all EPS models, thermal, TTC, OrbitalEnvironment, and all three bus adapters (CAN, MIL-STD-1553, SpaceWire). Assigned to M50.
 
@@ -1025,6 +1028,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-184   | SMP  | BASELINED   | M50 | test_field_count_matches_srdb |
 | SVF-DEV-185   | SMP  | BASELINED   | M50 | test_checksmp_passes_with_current_smpcat |
 | SVF-DEV-186   | SMP  | BASELINED   | M50 | test_implements_ismp_model[magnetometer] |
+| SVF-DEV-187   | SMP  | BASELINED   | M50 | test_smp_lifecycle_transparent_to_native_output |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
