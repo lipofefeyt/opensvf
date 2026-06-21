@@ -246,6 +246,9 @@ The SVF shall provide a minimal rigid-body attitude dynamics integrator (`make_r
 **SVF-DEV-182** `[SMP]` `BASELINED`
 The SVF shall define an `ISmpModel` abstract base class exposing the SMP 2.0 IModel interface (ECSS-E-ST-40-07C §4.7.1). The interface shall declare the seven lifecycle states (`Created`, `Publishing`, `Configured`, `Connected`, `Initialised`, `Executing`, `Terminated`) as a `SmpState` enum, a frozen `SmpField` dataclass carrying name, kind, direction, unit, and description, and three abstract lifecycle methods: `smp_publish()`, `smp_configure()`, and `smp_connect()`. Assigned to M50.
 
+**SVF-DEV-185** `[SMP]` `BASELINED`
+The SVF shall provide a `generate_smpconf` tool (`tools/generate_smpconf.py`) that reads a `spacecraft.yaml` and produces a well-formed SMP 2.0 Assembly XML document. The assembly shall declare one `Instance` element per equipment entry, with a `TypeName` of the form `opensvf.<domain>.<equipment_id>` resolved from the SRDB. When `wiring.auto` is true the `Connections` element shall carry a descriptive comment; when an explicit wiring file is referenced its connections shall be emitted as `Connect` elements. The SVF shall also provide a `checksmp` command that verifies `smp/opensvf.smpcat` exists, is well-formed XML with the correct SMP 2.0 namespace, and has a field count matching the current SRDB. Assigned to M50.
+
 **SVF-DEV-184** `[SMP]` `BASELINED`
 The SVF shall provide a `generate_smpcat` tool (`tools/generate_smpcat.py`) that produces a well-formed SMP 2.0 Catalogue XML document (ECSS-E-ST-40-07C namespace `http://www.esa.int/2005/10/Smp`) from the SRDB baseline. The catalogue shall group parameters by domain into `Package` elements and by subsystem into `Model` elements. Each SRDB parameter shall appear as a `Field` element carrying `Type="Float64"`, a `Kind` of `Output` for TM parameters or `Input` for TC parameters, and a `Unit` attribute when the SRDB entry has a non-empty unit. The total field count shall equal the number of SRDB parameters. Assigned to M50.
 
@@ -1017,6 +1020,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-182   | SMP  | BASELINED   | M50 | test_smp_state_enum_has_required_values |
 | SVF-DEV-183   | SMP  | BASELINED   | M50 | test_publish_builds_field_catalogue |
 | SVF-DEV-184   | SMP  | BASELINED   | M50 | test_field_count_matches_srdb |
+| SVF-DEV-185   | SMP  | BASELINED   | M50 | test_checksmp_passes_with_current_smpcat |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
