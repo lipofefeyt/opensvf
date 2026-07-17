@@ -1,7 +1,7 @@
 # SVF Development Requirements
 
-> **Status:** v1.1
-> **Last updated:** 2026-03
+> **Status:** v1.2
+> **Last updated:** 2026-07
 > **Author:** lipofefeyt
 
 ---
@@ -35,6 +35,7 @@ Requirements are identified by a prefix followed by a zero-padded sequence numbe
 | [MOD] | Model Authoring |
 | [REP] | Reporting & Traceability |
 | [SYS] | System & Infrastructure |
+| [PRF] | Performance & Timing Validation |
 
 ### Requirement Status Values
 
@@ -496,13 +497,59 @@ The platform shall provide an `OrbitalEnvironment` equipment model that propagat
 `OrbitalEnvironment` shall compute the IGRF-13 first-degree tilted-dipole magnetic field at the spacecraft's sub-satellite point each tick and publish `orbital.mag_field_n/e/d` (T, NED frame) for use as truth input to sensor models. The field shall be accurate to within 10 % of full IGRF for LEO orbits; higher-degree IGRF terms are deferred to M43. Assigned to M42.
 
 **SVF-DEV-175** `[SIM]` `DEFERRED`
-The SGP4 propagator and IGRF dipole model implemented in Python for M42 shall be migrated into the opensvf-kde C++ FMU so that orbital environment and spacecraft dynamics share a common reference frame and time base. Migration shall preserve the ParameterStore port interface. Assigned to M48.
+The SGP4 propagator and IGRF dipole model implemented in Python for M42 shall be migrated into the opensvf-kde C++ FMU so that orbital environment and spacecraft dynamics share a common reference frame and time base. Migration shall preserve the ParameterStore port interface. Assigned to M60.
 
 **SVF-DEV-177** `[SIM]` `IMPLEMENTED`
 `SimulationMaster` shall record the wall-clock execution duration of each `_on_tick()` call in a rolling window of the last 100 ticks. The `tick_stats()` method shall return a `TickStats` dataclass exposing `count`, `min_ms`, `max_ms`, `mean_ms`, `p95_ms`, and `p99_ms` fields computed from the window. The method shall return `None` when fewer than two ticks have elapsed. Assigned to M43.
 
 **SVF-DEV-178** `[SIM]` `IMPLEMENTED`
 `SimulationMaster` shall support an optional `equipment_tick_timeout` parameter (seconds, default `None`). When set, each `model.on_tick()` call shall be executed in a daemon thread; if the call does not return within the deadline, `EquipmentTimeoutError` shall be raised and routed through the existing `on_tick_error` callback. The recommended deadline for FreeRTOS HIL campaigns is 3.5 s, providing a safety margin below the openobsw STM32H750 hardware IWDG timeout of 4.0 s. Assigned to M43.
+
+---
+
+## Gap-Closure Batch: EUCLID SVF Comparison (2026-07)
+
+The following requirements were identified by comparing opensvf against a real
+ESA EUCLID CDMU/AOCS/HGACL SVF validation campaign (TAS-I, 2018). They close
+gaps in PUS service coverage, timing/performance validation, long-duration
+testing, and post-hoc analysis tooling that the real programme treated as
+standing validation activities.
+
+**SVF-DEV-188** `[PUS]` `DRAFT`
+The platform shall implement PUS Service 15 (On-Board Storage and Retrieval): TC(15,1) enable, TC(15,2) disable, TC(15,3) start-by-time-range retrieval, TC(15,9) delete packet store content by time range. A `PacketStoreService` shall buffer generated TM packets per store id so they can be retrieved on demand rather than only downlinked live. This mirrors the `OBSR-*` test group, one of the most failure-prone areas of the real EUCLID CDMU validation campaign. Assigned to M51.
+
+**SVF-DEV-189** `[PUS]` `DRAFT`
+The platform shall implement PUS Service 23 (File Management): TC(23,1) create file, TC(23,2) delete file, TC(23,3) report file attributes/summary, TM(23,4) file attribute report, backed by an in-memory virtual file table scoped to `ObcEquipment`. Mirrors the real `FILE-A` validation case. Assigned to M51.
+
+**SVF-DEV-190** `[PUS]` `IMPLEMENTED`
+The platform shall implement PUS Service 6 (Memory Management): TC(6,2) load, TC(6,5) check (CRC-16/CCITT), TC(6,9) dump, with TM(6,6) dump report, TM(6,10) check success, and TM(6,11) check failure (reporting the actual CRC). `PusService6` (`src/svf/pus/services/s06_memory_management.py`) provides build/parse codecs byte-compatible with the openobsw C reference (`src/pus/s6.c`/`s6.h`): `start_addr(4 BE) | data_len(2 BE) | data` for load, `start_addr(4 BE) | length(2 BE) | mem_id(1) | expected_crc(2 BE)` for check, `start_addr(4 BE) | length(2 BE) | mem_id(1)` for dump. `ObcEquipment` shall hold a fixed-size `bytearray` (`S6_SIMULATED_MEMORY_SIZE`, 4096 B) as a simulated OBC RAM shadow  -  a pure-Python model has no real address space to patch  -  and reject out-of-range load/check/dump requests with a logged warning (no TM emitted, no crash). Mirrors the real `MEMA-*`/`PATCH-*` validation groups. Assigned to M52.
+
+**SVF-DEV-191** `[PUS]` `IMPLEMENTED`
+The platform shall implement PUS Service 8 (Function Management): TC(8,1) function_id(2 BE) | args_len(1) | args, dispatched by a mission-configurable `ObcConfig.function_mode_map: dict[int, int]` mapping a function_id to a target OBC mode. `PusService8` (`src/svf/pus/services/s08_function_management.py`) is a byte-compatible generic codec matching the openobsw C reference (`src/pus/s8.c`/`s8.h`); function IDs are mission/OBSW-specific (not a fixed PUS-C enumeration), so the platform does not hardcode any specific mission's function-id semantics  -  a mission wires them via `function_mode_map` (e.g. openobsw's `OBSW_S8_FN_RECOVER_NOMINAL=1`, `OBSW_S8_FN_REQUEST_SAFE=2`). An unmapped function_id is ignored with a logged warning; `ObcEquipment` has no hazardous-command arm/enable gate, matching the real openobsw implementation, which has none either. Assigned to M52.
+
+**SVF-DEV-192** `[PUS]` `DRAFT`
+The platform shall implement PUS Service 2 (Device Command Distribution): direct distribution of a command pulse or raw bus word to a named equipment via its bus adapter (MIL-1553, CAN, or SpaceWire), bypassing the higher-level per-equipment TC handlers modelled elsewhere in `ObcEquipment`. Assigned to M53.
+
+**SVF-DEV-193** `[PUS]` `DRAFT`
+The platform shall implement PUS Service 14 (Packet Forwarding Control): TC(14,1) enable and TC(14,2) disable forwarding of a named TM packet type/apid to a downlink virtual channel, without altering the packet's own generation logic. Mirrors the real `PFWD-*` validation group. Assigned to M53.
+
+**SVF-DEV-194** `[PRF]` `DRAFT`
+The platform shall provide bus utilization metrics for the MIL-STD-1553B, CAN, and SpaceWire models: messages/words transferred per tick and bus occupancy percentage against the configured bus rate, over a rolling window suitable for a "bus loading" figure analogous to the real `HWSW-1553-*-PROFILE-*` bus-profile tests. Assigned to M54.
+
+**SVF-DEV-195** `[PRF]` `DRAFT`
+The platform shall extend `SimulationMaster.tick_stats()` (SVF-DEV-177) with a per-equipment breakdown (min/max/mean/p95/p99 `on_tick()` duration per model id), and a coverage-tool report flagging any equipment whose worst observed tick duration exceeds a configurable WCET budget. This gives campaign authors the task-schedulability visibility that real CDMU/AOCS validation treated as a standing "SW Budgets Control" activity (CPU load, WCET, task schedulability). Assigned to M54.
+
+**SVF-DEV-196** `[CAM]` `DRAFT`
+The campaign manager shall support long-duration/soak procedures: a `stop_time` extended beyond a single orbit, periodic (not just end-of-run) health-check assertions evaluated at a configurable interval, and early-abort-with-FAIL if a health check fails mid-run. Mirrors the real programme's `MM-SCMLONG` long-duration test and its foreseen "preliminary long duration tests" activity. Assigned to M55.
+
+**SVF-DEV-197** `[ORC]` `DRAFT`
+The orchestration layer shall provide a worst-case-scenario harness composing `EquipmentFaultEngine` fault injection, `OnBoardMonitor` FDIR thresholds, and a soak-duration procedure (SVF-DEV-196) into a single reusable scenario type. Mirrors the real programme's foreseen "preliminary worst case scenarios" and "preliminary FDIR tests" activities. Assigned to M55.
+
+**SVF-DEV-198** `[REP]` `DRAFT`
+The platform shall provide a `tools/diff_runs.py` utility that compares two `CsvLogger`-produced run outputs (or two campaign JSON reports) column-by-column and flags any parameter whose values diverge beyond a configurable tolerance. Mirrors the real programme's `DiffScripts` tool, used to compare TAS-I-produced test logs against subcontractor-delivered ones. Assigned to M56.
+
+**SVF-DEV-199** `[REP]` `DRAFT`
+The platform shall provide a `tools/param_extract.py` utility that extracts a single named parameter's full time series from a `CsvLogger` run file for offline plotting/analysis. Mirrors the real programme's `ParamFinder`/`TmParamExt` tools. Assigned to M56.
 
 ---
 
@@ -1029,6 +1076,18 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-185   | SMP  | BASELINED   | M50 | test_checksmp_passes_with_current_smpcat |
 | SVF-DEV-186   | SMP  | BASELINED   | M50 | test_implements_ismp_model[magnetometer] |
 | SVF-DEV-187   | SMP  | BASELINED   | M50 | test_smp_lifecycle_transparent_to_native_output |
+| SVF-DEV-188   | PUS  | DRAFT       |  -  |  -  |
+| SVF-DEV-189   | PUS  | DRAFT       |  -  |  -  |
+| SVF-DEV-190   | PUS  | IMPLEMENTED | M52 | test_obc_s6_check_failure_reports_actual_crc |
+| SVF-DEV-191   | PUS  | IMPLEMENTED | M52 | test_obc_s8_perform_triggers_mode_transition |
+| SVF-DEV-192   | PUS  | DRAFT       |  -  |  -  |
+| SVF-DEV-193   | PUS  | DRAFT       |  -  |  -  |
+| SVF-DEV-194   | PRF  | DRAFT       |  -  |  -  |
+| SVF-DEV-195   | PRF  | DRAFT       |  -  |  -  |
+| SVF-DEV-196   | CAM  | DRAFT       |  -  |  -  |
+| SVF-DEV-197   | ORC  | DRAFT       |  -  |  -  |
+| SVF-DEV-198   | REP  | DRAFT       |  -  |  -  |
+| SVF-DEV-199   | REP  | DRAFT       |  -  |  -  |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |

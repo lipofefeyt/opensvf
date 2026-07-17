@@ -358,10 +358,24 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 | M45  -  FreeRTOS HIL integration campaign (end-to-end OBSW) | ✅ Done |
 | M46  -  F3 sensor fidelity: Allan-variance noise model, calibration curves, I-V | ✅ Done |
 | M47  -  SRDB control layer: AOCS gains and FDIR thresholds as S20 parameters | ✅ Done |
-| M48  -  FDIR supervisor model | 🗂 Backlog |
-| M49  -  Live YAMCS dashboards | 🗂 Backlog |
-| M50  -  Multi-spacecraft / constellation | 🗂 Backlog |
-| M51  -  Migrate orbital environment (SGP4 + dipole) into opensvf-kde FMU | 🗂 Backlog |
+| M48  -  YAMCS end-to-end demo: XTCE decoding + early-orbit B-dot scenario | ✅ Done |
+| M49  -  Closed-loop detumbling convergence (rigid body dynamics integrator) | ✅ Done |
+| M50  -  SMP 2.0 model interface (ISmpModel, SmpEquipmentMixin, catalogue + checksmp) | ✅ Done |
+
+*Milestones below informed by a 2026-07 gap analysis against a real ESA EUCLID CDMU/AOCS/HGACL SVF validation campaign (TAS-I, 2018)  -  see `REQUIREMENTS.md` SVF-DEV-188 through SVF-DEV-199.*
+
+| Milestone | Status |
+|---|---|
+| M51  -  PUS S15 On-Board Storage & Retrieval + S23 File Management | 🗂 Backlog |
+| M52  -  PUS S6 Memory Management (load/check/dump) + S8 Function Management (mission-configurable mode transitions), wire-compatible with openobsw | ✅ Done |
+| M53  -  PUS S2 Device Command Distribution + S14 Packet Forwarding | 🗂 Backlog |
+| M54  -  Bus utilization metrics + per-equipment WCET/schedulability reporting | 🗂 Backlog |
+| M55  -  Long-duration/soak campaigns + worst-case-scenario harness | 🗂 Backlog |
+| M56  -  Post-hoc analysis tooling: diff_runs.py, param_extract.py | 🗂 Backlog |
+| M57  -  FDIR supervisor model | 🗂 Backlog |
+| M58  -  Live YAMCS dashboards | 🗂 Backlog |
+| M59  -  Multi-spacecraft / constellation | 🗂 Backlog |
+| M60  -  Migrate orbital environment (SGP4 + dipole) into opensvf-kde FMU | 🗂 Backlog |
 
 ---
 

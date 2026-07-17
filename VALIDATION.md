@@ -90,10 +90,13 @@ no DDS, and no flight binary.
 | `test_aocs_equipment.py` | CSS, gyroscope, MAG, MTQ, RW, star tracker, b-dot behaviors | SVF-DEV-139 through SVF-DEV-145 |
 | `pus/test_pus_tc.py` | PUS-C TC packet parser, CRC-16 | PUS-001/002/003 |
 | `pus/test_pus_tm.py` | PUS-C TM packet builder | PUS-004 |
-| `pus/test_pus_services.py` | S1/S3/S5/S6/S8/S17/S20 service handlers | PUS-005 through PUS-011 |
-| `pus/test_obc.py` | OBC Equipment model, port declarations | OBC-001 |
-| `pus/test_obc_dhs.py` | OBC DHS behaviour, mode FSM, watchdog | OBC-001 |
-| `pus/test_obc_stub.py` | OBC Stub rule engine | SVF-DEV-040 |
+| `pus/test_s01_verification.py`, `test_s03_housekeeping.py`, `test_s05_event_reporting.py`, `test_s09_time_management.py`, `test_s11_scheduling.py`, `test_s12_monitoring.py`, `test_s17_test_service.py`, `test_s19_event_action.py`, `test_s20_parameter_management.py` | Per-service S1/S3/S5/S9/S11/S12/S17/S19/S20 codec tests | PUS-005 through PUS-011, SVF-DEV-162 through SVF-DEV-165 |
+| `pus/test_s06_memory_management.py` | S6 Memory Management codec (load/check/dump) | SVF-DEV-190 |
+| `pus/test_s08_function_management.py` | S8 Function Management codec (perform) | SVF-DEV-191 |
+| `test_obc.py` | OBC Equipment model, port declarations, S17/S20 dispatch | OBC-001 |
+| `test_obc_dhs.py` | OBC DHS behaviour, mode FSM, watchdog | OBC-001 |
+| `test_obc_s6_s8.py` | OBC S6/S8 dispatch: simulated memory, function_mode_map mode transitions | SVF-DEV-190, SVF-DEV-191 |
+| `test_obc_stub.py` | OBC Stub rule engine | SVF-DEV-040 |
 
 ---
 

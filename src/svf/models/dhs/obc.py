@@ -4,8 +4,10 @@ On-Board Computer model  -  PUS TC router + DHS behaviour.
 
 M7: PUS TC parsing, S1/S3/S5/S17/S20 service routing
 M8: Mode state machine, OBT, watchdog, memory, CPU load
+M52: S6 Memory Management (simulated RAM shadow), S8 Function Management
+     (mission-configurable function_id -> mode transition)
 
-Implements: PUS-010, 1553-010, SVF-DEV-038
+Implements: PUS-010, 1553-010, SVF-DEV-038, SVF-DEV-190, SVF-DEV-191
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ from svf.stores.parameter_store import ParameterStore
 from svf.pus.tc import PusTcPacket, PusTcParser, PusTcError
 from svf.pus.tm import PusTmPacket, PusTmBuilder
 from svf.pus.services import (
-    PusService1, PusService3, PusService5,
+    PusService1, PusService3, PusService5, PusService6, PusService8,
     PusService9, PusService11, PusService12, PusService17, PusService19, PusService20,
     TimeBasedScheduler, OnBoardMonitor, EventActionService, EventActionDefinition,
     HkReportDefinition, EventSeverity,
@@ -54,6 +56,11 @@ DEFAULT_WDG_PERIOD_S = 30.0
 # Memory fill rate per second (% of total)
 MEMORY_FILL_RATE_PCT_S = 0.01
 
+# Simulated OBC RAM shadow for S6 Memory Management (load/check/dump).
+# A fixed-size byte buffer standing in for real process memory  -  ObcEquipment
+# is a pure-Python model with no real address space to patch.
+S6_SIMULATED_MEMORY_SIZE = 4096
+
 
 @dataclass
 class ObcConfig:
@@ -66,12 +73,18 @@ class ObcConfig:
         essential_hk:      HK report definitions activated at boot
         watchdog_period_s: Watchdog timeout period in seconds
         initial_mode:      Initial OBC mode (default: SAFE)
+        function_mode_map: Maps a S8 TC(8,1) function_id -> target OBC mode.
+                            Function IDs are mission/OBSW-specific; this lets
+                            a mission wire e.g. openobsw's function IDs
+                            (1=recover nominal, 2=request safe) onto this
+                            model's mode transitions for HIL-parity testing.
     """
     apid: int = 0x101
     param_id_map: dict[int, str] = field(default_factory=dict)
     essential_hk: list[HkReportDefinition] = field(default_factory=list)
     watchdog_period_s: float = DEFAULT_WDG_PERIOD_S
     initial_mode: int = MODE_SAFE
+    function_mode_map: dict[int, int] = field(default_factory=dict)
 
 
 class ObcEquipment(HilAdapter):
@@ -120,6 +133,7 @@ class ObcEquipment(HilAdapter):
         self._cpu_load: float = 15.0  # nominal baseline
         self._reset_count: int = 0
         self._health: int = HEALTH_NOMINAL
+        self._memory: bytearray = bytearray(S6_SIMULATED_MEMORY_SIZE)
 
         # Register essential HK reports
         for defn in config.essential_hk:
@@ -477,6 +491,14 @@ class ObcEquipment(HilAdapter):
             responses.extend(self._handle_s20_set(tc, t))
         elif PusService20.is_get_parameter(tc):
             responses.extend(self._handle_s20_get(tc, t))
+        elif PusService6.is_load(tc):
+            self._handle_s6_load(tc)
+        elif PusService6.is_check(tc):
+            responses.extend(self._handle_s6_check(tc, t))
+        elif PusService6.is_dump(tc):
+            responses.extend(self._handle_s6_dump(tc, t))
+        elif PusService8.is_perform(tc):
+            self._handle_s8_perform(tc, t)
         else:
             logger.debug(f"[obc] Unhandled TC: S{tc.service}/{tc.subservice}")
 
@@ -556,6 +578,96 @@ class ObcEquipment(HilAdapter):
             sequence_count=self._next_tm_seq(),
             timestamp=int(t),
         )]
+
+    def _handle_s6_load(self, tc: PusTcPacket) -> None:
+        try:
+            start_addr, data = PusService6.parse_load(tc)
+        except ValueError as e:
+            logger.warning(f"[obc] S6 load parse error: {e}")
+            return
+
+        if start_addr + len(data) > len(self._memory):
+            logger.warning(
+                f"[obc] S6 load out of range: addr=0x{start_addr:08X} "
+                f"len={len(data)} (memory size={len(self._memory)})"
+            )
+            return
+
+        self._memory[start_addr:start_addr + len(data)] = data
+        logger.info(f"[obc] S6 load: {len(data)}B at 0x{start_addr:08X}")
+
+    def _handle_s6_check(self, tc: PusTcPacket, t: float) -> list[PusTmPacket]:
+        try:
+            start_addr, length, _mem_id, expected_crc = PusService6.parse_check(tc)
+        except ValueError as e:
+            logger.warning(f"[obc] S6 check parse error: {e}")
+            return []
+
+        if start_addr + length > len(self._memory):
+            logger.warning(
+                f"[obc] S6 check out of range: addr=0x{start_addr:08X} "
+                f"len={length} (memory size={len(self._memory)})"
+            )
+            return []
+
+        actual_crc = PusService6.compute_crc(
+            bytes(self._memory[start_addr:start_addr + length])
+        )
+        if actual_crc == expected_crc:
+            logger.info(f"[obc] S6 check OK: addr=0x{start_addr:08X} len={length}")
+            return [PusService6.check_success_report(
+                start_addr, length, tm_apid=self._config.apid,
+                sequence_count=self._next_tm_seq(), timestamp=int(t),
+            )]
+
+        logger.warning(
+            f"[obc] S6 check mismatch: addr=0x{start_addr:08X} "
+            f"expected=0x{expected_crc:04X} actual=0x{actual_crc:04X}"
+        )
+        return [PusService6.check_failure_report(
+            start_addr, length, actual_crc, tm_apid=self._config.apid,
+            sequence_count=self._next_tm_seq(), timestamp=int(t),
+        )]
+
+    def _handle_s6_dump(self, tc: PusTcPacket, t: float) -> list[PusTmPacket]:
+        try:
+            start_addr, length, mem_id = PusService6.parse_dump(tc)
+        except ValueError as e:
+            logger.warning(f"[obc] S6 dump parse error: {e}")
+            return []
+
+        if start_addr + length > len(self._memory):
+            logger.warning(
+                f"[obc] S6 dump out of range: addr=0x{start_addr:08X} "
+                f"len={length} (memory size={len(self._memory)})"
+            )
+            return []
+
+        data = bytes(self._memory[start_addr:start_addr + length])
+        logger.info(f"[obc] S6 dump: {length}B at 0x{start_addr:08X}")
+        return [PusService6.dump_report(
+            start_addr, mem_id, data, tm_apid=self._config.apid,
+            sequence_count=self._next_tm_seq(), timestamp=int(t),
+        )]
+
+    def _handle_s8_perform(self, tc: PusTcPacket, t: float) -> None:
+        try:
+            function_id, _args = PusService8.parse_perform(tc)
+        except ValueError as e:
+            logger.warning(f"[obc] S8 parse error: {e}")
+            return
+
+        new_mode = self._config.function_mode_map.get(function_id)
+        if new_mode is None:
+            logger.warning(f"[obc] S8 unknown function_id: {function_id}")
+            return
+
+        if new_mode != self._mode:
+            self._transition_mode(new_mode, t)
+        else:
+            logger.info(
+                f"[obc] S8 function_id={function_id}: already in mode {new_mode}"
+            )
 
     def _generate_hk_reports(self, t: float) -> None:
         for report_id, defn in self._s3._definitions.items():
