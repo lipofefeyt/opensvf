@@ -366,7 +366,7 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 
 | Milestone | Status |
 |---|---|
-| M51  -  PUS S15 On-Board Storage & Retrieval + S23 File Management | 🗂 Backlog |
+| M51  -  PUS S15 On-Board Storage & Retrieval + S23 File Management | ✅ Done |
 | M52  -  PUS S6 Memory Management (load/check/dump) + S8 Function Management (mission-configurable mode transitions), wire-compatible with openobsw | ✅ Done |
 | M53  -  PUS S2 Device Command Distribution + S14 Packet Forwarding | 🗂 Backlog |
 | M54  -  Bus utilization metrics + per-equipment WCET/schedulability reporting | 🗂 Backlog |
@@ -376,6 +376,8 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 | M58  -  Live YAMCS dashboards | 🗂 Backlog |
 | M59  -  Multi-spacecraft / constellation | 🗂 Backlog |
 | M60  -  Migrate orbital environment (SGP4 + dipole) into opensvf-kde FMU | 🗂 Backlog |
+| M61  -  Wire protocol v3 fault injection: WireProtocolLink layer (ISIS Line Model pattern) | 🗂 Backlog |
+| M62  -  DiscreteLine model type: analog/discrete/HPC hard-lines with line-level fault injection (ISIS interface taxonomy) | 🗂 Backlog |
 
 ---
 

@@ -36,6 +36,7 @@ Requirements are identified by a prefix followed by a zero-padded sequence numbe
 | [REP] | Reporting & Traceability |
 | [SYS] | System & Infrastructure |
 | [PRF] | Performance & Timing Validation |
+| [LNK] | Hard-Line / Discrete-Analog Interfaces |
 
 ### Requirement Status Values
 
@@ -515,11 +516,11 @@ gaps in PUS service coverage, timing/performance validation, long-duration
 testing, and post-hoc analysis tooling that the real programme treated as
 standing validation activities.
 
-**SVF-DEV-188** `[PUS]` `DRAFT`
-The platform shall implement PUS Service 15 (On-Board Storage and Retrieval): TC(15,1) enable, TC(15,2) disable, TC(15,3) start-by-time-range retrieval, TC(15,9) delete packet store content by time range. A `PacketStoreService` shall buffer generated TM packets per store id so they can be retrieved on demand rather than only downlinked live. This mirrors the `OBSR-*` test group, one of the most failure-prone areas of the real EUCLID CDMU validation campaign. Assigned to M51.
+**SVF-DEV-188** `[PUS]` `IMPLEMENTED`
+The platform shall implement PUS Service 15 (On-Board Storage and Retrieval): TC(15,1) enable, TC(15,2) disable, TC(15,3) start-by-time-range retrieval, TC(15,9) delete packet store content by time range. `PusService15` (`src/svf/pus/services/s15_storage_retrieval.py`) provides the codec: `store_id(1)` for enable/disable, `store_id(1) | start_time(4 BE) | end_time(4 BE)` for retrieve/delete. `ObcEquipment` holds a `dict[int, PacketStore]` (store_id -> enabled flag + buffered `(obt, packet)` history); every `_enqueue_tm()` call feeds all enabled stores unless explicitly suppressed. Retrieval re-emits the original buffered TM packets (matching real S15 retrieval semantics) and is guarded by a `_packet_store_feed_suppressed` flag so retrieved packets are not silently re-buffered into the same store on repeat retrieval - this exact double-buffering bug was caught by `test_obc_s15_repeated_retrieve_does_not_duplicate` during development. There is no external OBSW reference for this wire format (openobsw does not implement S15) - opensvf defines it. This mirrors the `OBSR-*` test group, one of the most failure-prone areas of the real EUCLID CDMU validation campaign. Assigned to M51.
 
-**SVF-DEV-189** `[PUS]` `DRAFT`
-The platform shall implement PUS Service 23 (File Management): TC(23,1) create file, TC(23,2) delete file, TC(23,3) report file attributes/summary, TM(23,4) file attribute report, backed by an in-memory virtual file table scoped to `ObcEquipment`. Mirrors the real `FILE-A` validation case. Assigned to M51.
+**SVF-DEV-189** `[PUS]` `IMPLEMENTED`
+The platform shall implement PUS Service 23 (File Management): TC(23,1) create file, TC(23,2) delete file, TC(23,3) report file attributes, TM(23,4) file attribute report, backed by an in-memory virtual file table (`dict[str, int]`, name -> size) scoped to `ObcEquipment`. `PusService23` (`src/svf/pus/services/s23_file_management.py`) provides the codec: `name_len(1) | name(...)` for delete/report, plus a `size(4 BE)` field on create declaring the file's reported size (there being no write-data subservice in scope to grow it later). There is no external OBSW reference for this wire format (openobsw does not implement S23) - opensvf defines it. Mirrors the real `FILE-A` validation case. Assigned to M51.
 
 **SVF-DEV-190** `[PUS]` `IMPLEMENTED`
 The platform shall implement PUS Service 6 (Memory Management): TC(6,2) load, TC(6,5) check (CRC-16/CCITT), TC(6,9) dump, with TM(6,6) dump report, TM(6,10) check success, and TM(6,11) check failure (reporting the actual CRC). `PusService6` (`src/svf/pus/services/s06_memory_management.py`) provides build/parse codecs byte-compatible with the openobsw C reference (`src/pus/s6.c`/`s6.h`): `start_addr(4 BE) | data_len(2 BE) | data` for load, `start_addr(4 BE) | length(2 BE) | mem_id(1) | expected_crc(2 BE)` for check, `start_addr(4 BE) | length(2 BE) | mem_id(1)` for dump. `ObcEquipment` shall hold a fixed-size `bytearray` (`S6_SIMULATED_MEMORY_SIZE`, 4096 B) as a simulated OBC RAM shadow  -  a pure-Python model has no real address space to patch  -  and reject out-of-range load/check/dump requests with a logged warning (no TM emitted, no crash). Mirrors the real `MEMA-*`/`PATCH-*` validation groups. Assigned to M52.
@@ -550,6 +551,12 @@ The platform shall provide a `tools/diff_runs.py` utility that compares two `Csv
 
 **SVF-DEV-199** `[REP]` `DRAFT`
 The platform shall provide a `tools/param_extract.py` utility that extracts a single named parameter's full time series from a `CsvLogger` run file for offline plotting/analysis. Mirrors the real programme's `ParamFinder`/`TmParamExt` tools. Assigned to M56.
+
+**SVF-DEV-200** `[DHS]` `DRAFT`
+The platform shall model the wire protocol v3 transport (pipe/socket/UART between `OBCEmulatorAdapter` and the real `obsw_sim` binary) as an explicit, independently fault-injectable link layer, analogous to the "System I/F Line Models" that CNES/Airbus DS/Thales Alenia Space's ISIS standard inserts between the OBC model and equipment models (rather than treating the OBC-equipment interface as an implicit, unmodeled connection). A `WireProtocolLink` component shall sit between `OBCEmulatorAdapter` and the transport, injectable via the same `bus.{bus_id}.fault.{target}.{fault_type}` CommandStore convention already used by the 1553/CAN/SpaceWire bus fault frameworks (1553-007 through 1553-009), supporting at minimum: dropped bytes, corrupted frame bytes (post-length-prefix, pre-checksum where applicable), injected latency/jitter between frames, and forced desync (suppressing the `0xFF` end-of-tick byte). This closes the asymmetry where opensvf's modelled spacecraft buses have a mature fault taxonomy but the SVF-to-OBC HIL link itself has only passive desync *detection* (`_consecutive_desync` in `obc_emulator.py`) and no fault *injection* - the analogue of EUCLID's `HWSW-IO-A/B`/`HWSW-UART-A` link-robustness test group. Assigned to M61.
+
+**SVF-DEV-201** `[LNK]` `DRAFT`
+The platform shall provide a `DiscreteLine` model type covering the hard-line electrical interface categories that ISIS (CNES/Airbus DS/Thales Alenia Space) defines between the OBC model and equipment models but that opensvf currently has no equivalent for at all - only packetized buses (1553/CAN/SpaceWire) exist today. At minimum: an analogue monitor line (bounded voltage range, mirroring ISIS `ASM1/2/3`), a bi-level discrete monitor line (`BDM`), a bi-level switch/relay monitor line with OPEN/CLOSED state (`BSM`), a pulse-command line with a configurable minimum pulse width for debounce (mirroring ISIS `HV/LV/HC-HPC`, and the real-world `≥50ms` pulse-width discrimination used by OHB's SARah AIVS), and boolean status/alarm lines (separation strap, umbilical presence, watchdog inhibition). Each `DiscreteLine` instance shall be identified by a line ID rather than requiring one Python class per physical connection, per the design lesson explicitly reported by Terma from building the equivalent ISIS interfaces for EUCLID and MTG (`IHPCLineIF` needing "an ID or pulse line number" to avoid a proliferation of near-identical interfaces). Fault injection shall be at the line level - stuck-high, stuck-low, floating (no signal), and contact bounce/chatter - via the same `bus.{bus_id}.fault.{target}.{fault_type}` CommandStore convention used elsewhere, and shall be distinct from `EquipmentFaultEngine`'s port-level faults (stuck/noise/bias/scale/fail), since a `DiscreteLine` fault represents the interconnect failing, not the equipment's own physics. EUCLID's own SVF used the ISIS pattern this mirrors (confirmed directly: "In the context of the EUCLID SVF the ISIS interfaces are used to connect the ADSN RTS Simulator... to the CDMU Model... and Equipment Models", H.T. Pham et al., "Models Exchange through ISIS and SMP2: From Prototype to Reality"). Assigned to M62.
 
 ---
 
@@ -1076,8 +1083,8 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-185   | SMP  | BASELINED   | M50 | test_checksmp_passes_with_current_smpcat |
 | SVF-DEV-186   | SMP  | BASELINED   | M50 | test_implements_ismp_model[magnetometer] |
 | SVF-DEV-187   | SMP  | BASELINED   | M50 | test_smp_lifecycle_transparent_to_native_output |
-| SVF-DEV-188   | PUS  | DRAFT       |  -  |  -  |
-| SVF-DEV-189   | PUS  | DRAFT       |  -  |  -  |
+| SVF-DEV-188   | PUS  | IMPLEMENTED | M51 | test_obc_s15_repeated_retrieve_does_not_duplicate |
+| SVF-DEV-189   | PUS  | IMPLEMENTED | M51 | test_obc_s23_create_then_report_attributes |
 | SVF-DEV-190   | PUS  | IMPLEMENTED | M52 | test_obc_s6_check_failure_reports_actual_crc |
 | SVF-DEV-191   | PUS  | IMPLEMENTED | M52 | test_obc_s8_perform_triggers_mode_transition |
 | SVF-DEV-192   | PUS  | DRAFT       |  -  |  -  |
@@ -1088,6 +1095,8 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-197   | ORC  | DRAFT       |  -  |  -  |
 | SVF-DEV-198   | REP  | DRAFT       |  -  |  -  |
 | SVF-DEV-199   | REP  | DRAFT       |  -  |  -  |
+| SVF-DEV-200   | DHS  | DRAFT       |  -  |  -  |
+| SVF-DEV-201   | LNK  | DRAFT       |  -  |  -  |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |

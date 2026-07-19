@@ -6,8 +6,10 @@ M7: PUS TC parsing, S1/S3/S5/S17/S20 service routing
 M8: Mode state machine, OBT, watchdog, memory, CPU load
 M52: S6 Memory Management (simulated RAM shadow), S8 Function Management
      (mission-configurable function_id -> mode transition)
+M51: S15 On-Board Storage & Retrieval (packet stores), S23 File Management
+     (virtual file table)
 
-Implements: PUS-010, 1553-010, SVF-DEV-038, SVF-DEV-190, SVF-DEV-191
+Implements: PUS-010, 1553-010, SVF-DEV-038, SVF-DEV-188 through SVF-DEV-191
 """
 
 from __future__ import annotations
@@ -28,7 +30,8 @@ from svf.pus.tc import PusTcPacket, PusTcParser, PusTcError
 from svf.pus.tm import PusTmPacket, PusTmBuilder
 from svf.pus.services import (
     PusService1, PusService3, PusService5, PusService6, PusService8,
-    PusService9, PusService11, PusService12, PusService17, PusService19, PusService20,
+    PusService9, PusService11, PusService12, PusService15, PusService17,
+    PusService19, PusService20, PusService23,
     TimeBasedScheduler, OnBoardMonitor, EventActionService, EventActionDefinition,
     HkReportDefinition, EventSeverity,
 )
@@ -60,6 +63,13 @@ MEMORY_FILL_RATE_PCT_S = 0.01
 # A fixed-size byte buffer standing in for real process memory  -  ObcEquipment
 # is a pure-Python model with no real address space to patch.
 S6_SIMULATED_MEMORY_SIZE = 4096
+
+
+@dataclass
+class PacketStore:
+    """S15 packet store: enabled flag + buffered (obt, packet) history."""
+    enabled: bool = False
+    packets: list[tuple[float, PusTmPacket]] = field(default_factory=list)
 
 
 @dataclass
@@ -134,6 +144,9 @@ class ObcEquipment(HilAdapter):
         self._reset_count: int = 0
         self._health: int = HEALTH_NOMINAL
         self._memory: bytearray = bytearray(S6_SIMULATED_MEMORY_SIZE)
+        self._packet_stores: dict[int, PacketStore] = {}
+        self._packet_store_feed_suppressed: bool = False
+        self._files: dict[str, int] = {}  # S23 virtual file table: name -> size
 
         # Register essential HK reports
         for defn in config.essential_hk:
@@ -377,6 +390,7 @@ class ObcEquipment(HilAdapter):
         ))
 
         self._enqueue_tm(responses)
+        self._packet_store_feed_suppressed = False
         return responses
 
     def _route_tc(self, tc: PusTcPacket, t: float) -> list[PusTmPacket]:
@@ -499,6 +513,24 @@ class ObcEquipment(HilAdapter):
             responses.extend(self._handle_s6_dump(tc, t))
         elif PusService8.is_perform(tc):
             self._handle_s8_perform(tc, t)
+        elif PusService15.is_enable(tc):
+            self._handle_s15_enable(tc)
+        elif PusService15.is_disable(tc):
+            self._handle_s15_disable(tc)
+        elif PusService15.is_retrieve(tc):
+            # Stays suppressed through receive_tc()'s own final _enqueue_tm()
+            # call (after this method returns) - reset there, not here, or
+            # retrieved packets get silently re-buffered into the same store.
+            self._packet_store_feed_suppressed = True
+            responses.extend(self._handle_s15_retrieve(tc))
+        elif PusService15.is_delete(tc):
+            self._handle_s15_delete(tc)
+        elif PusService23.is_create(tc):
+            self._handle_s23_create(tc)
+        elif PusService23.is_delete(tc):
+            self._handle_s23_delete(tc)
+        elif PusService23.is_report_attributes(tc):
+            responses.extend(self._handle_s23_report_attributes(tc, t))
         else:
             logger.debug(f"[obc] Unhandled TC: S{tc.service}/{tc.subservice}")
 
@@ -669,6 +701,101 @@ class ObcEquipment(HilAdapter):
                 f"[obc] S8 function_id={function_id}: already in mode {new_mode}"
             )
 
+    def _handle_s15_enable(self, tc: PusTcPacket) -> None:
+        try:
+            store_id = PusService15.parse_enable(tc)
+        except ValueError as e:
+            logger.warning(f"[obc] S15 enable parse error: {e}")
+            return
+        store = self._packet_stores.setdefault(store_id, PacketStore())
+        store.enabled = True
+        logger.info(f"[obc] S15 store {store_id} enabled")
+
+    def _handle_s15_disable(self, tc: PusTcPacket) -> None:
+        try:
+            store_id = PusService15.parse_disable(tc)
+        except ValueError as e:
+            logger.warning(f"[obc] S15 disable parse error: {e}")
+            return
+        store = self._packet_stores.setdefault(store_id, PacketStore())
+        store.enabled = False
+        logger.info(f"[obc] S15 store {store_id} disabled")
+
+    def _handle_s15_retrieve(self, tc: PusTcPacket) -> list[PusTmPacket]:
+        try:
+            store_id, start_time, end_time = PusService15.parse_retrieve(tc)
+        except ValueError as e:
+            logger.warning(f"[obc] S15 retrieve parse error: {e}")
+            return []
+        store = self._packet_stores.get(store_id)
+        if store is None:
+            logger.warning(f"[obc] S15 retrieve: unknown store {store_id}")
+            return []
+        matched = [
+            p for (stored_t, p) in store.packets
+            if start_time <= stored_t <= end_time
+        ]
+        logger.info(
+            f"[obc] S15 retrieve store {store_id}: {len(matched)} packet(s) "
+            f"in [{start_time},{end_time}]"
+        )
+        return matched
+
+    def _handle_s15_delete(self, tc: PusTcPacket) -> None:
+        try:
+            store_id, start_time, end_time = PusService15.parse_delete(tc)
+        except ValueError as e:
+            logger.warning(f"[obc] S15 delete parse error: {e}")
+            return
+        store = self._packet_stores.get(store_id)
+        if store is None:
+            logger.warning(f"[obc] S15 delete: unknown store {store_id}")
+            return
+        before = len(store.packets)
+        store.packets = [
+            (stored_t, p) for (stored_t, p) in store.packets
+            if not (start_time <= stored_t <= end_time)
+        ]
+        logger.info(
+            f"[obc] S15 delete store {store_id}: removed "
+            f"{before - len(store.packets)} packet(s)"
+        )
+
+    def _handle_s23_create(self, tc: PusTcPacket) -> None:
+        try:
+            name, size = PusService23.parse_create(tc)
+        except ValueError as e:
+            logger.warning(f"[obc] S23 create parse error: {e}")
+            return
+        self._files[name] = size
+        logger.info(f"[obc] S23 create: {name!r} ({size}B)")
+
+    def _handle_s23_delete(self, tc: PusTcPacket) -> None:
+        try:
+            name = PusService23.parse_delete(tc)
+        except ValueError as e:
+            logger.warning(f"[obc] S23 delete parse error: {e}")
+            return
+        found = self._files.pop(name, None) is not None
+        logger.info(f"[obc] S23 delete {name!r}: {'removed' if found else 'not found'}")
+
+    def _handle_s23_report_attributes(
+        self, tc: PusTcPacket, t: float
+    ) -> list[PusTmPacket]:
+        try:
+            name = PusService23.parse_report_attributes(tc)
+        except ValueError as e:
+            logger.warning(f"[obc] S23 report attributes parse error: {e}")
+            return []
+        size = self._files.get(name)
+        if size is None:
+            logger.warning(f"[obc] S23 report attributes: {name!r} not found")
+            return []
+        return [PusService23.file_attribute_report(
+            name, size, tm_apid=self._config.apid,
+            sequence_count=self._next_tm_seq(), timestamp=int(t),
+        )]
+
     def _generate_hk_reports(self, t: float) -> None:
         for report_id, defn in self._s3._definitions.items():
             if not defn.enabled:
@@ -739,6 +866,10 @@ class ObcEquipment(HilAdapter):
     def _enqueue_tm(self, packets: list[PusTmPacket]) -> None:
         with self._lock:
             self._tm_queue.extend(packets)
+        if not self._packet_store_feed_suppressed:
+            for store in self._packet_stores.values():
+                if store.enabled:
+                    store.packets.extend((self._obt, p) for p in packets)
         if self._store is not None:
             for p in packets:
                 self._store.write(
