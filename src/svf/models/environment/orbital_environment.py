@@ -7,7 +7,7 @@ models (magnetometer, CSS, GPS, solar array) receive physically meaningful
 inputs without requiring the KDE C++ FMU.
 
 Migration note: the SGP4 propagation and dipole model are intentionally
-kept in pure Python for this milestone. M48 will migrate them into the
+kept in pure Python for this milestone. M60 will migrate them into the
 opensvf-kde FMU once the interface is stable (SVF-DEV-175).
 
 Implements: SVF-DEV-170, SVF-DEV-171, SVF-DEV-172
@@ -28,7 +28,7 @@ orbital.mag_field_e           T        True B-field, east  (NED)
 orbital.mag_field_d           T        True B-field, down  (NED)
 
 Frame note: mag_field_n/e/d are in NED (north-east-down) at the
-spacecraft's sub-satellite point.  M48 will rotate these into body
+spacecraft's sub-satellite point.  M60 will rotate these into body
 frame once attitude is available from the KDE FMU.
 """
 
@@ -173,7 +173,7 @@ def _dipole_field_ned(
     IGRF-13 first-degree tilted-dipole field in NED (T) at (lat, lon, r_km).
 
     Uses Gauss coefficients g₁₀, g₁₁, h₁₁ only (dipole terms).
-    Accurate to ~10 % for LEO; IGRF higher-degree terms are M43.
+    Accurate to ~10 % for LEO; IGRF higher-degree terms are not yet scheduled.
 
     Returns:
         (B_N, B_E, B_D) in Tesla.
@@ -228,7 +228,7 @@ class OrbitalEnvironment(SmpEquipmentMixin, Equipment):
     realistic, orbit-varying inputs without the KDE C++ FMU.
 
     This is the pure-Python counterpart to the orbital environment that
-    will eventually live inside opensvf-kde (M48 / SVF-DEV-175).
+    will eventually live inside opensvf-kde (M60 / SVF-DEV-175).
 
     Args:
         tle_line1:    TLE line 1 string.
