@@ -29,7 +29,8 @@ from svf.models.aocs.magnetorquer import make_magnetorquer
 from svf.models.aocs.gyroscope import make_gyroscope
 from svf.models.aocs.star_tracker import make_star_tracker
 
-_root = Path(__file__).parent.parent.parent / "bin"
+_repo = Path(__file__).parent.parent.parent
+_root = _repo / "bin"
 # Prefer aarch64 binary if OBSW_ARCH=aarch64, else use native
 import os as _os
 _arch = _os.environ.get("OBSW_ARCH", "x86_64")
@@ -45,10 +46,10 @@ else:
     )
 KDE_FMU = next(
     (p for p in [
-        _root / "models/SpacecraftDynamics.fmu",
+        _repo / "models/SpacecraftDynamics.fmu",
         Path("models/SpacecraftDynamics.fmu"),
     ] if p.exists()),
-    _root / "models/SpacecraftDynamics.fmu"
+    _repo / "models/SpacecraftDynamics.fmu"
 )
 
 pytestmark = pytest.mark.skipif(
@@ -83,7 +84,7 @@ def make_realtime_system(
 
     equipment = {"kde": kde, "mag": mag, "gyro": gyro, "mtq": mtq, "obc": obc}
     wiring = WiringLoader(equipment).load(
-        _root / "mission_mysat1/wiring/full_loop_wiring.yaml"
+        _repo / "mission_mysat1/wiring/full_loop_wiring.yaml"
     )
 
     master = SimulationMaster(
@@ -172,7 +173,7 @@ def test_realtime_tick_overrun_warning() -> None:
                 overruns.append(record.getMessage())
 
     handler = OverrunCapture()
-    logging.getLogger("svf.software_tick").addHandler(handler)
+    logging.getLogger("svf.sim.software_tick").addHandler(handler)
 
     tick_count = 0
 
@@ -185,5 +186,5 @@ def test_realtime_tick_overrun_warning() -> None:
     source = RealtimeTickSource(warn_overrun=True)
     source.start(slow_tick, dt=0.1, stop_time=0.5)
 
-    logging.getLogger("svf.software_tick").removeHandler(handler)
+    logging.getLogger("svf.sim.software_tick").removeHandler(handler)
     assert len(overruns) >= 1, "Expected at least one overrun warning"

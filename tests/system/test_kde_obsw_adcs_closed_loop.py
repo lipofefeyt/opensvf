@@ -34,7 +34,8 @@ from svf.models.aocs.magnetorquer import make_magnetorquer
 from svf.models.aocs.gyroscope import make_gyroscope
 from svf.models.aocs.star_tracker import make_star_tracker
 
-_root = Path(__file__).parent.parent.parent / "bin"
+_repo = Path(__file__).parent.parent.parent
+_root = _repo / "bin"
 # Prefer aarch64 binary if OBSW_ARCH=aarch64, else use native
 import os as _os
 _arch = _os.environ.get("OBSW_ARCH", "x86_64")
@@ -50,10 +51,10 @@ else:
     )
 KDE_FMU = next(
     (p for p in [
-        _root / "models/SpacecraftDynamics.fmu",
+        _repo / "models/SpacecraftDynamics.fmu",
         Path("models/SpacecraftDynamics.fmu")
     ] if p.exists()),
-    _root / "models/SpacecraftDynamics.fmu"
+    _repo / "models/SpacecraftDynamics.fmu"
 )
 
 pytestmark = pytest.mark.skipif(
@@ -89,7 +90,7 @@ def make_adcs_system(
 
     equipment = {"kde": kde, "mag": mag, "gyro": gyro, "mtq": mtq, "obc": obc}
     wiring = WiringLoader(equipment).load(
-        _root / "mission_mysat1/wiring/full_loop_wiring.yaml"
+        _repo / "mission_mysat1/wiring/full_loop_wiring.yaml"
     )
 
     master = SimulationMaster(
