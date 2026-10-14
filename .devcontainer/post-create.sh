@@ -72,7 +72,14 @@ for f in "$OPENSVF_REPO/.devcontainer/claude-global/SETUP-NEW-REPO.md" \
 done
 touch "$CLAUDE_GLOBAL/CLAUDE.md"
 ln -sf "$CLAUDE_GLOBAL/CLAUDE.md" /home/vscode/.claude/CLAUDE.md
-echo "[+] Global CLAUDE.md linked; context files seeded to WSL2 host"
+# Global settings (attribution disabled) and commit-msg guard
+[ -f "$CLAUDE_GLOBAL/settings.json" ] && ln -sf "$CLAUDE_GLOBAL/settings.json" /home/vscode/.claude/settings.json
+if [ -f "$CLAUDE_GLOBAL/git-hooks/commit-msg" ]; then
+    for r in "$OPENSVF_REPO" "$OPENOBSW_REPO" "$OPENSVF_KDE_REPO"; do
+        [ -d "$r/.git/hooks" ] && cp "$CLAUDE_GLOBAL/git-hooks/commit-msg" "$r/.git/hooks/commit-msg"
+    done
+fi
+echo "[+] Global CLAUDE.md + settings linked; context files seeded to WSL2 host"
 
 echo ""
 echo "=== opensvf container ready ==="
