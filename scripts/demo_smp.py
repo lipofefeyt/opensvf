@@ -1,8 +1,8 @@
 """
-opensvf - SMP 2.0 Model Portability Demo (M50)
+opensvf - SMP-aligned model lifecycle demo (M50, M63)
 
-Shows the full SMP 2.0 lifecycle on a real magnetometer model:
-  publish -> configure -> connect -> tick
+Shows the SMP component lifecycle on a real magnetometer model:
+  publish -> configure -> connect -> tick -> disconnect
 
 Run from the repo root with the venv activated:
     python scripts/demo_smp.py
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from svf.core.abstractions import SyncProtocol
 from svf.models.aocs.magnetometer import make_magnetometer
-from svf.smp import ISmpModel, SmpState
+from svf.smp import ISmpModel
 from svf.stores.parameter_store import ParameterStore
 
 
@@ -45,7 +45,7 @@ def _sep() -> None:
 def main() -> None:
     print()
     print(" " + "═" * W)
-    print("  opensvf  -  SMP 2.0 Model Portability Demo  (M50)")
+    print("  opensvf  -  SMP-aligned model lifecycle demo  (M50, M63)")
     print("  ECSS-E-ST-40-07C  -  Simulation Modelling Platform")
     print(" " + "═" * W)
 
@@ -65,8 +65,8 @@ def main() -> None:
     _row("ports declared:",  str(len(mag.ports)))
     _row("initial state:",   mag.smp_state.value)
 
-    # ── 2. SMP 2.0 lifecycle ──────────────────────────────────────────────────
-    _header("SMP 2.0 lifecycle  (ECSS-E-ST-40-07C §4.5)")
+    # ── 2. SMP lifecycle ──────────────────────────────────────────────────
+    _header("SMP lifecycle  (ECSS-E-ST-40-07C §5.2.3.1)")
 
     mag.smp_publish()
     print(f"  smp_publish()     ->  {mag.smp_state.value}"
@@ -79,10 +79,10 @@ def main() -> None:
     print(f"  smp_connect()     ->  {mag.smp_state.value}")
 
     mag.initialise(start_time=0.0)
-    print(f"  initialise()      ->  {SmpState.INITIALISED.value}  (ModelAdapter)")
+    print(f"  initialise()      ->  {mag.smp_state.value}  (ModelAdapter, state unchanged)")
 
     # ── 3. Field catalogue ────────────────────────────────────────────────────
-    _header("SMP 2.0 field catalogue")
+    _header("SMP-aligned field catalogue")
     print(f"  {'NAME':<32} {'KIND':<10} {'DIR':<8} {'UNIT':<6} DESCRIPTION")
     print("  " + "─" * (W - 2))
     for f in mag.smp_fields.values():
@@ -115,12 +115,15 @@ def main() -> None:
     print(f"  field_z  = {meas_z:+.6e} T   (noise {meas_z - B_TRUE[2]:+.2e} T)")
     print(f"  status   = {status:.1f}  (nominal)")
 
-    # ── 5. Portability assertion ──────────────────────────────────────────────
+    # ── 5. Disconnect and contract check ──────────────────────────────────────
     _sep()
+    mag.smp_disconnect()
+    print(f"  smp_disconnect()  ->  {mag.smp_state.value}  (final)")
     print(" " + "═" * W)
-    compliant = isinstance(mag, ISmpModel)
-    mark      = "PASS" if compliant else "FAIL"
-    print(f"  [{mark}]  ISmpModel compliant  ->  portable to BASILES / EuroSim / SIMSAT")
+    aligned = isinstance(mag, ISmpModel)
+    mark    = "PASS" if aligned else "FAIL"
+    print(f"  [{mark}]  ISmpModel lifecycle contract satisfied (SMP-aligned)")
+    print("          Not loadable by SMP runtimes; real bridge is roadmap M68")
     print(" " + "═" * W)
     print()
 

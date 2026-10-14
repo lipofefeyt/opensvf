@@ -1,11 +1,16 @@
 """
-SMP 2.0 IModel interface contract (ECSS-E-ST-40-07C §4.7).
+SMP-aligned component lifecycle contract (ECSS-E-ST-40-07C §5.2.3.1).
 
-Defines the five lifecycle states and the three Publication-phase methods
-that every SMP 2.0 compliant model must expose. opensvf models implement
-this contract via SmpEquipmentMixin rather than directly.
+Mirrors the IComponent lifecycle of the ECSS SMP standard: five component
+states (ComponentStateKind, Table 5-2) and the four state transitions
+Publish, Configure, Connect and Disconnect. opensvf models implement this
+contract via SmpEquipmentMixin rather than directly.
 
-Implements: SVF-DEV-182
+Scope: this is a Python-level alignment with the SMP lifecycle semantics.
+It is not the SMP C++ ABI, so opensvf models cannot be loaded by an SMP
+simulation environment (SIMSAT, EuroSim, BASILES) as-is.
+
+Implements: SVF-DEV-182, SVF-DEV-202
 """
 
 from __future__ import annotations
@@ -14,22 +19,46 @@ import enum
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
+# XML namespace of the generated .smpcat / .smpconf artefacts. Deliberately
+# not the ESA SMP namespace: the documents are SMP-style, not SMDL-conformant.
+SMP_ALIGNED_NS = "urn:opensvf:smp-aligned:1"
+
 
 class SmpState(enum.Enum):
-    """SMP 2.0 model lifecycle states (ECSS-E-ST-40-07C §4.5.1)."""
-    CREATED     = "Created"
-    PUBLISHING  = "Publishing"
-    CONFIGURED  = "Configured"
-    CONNECTED   = "Connected"
-    INITIALISED = "Initialised"
-    EXECUTING   = "Executing"
-    TERMINATED  = "Terminated"
+    """
+    Component lifecycle states (ECSS-E-ST-40-07C Table 5-2, ComponentStateKind).
+
+    Simulator phases (initialising, executing, ...) are not component states
+    and are deliberately absent; opensvf runs those through ModelAdapter.
+    """
+    CREATED      = "Created"
+    PUBLISHING   = "Publishing"
+    CONFIGURED   = "Configured"
+    CONNECTED    = "Connected"
+    DISCONNECTED = "Disconnected"
+
+
+class SmpStateError(RuntimeError):
+    """
+    Lifecycle transition requested from the wrong state.
+
+    Python counterpart of the SMP InvalidComponentState exception.
+    """
+
+    def __init__(self, transition: str, actual: SmpState, required: SmpState) -> None:
+        super().__init__(
+            f"{transition}() requires state {required.value}, "
+            f"component is {actual.value}"
+        )
+        self.transition = transition
+        self.actual = actual
+        self.required = required
 
 
 @dataclass(frozen=True)
 class SmpField:
     """
-    Typed, directional field exposed during the Publication phase.
+    Typed, directional field exposed during the Publishing state.
 
     One SmpField is generated per PortDefinition. All opensvf ports carry
     floating-point engineering values, so kind is always "Float64".
@@ -43,42 +72,48 @@ class SmpField:
 
 class ISmpModel(ABC):
     """
-    SMP 2.0 IModel interface (ECSS-E-ST-40-07C §4.7.1).
+    SMP-aligned component interface (ECSS-E-ST-40-07C §5.2.3.1).
 
-    Lifecycle contract - methods must be called in this order before the
-    first simulation step::
+    Lifecycle contract - each transition raises SmpStateError unless the
+    component is in the state shown on its left::
 
-        model.smp_publish()    # register fields
-        model.smp_configure()  # apply configuration
-        model.smp_connect()    # link to peer fields
-        model.initialise()     # existing ModelAdapter call
+        Created     --smp_publish()-->    Publishing
+        Publishing  --smp_configure()-->  Configured
+        Configured  --smp_connect()-->    Connected
+        Connected   --smp_disconnect()--> Disconnected
 
+    model.initialise() (ModelAdapter) runs once the model is Connected.
     Concrete models gain this interface through SmpEquipmentMixin.
     """
 
     @property
     @abstractmethod
     def smp_state(self) -> SmpState:
-        """Current SMP 2.0 lifecycle state."""
+        """Current component lifecycle state."""
         ...
 
     @property
     @abstractmethod
     def smp_fields(self) -> dict[str, SmpField]:
-        """All fields registered during Publication, keyed by SRDB name."""
+        """All fields registered during Publishing, keyed by SRDB name."""
         ...
 
     @abstractmethod
     def smp_publish(self) -> None:
-        """Register fields with the simulation environment."""
+        """Created -> Publishing: register fields."""
         ...
 
     @abstractmethod
     def smp_configure(self) -> None:
-        """Apply configuration parameters. No-op unless overridden."""
+        """Publishing -> Configured: apply configuration."""
         ...
 
     @abstractmethod
     def smp_connect(self) -> None:
-        """Link fields to peer models. Wiring is handled by WiringLoader."""
+        """Configured -> Connected: link to the simulator and peer fields."""
+        ...
+
+    @abstractmethod
+    def smp_disconnect(self) -> None:
+        """Connected -> Disconnected: release simulator references (final)."""
         ...

@@ -1,17 +1,19 @@
 """
-SVF NativeEquipment - SMP 2.0 compliant simulation model base.
+SVF NativeEquipment - SMP-aligned simulation model base.
 
 Every instance of NativeEquipment satisfies the ISmpModel interface
 (ECSS-E-ST-40-07C) via SmpEquipmentMixin. Factory functions across
-svf.models.* return NativeEquipment, so all opensvf physics models are
-SMP 2.0 portable without any per-model changes.
+svf.models.* return NativeEquipment, so all opensvf physics models share
+the SMP component lifecycle without per-model changes. This is Python-level
+alignment, not SMP binary compatibility (see svf.smp).
 
-SMP 2.0 lifecycle on any returned instance::
+Lifecycle on any returned instance::
 
     model.smp_publish()    # registers SmpFields derived from declared ports
     model.smp_configure()  # no-op by default; override for parametric models
     model.smp_connect()    # no-op; WiringLoader handles port linkage
     model.initialise()     # existing ModelAdapter initialisation
+    model.smp_disconnect() # final state at end of run
 
 Implements: SVF-DEV-015, SVF-DEV-183
 """

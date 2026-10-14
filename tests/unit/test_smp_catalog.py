@@ -1,5 +1,5 @@
 """
-SMP 2.0 catalogue generator tests (M50).
+SMP-aligned catalogue generator tests (M50).
 
 Groups:
   G1  -  XML structure and well-formedness (SVF-DEV-184)
@@ -8,15 +8,17 @@ Groups:
 """
 from __future__ import annotations
 
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
 
+from svf.smp.interfaces import SMP_ALIGNED_NS
 from svf.srdb.definitions import Classification
 from svf.srdb.loader import SrdbLoader
 
-NS = "http://www.esa.int/2005/10/Smp"
+NS = SMP_ALIGNED_NS
 
 
 def _load_srdb():
@@ -50,7 +52,7 @@ class SmpCatalogStructureSuite:
 
     @pytest.mark.requirement("SVF-DEV-184")
     def test_root_element_is_catalogue(self, catalogue: ET.Element) -> None:
-        """Root element is Catalogue in the SMP 2.0 namespace."""
+        """Root element is Catalogue in the opensvf SMP-aligned namespace."""
         assert catalogue.tag == f"{{{NS}}}Catalogue"
 
     @pytest.mark.requirement("SVF-DEV-184")
@@ -183,3 +185,30 @@ class SmpCatalogGroupingSuite:
             fields = model.findall(f"{{{NS}}}Field")
             assert fields, f"Model '{model.attrib.get('Name')}' has no fields"
 
+
+
+# ── G4: SMP claim boundary (M63) ─────────────────────────────────────────────
+
+_ESA_SMP_NS = "http://www.esa.int/2005/10/Smp"
+
+
+class SmpCatalogClaimSuite:
+
+    @pytest.mark.requirement("SVF-DEV-203")
+    def test_catalogue_does_not_use_esa_namespace(self, catalogue: ET.Element) -> None:
+        """The catalogue must not present itself as an ESA SMP document."""
+        assert _ESA_SMP_NS not in catalogue.tag
+        assert NS == "urn:opensvf:smp-aligned:1"
+
+    @pytest.mark.requirement("SVF-DEV-203")
+    def test_catalogue_header_states_non_conformance(self, srdb) -> None:
+        """The generated header says the file is not SMDL-conformant."""
+        sys.path.insert(0, str(Path("tools").resolve()))
+        from generate_smpcat import generate_smpcat  # type: ignore[import]
+        assert "Not SMDL-conformant" in generate_smpcat(srdb)
+
+    @pytest.mark.requirement("SVF-DEV-203")
+    def test_committed_catalogue_matches_generator_namespace(self) -> None:
+        """smp/opensvf.smpcat on disk was regenerated after the namespace change."""
+        root = ET.parse("smp/opensvf.smpcat").getroot()
+        assert root.tag == f"{{{NS}}}Catalogue"

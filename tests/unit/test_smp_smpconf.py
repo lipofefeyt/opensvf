@@ -1,5 +1,5 @@
 """
-SMP 2.0 assembly configuration generator tests (M50).
+SMP-aligned assembly configuration generator tests (M50).
 
 Groups:
   G1  -  XML structure (SVF-DEV-185)
@@ -18,9 +18,10 @@ from unittest.mock import patch
 import pytest
 import yaml
 
+from svf.smp.interfaces import SMP_ALIGNED_NS
 from svf.srdb.loader import Srdb, SrdbLoader
 
-NS      = "http://www.esa.int/2005/10/Smp"
+NS      = SMP_ALIGNED_NS
 SC_YAML = Path("mission_mysat1/spacecraft.yaml")
 
 
@@ -53,7 +54,7 @@ class SmpConfStructureSuite:
 
     @pytest.mark.requirement("SVF-DEV-185")
     def test_root_element_is_assembly(self, assembly: ET.Element) -> None:
-        """Root element is Assembly in the SMP 2.0 namespace."""
+        """Root element is Assembly in the opensvf SMP-aligned namespace."""
         assert assembly.tag == f"{{{NS}}}Assembly"
 
     @pytest.mark.requirement("SVF-DEV-185")
@@ -179,3 +180,18 @@ class CheckSmpSuite:
         from svf.tools.checksmp import run_checks
         with patch.object(checksmp, "_SMPCAT", bad):
             assert run_checks() != 0
+
+
+# ── SMP claim boundary (M63) ─────────────────────────────────────────────────
+
+class SmpConfClaimSuite:
+
+    @pytest.mark.requirement("SVF-DEV-203")
+    def test_assembly_does_not_use_esa_namespace(self, assembly: ET.Element) -> None:
+        assert "http://www.esa.int/2005/10/Smp" not in assembly.tag
+
+    @pytest.mark.requirement("SVF-DEV-203")
+    def test_assembly_header_states_non_conformance(self, srdb: Srdb) -> None:
+        sys.path.insert(0, str(Path("tools").resolve()))
+        from generate_smpconf import generate_smpconf  # type: ignore[import-not-found]
+        assert "Not SMDL-conformant" in generate_smpconf(SC_YAML, srdb)

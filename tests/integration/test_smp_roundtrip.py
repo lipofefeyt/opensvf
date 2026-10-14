@@ -1,7 +1,7 @@
 """
-L2 SMP 2.0 round-trip smoke test (M50).
+L2 SMP-aligned round-trip smoke test (M50).
 
-A MinimalSmpHost drives a NativeEquipment model through the SMP 2.0 lifecycle
+A MinimalSmpHost drives a NativeEquipment model through the SMP-aligned lifecycle
 (publish -> configure -> connect) and verifies that the simulation output is
 identical to a direct run without the SMP lifecycle interposed. SimpleCounter.fmu
 runs alongside to confirm the SMP lifecycle does not interfere with FMU
@@ -44,11 +44,11 @@ class _NoSync(SyncProtocol):
 
 
 class MinimalSmpHost:
-    """Minimal SMP 2.0 Simulation Environment (SE) implementation.
+    """Minimal SMP-aligned Simulation Environment (SE) implementation.
 
-    Implements the SMP 2.0 composite model hosting contract:
+    Implements the SMP-aligned composite model hosting contract:
     publish all fields, configure, connect, initialise, then step.
-    This is the host side of the SMP 2.0 IModel contract; each model
+    This is the host side of the SMP-aligned IModel contract; each model
     under test is the guest side.
     """
 

@@ -1,9 +1,10 @@
 """
-SMP 2.0 interface contract tests (M50).
+SMP-aligned interface contract tests (M50, M63).
 
 Groups:
   G1  -  ISmpModel / SmpState definitions (SVF-DEV-182)
   G2  -  SmpEquipmentMixin lifecycle (SVF-DEV-183)
+  G3  -  Lifecycle transition guards (SVF-DEV-202)
 """
 from __future__ import annotations
 
@@ -11,7 +12,7 @@ import pytest
 
 from svf.core.abstractions import SyncProtocol
 from svf.core.equipment import Equipment, PortDefinition, PortDirection
-from svf.smp import ISmpModel, SmpEquipmentMixin, SmpField, SmpState
+from svf.smp import ISmpModel, SmpEquipmentMixin, SmpField, SmpState, SmpStateError
 from svf.stores.parameter_store import ParameterStore
 
 
@@ -56,10 +57,9 @@ class SmpInterfacesSuite:
 
     @pytest.mark.requirement("SVF-DEV-182")
     def test_smp_state_enum_has_required_values(self) -> None:
-        """SmpState exposes the seven SMP 2.0 lifecycle states."""
+        """SmpState is exactly the ECSS-E-ST-40-07C ComponentStateKind set."""
         required = {
-            "CREATED", "PUBLISHING", "CONFIGURED",
-            "CONNECTED", "INITIALISED", "EXECUTING", "TERMINATED",
+            "CREATED", "PUBLISHING", "CONFIGURED", "CONNECTED", "DISCONNECTED",
         }
         assert {s.name for s in SmpState} == required
 
@@ -152,3 +152,63 @@ class SmpMixinSuite:
     def test_smp_mixin_is_ismp_model(self, model: _SmpModel) -> None:
         """SmpEquipmentMixin subclass satisfies the ISmpModel interface."""
         assert isinstance(model, ISmpModel)
+
+
+# ── G3: lifecycle transition guards ──────────────────────────────────────────
+
+def _connected(model: _SmpModel) -> _SmpModel:
+    model.smp_publish()
+    model.smp_configure()
+    model.smp_connect()
+    return model
+
+
+class SmpLifecycleGuardSuite:
+
+    @pytest.mark.requirement("SVF-DEV-202")
+    def test_disconnect_reaches_final_state(self, model: _SmpModel) -> None:
+        """smp_disconnect() moves a Connected model to DISCONNECTED."""
+        _connected(model).smp_disconnect()
+        assert model.smp_state == SmpState.DISCONNECTED
+
+    @pytest.mark.requirement("SVF-DEV-202")
+    def test_publish_twice_is_rejected(self, model: _SmpModel) -> None:
+        """Publish is only legal from CREATED."""
+        model.smp_publish()
+        with pytest.raises(SmpStateError) as exc:
+            model.smp_publish()
+        assert exc.value.actual == SmpState.PUBLISHING
+        assert exc.value.required == SmpState.CREATED
+
+    @pytest.mark.requirement("SVF-DEV-202")
+    def test_configure_before_publish_is_rejected(self, model: _SmpModel) -> None:
+        with pytest.raises(SmpStateError):
+            model.smp_configure()
+        assert model.smp_state == SmpState.CREATED
+
+    @pytest.mark.requirement("SVF-DEV-202")
+    def test_connect_before_configure_is_rejected(self, model: _SmpModel) -> None:
+        model.smp_publish()
+        with pytest.raises(SmpStateError):
+            model.smp_connect()
+        assert model.smp_state == SmpState.PUBLISHING
+
+    @pytest.mark.requirement("SVF-DEV-202")
+    def test_disconnect_before_connect_is_rejected(self, model: _SmpModel) -> None:
+        with pytest.raises(SmpStateError):
+            model.smp_disconnect()
+
+    @pytest.mark.requirement("SVF-DEV-202")
+    def test_disconnected_is_final(self, model: _SmpModel) -> None:
+        """No transition leaves DISCONNECTED."""
+        _connected(model).smp_disconnect()
+        for step in (model.smp_publish, model.smp_configure,
+                     model.smp_connect, model.smp_disconnect):
+            with pytest.raises(SmpStateError):
+                step()
+        assert model.smp_state == SmpState.DISCONNECTED
+
+    @pytest.mark.requirement("SVF-DEV-202")
+    def test_state_error_is_runtime_error(self) -> None:
+        """Callers that catch RuntimeError keep working."""
+        assert issubclass(SmpStateError, RuntimeError)

@@ -1,9 +1,9 @@
 """
-checksmp - SMP 2.0 catalogue consistency check.
+checksmp - SMP-aligned catalogue consistency check.
 
 Verifies that smp/opensvf.smpcat:
   1. Exists and is well-formed XML
-  2. Carries the correct SMP 2.0 namespace
+  2. Carries the opensvf SMP-aligned namespace (not the ESA SMP one)
   3. Has exactly one Field per SRDB parameter (no drift)
   4. Maps TM -> Output and TC -> Input with no cross-contamination
 
@@ -16,7 +16,8 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-_NS       = "http://www.esa.int/2005/10/Smp"
+from svf.smp.interfaces import SMP_ALIGNED_NS as _NS
+
 _SMPCAT   = Path("smp/opensvf.smpcat")
 _SRDB_DIR = Path("srdb/baseline")
 
@@ -41,7 +42,7 @@ def _fail(msg: str) -> None:
 def run_checks() -> int:
     failures = 0
 
-    print("checksmp: SMP 2.0 catalogue consistency")
+    print("checksmp: SMP-aligned catalogue consistency")
     print("=" * 44)
 
     # ── check 1: file exists ──────────────────────────────────────────────────

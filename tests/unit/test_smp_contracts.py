@@ -1,7 +1,7 @@
 """
-SMP 2.0 ISmpModel contract tests for all native simulation models (M50).
+SMP-aligned ISmpModel contract tests for all native simulation models (M50).
 
-Parametrizes the full SMP 2.0 lifecycle (publish -> configure -> connect)
+Parametrizes the full SMP-aligned lifecycle (publish -> configure -> connect)
 over every NativeEquipment, OrbitalEnvironment, and Bus subclass, verifying
 each satisfies the ISmpModel interface contract.
 

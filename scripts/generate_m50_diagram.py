@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the M50 SMP 2.0 architecture diagram for the LinkedIn post."""
+"""Generate the M50 SMP-aligned architecture diagram (labels corrected in M63)."""
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -64,7 +64,7 @@ def dashed_arrow(x0, y0, x1, y1, color=TEXT_DIM):
 
 
 # ── title ─────────────────────────────────────────────────────────────────────
-plain(9, 9.5, "opensvf  ·  Milestone M50: SMP 2.0 Model Portability",
+plain(9, 9.5, "opensvf  ·  Milestone M50: SMP-aligned Model Interface",
       color=TEXT, size=15, weight="bold")
 plain(9, 9.1, "ECSS-E-ST-40-07C  ·  Python ISmpModel interface layer",
       color=TEXT_DIM, size=10)
@@ -122,11 +122,11 @@ iface_w = mixin_w
 iface_h = 0.95
 box(iface_x, iface_y, iface_w, iface_h, fc="#05141f", ec="#388bfd", lw=2.0)
 label(iface_x + iface_w / 2, iface_y + 0.68,
-      "ISmpModel   (ECSS-E-ST-40-07C §4.7.1)",
+      "ISmpModel   (ECSS-E-ST-40-07C §5.2.3.1)",
       color="#79c0ff", size=9.5, weight="bold")
 
-states = ["CREATED", "PUBLISHING", "CONFIGURED", "CONNECTED", "INITIALISED", "EXECUTING", "TERMINATED"]
-cols   = ["#8b949e", "#1f6feb", "#388bfd", "#3fb950", "#3fb950", "#3fb950", "#f0883e"]
+states = ["CREATED", "PUBLISHING", "CONFIGURED", "CONNECTED", "DISCONNECTED"]
+cols   = ["#8b949e", "#1f6feb", "#388bfd", "#3fb950", "#f0883e"]
 sw     = iface_w / len(states)
 for k, (s, c) in enumerate(zip(states, cols)):
     sx = iface_x + k * sw + sw / 2
@@ -151,7 +151,7 @@ cat_x = x0
 cat_w = 3.6
 box(cat_x, art_y, cat_w, art_h, fc="#1a2f1a", ec=GREEN, lw=1.3)
 label(cat_x + cat_w / 2, art_y + 1.3,  "smp/opensvf.smpcat",   color=GREEN,  size=8.5, weight="bold")
-label(cat_x + cat_w / 2, art_y + 0.95, "SMP 2.0 Catalogue XML", color=TEXT,   size=7.5)
+label(cat_x + cat_w / 2, art_y + 0.95, "SMP-style Catalogue XML", color=TEXT,   size=7.5)
 label(cat_x + cat_w / 2, art_y + 0.65, "128 fields",            color=TEXT_DIM, size=7.5)
 label(cat_x + cat_w / 2, art_y + 0.38, "6 domains · 19 models", color=TEXT_DIM, size=7.5)
 label(cat_x + cat_w / 2, art_y + 0.12, "TM→Output  TC→Input",   color=TEXT_DIM, size=7.5)
@@ -161,7 +161,7 @@ conf_x = cat_x + cat_w + art_gap
 conf_w = 3.6
 box(conf_x, art_y, conf_w, art_h, fc="#1f1a0d", ec=ORANGE, lw=1.3)
 label(conf_x + conf_w / 2, art_y + 1.3,  "smp/mysat1.smpconf",     color=ORANGE,   size=8.5, weight="bold")
-label(conf_x + conf_w / 2, art_y + 0.95, "SMP 2.0 Assembly XML",   color=TEXT,     size=7.5)
+label(conf_x + conf_w / 2, art_y + 0.95, "SMP-style Assembly XML",   color=TEXT,     size=7.5)
 label(conf_x + conf_w / 2, art_y + 0.65, "7 instances",            color=TEXT_DIM, size=7.5)
 label(conf_x + conf_w / 2, art_y + 0.38, "from spacecraft.yaml",   color=TEXT_DIM, size=7.5)
 label(conf_x + conf_w / 2, art_y + 0.12, "auto-wiring aware",      color=TEXT_DIM, size=7.5)
@@ -172,7 +172,7 @@ host_w = 3.8
 box(host_x, art_y, host_w, art_h, fc="#05141f", ec="#58a6ff", lw=1.3)
 label(host_x + host_w / 2, art_y + 1.3,  "MinimalSmpHost",          color="#58a6ff", size=8.5, weight="bold")
 label(host_x + host_w / 2, art_y + 0.95, "Python SE host contract", color=TEXT,      size=7.5)
-label(host_x + host_w / 2, art_y + 0.65, "776 tests · 4 L2 cases",  color=TEXT_DIM,  size=7.5)
+label(host_x + host_w / 2, art_y + 0.65, "4 L2 round-trip cases",  color=TEXT_DIM,  size=7.5)
 label(host_x + host_w / 2, art_y + 0.38, "round-trip verified",     color=TEXT_DIM,  size=7.5)
 label(host_x + host_w / 2, art_y + 0.12, "+ FMU co-sim",            color=TEXT_DIM,  size=7.5)
 
@@ -181,7 +181,7 @@ fut_x = host_x + host_w + art_gap
 fut_w = 3.7
 box(fut_x, art_y, fut_w, art_h, fc="#1a0d0d", ec="#f0883e", lw=1.0, radius=0.18)
 label(fut_x + fut_w / 2, art_y + 1.3,  "C++ ABI bridge",         color="#f0883e", size=8.5, weight="bold")
-label(fut_x + fut_w / 2, art_y + 0.95, "⟶  NEXT MILESTONE",      color=TEXT_DIM, size=7.5)
+label(fut_x + fut_w / 2, art_y + 0.95, "⟶  ROADMAP M68",      color=TEXT_DIM, size=7.5)
 label(fut_x + fut_w / 2, art_y + 0.65, "dlopen() ISmpModel",     color=TEXT_DIM, size=7.5)
 label(fut_x + fut_w / 2, art_y + 0.38, "vtable handshake",       color=TEXT_DIM, size=7.5)
 label(fut_x + fut_w / 2, art_y + 0.12, "BASILES · EuroSim · ...",color=TEXT_DIM, size=7)
@@ -208,7 +208,7 @@ legend_items = [
     (GREEN,     "Catalogue XML  (generated from SRDB)"),
     (ORANGE,    "Assembly XML  (generated from spacecraft.yaml)"),
     ("#58a6ff", "MinimalSmpHost  (Python SE, round-trip tests)"),
-    ("#f0883e", "C++ ABI bridge  (next milestone)"),
+    ("#f0883e", "C++ ABI bridge  (roadmap M68)"),
 ]
 for k, (c, txt) in enumerate(legend_items):
     lx = 0.4 + k * 3.45
