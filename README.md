@@ -42,9 +42,9 @@ opensvf-kde (C++/Eigen3)        openobsw (C11)
 
 | Package | Version | Notes |
 |---|---|---|
-| opensvf | v0.8.0 | Python 3.12 |
-| openobsw | v0.7.0+ | C11 |
-| opensvf-kde | v0.1.0 | C++ / Eigen3 |
+| opensvf | v1.1.0 | Python 3.12 |
+| openobsw | v0.11+ | C11 |
+| opensvf-kde | v0.1.0+ (SGP4 + RK4 build, Aug 2026) | C++ / Eigen3 |
 | YAMCS | 5.12.6 | Java 21+ |
 
 ---
@@ -68,7 +68,7 @@ git clone https://github.com/lipofefeyt/opensvf
 cd opensvf
 pip install -e ".[dev]"                                           # install SVF and dev dependencies
 
-testosvf                                                          # 606 unit + integration tests
+testosvf                                                          # 800+ unit + integration tests
 checkcov                                                          # requirement coverage report
 svf profiles                                                      # list bundled hardware profiles
 svf check mission_mysat1/spacecraft.yaml
@@ -261,12 +261,13 @@ TM pipeline: obsw_sim → SVF → TCP port 10015 → YAMCS packet viewer
 ## Developer tools
 
 ```bash
-testosvf                              # full test suite (606 tests, L1+L2)
+testosvf                              # full test suite (800+ tests, L1+L2)
 checkosvf                             # mypy strict type check
 svf validate spacecraft.yaml          # fast pre-flight config check (no DDS, no FMU)
 checkcov                              # requirement coverage + equipment fidelity report
 checkcons                             # SRDB consistency: 7 checks including namespace lint
 regen-xtce                            # regenerate YAMCS XTCE database from SRDB
+checksmp                              # SMP-aligned catalogue vs SRDB consistency
 ```
 
 ---
@@ -303,7 +304,7 @@ src/svf/
 │   ├── dhs/        OBCStub, OBCEmulatorAdapter (pipe + socket)
 │   └── ttc/        TTC, S-band transponder
 ├── bus/            MIL-STD-1553B, SpaceWire, CAN
-├── pus/            PUS-C TM/TC stack: tc, tm, services/ (S1/3/5/9/11/12/17/19/20)
+├── pus/            PUS-C TM/TC stack: tc, tm, services/ (S1/3/5/6/8/9/11/12/15/17/19/20/23)
 ├── stores/         ParameterStore, CommandStore
 └── config/         SpacecraftLoader, HardwareProfile, SRDB
 
@@ -326,58 +327,38 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 
 ## Roadmap
 
-| Milestone | Status |
-|---|---|
-| M1–M18  -  Core platform, FMI, DDS sync, PUS stack, equipment models | ✅ Done |
-| M19  -  Spacecraft configuration DSL (YAML zero-Python entry point) | ✅ Done |
-| M20  -  Structured test procedure API | ✅ Done |
-| M21  -  Mission-level HTML reporting | ✅ Done |
-| M22  -  OBSW integration guide | ✅ Done |
-| M23  -  Temporal assertions + equipment fault engine | ✅ Done |
-| M24  -  ZynqMP SIL (aarch64 QEMU + Renode socket transport) | ✅ Done |
-| M25  -  YAMCS ground segment integration (TM/TC pipeline, XTCE MDB) | ✅ Done |
-| M26  -  EPS/AOCS/thermal native models + full test pyramid restructure | ✅ Done |
-| M29  -  Time-tagged parameter init file (OBT-format startup state) | ✅ Done |
-| M30  -  CAN 2.0B full validation + SpaceWire RMAP completion | ✅ Done |
-| M31  -  Equipment fidelity levels + SRDB calibration curves (raw→engineering) | ✅ Done |
-| M32  -  SpacecraftValidator: pre-flight config check without DDS (`svf validate`) | ✅ Done |
-| M33  -  SRDB namespace linting (checkcons check [7/7]) | ✅ Done |
-| M34  -  Equipment fidelity coverage in checkcov (F1–F4 per model, upgrade paths) | ✅ Done |
-| M35  -  EquipmentTickError + on_tick_error callback (record-and-continue) | ✅ Done |
-| M36  -  Campaign L4 scaffolding: INCONCLUSIVE verdict + declared requirements | ✅ Done |
-| M37  -  S9 Time Management: OBT sync via TC | ✅ Done |
-| M38  -  S11 Time-Based Scheduling: time-tagged command sequences | ✅ Done |
-| M39  -  S12 On-Board Monitoring: parameter OOL events | ✅ Done |
-| M40  -  S19 Event-Action Service: automated FDIR reaction chains | ✅ Done |
-| M41  -  SharedMemorySyncProtocol: sub-ms tick sync for RT HIL | ✅ Done |
-| M27  -  Dual-OBC topology (ZynqMP + MSP430 Renode lockstep) | ✅ Done |
-| M28  -  UART/serial wire protocol transport (MSP430, STM32H750 HIL) | ✅ Done |
-| M42  -  Orbital environment: SGP4 propagator + eclipse + solar model | ✅ Done |
-| M43  -  FreeRTOS HIL support: tick-aware OBC adapter, TC guard, diagnostics | ✅ Done |
-| M44  -  FreeRTOS HIL validation campaign | ✅ Done |
-| M45  -  FreeRTOS HIL integration campaign (end-to-end OBSW) | ✅ Done |
-| M46  -  F3 sensor fidelity: Allan-variance noise model, calibration curves, I-V | ✅ Done |
-| M47  -  SRDB control layer: AOCS gains and FDIR thresholds as S20 parameters | ✅ Done |
-| M48  -  YAMCS end-to-end demo: XTCE decoding + early-orbit B-dot scenario | ✅ Done |
-| M49  -  Closed-loop detumbling convergence (rigid body dynamics integrator) | ✅ Done |
-| M50  -  SMP 2.0 model interface (ISmpModel, SmpEquipmentMixin, catalogue + checksmp) | ✅ Done |
+### Done
 
-*Milestones below informed by a 2026-07 gap analysis against a real ESA EUCLID CDMU/AOCS/HGACL SVF validation campaign (TAS-I, 2018)  -  see `REQUIREMENTS.md` SVF-DEV-188 through SVF-DEV-199.*
-
-| Milestone | Status |
+| Milestone | Scope |
 |---|---|
-| M51  -  PUS S15 On-Board Storage & Retrieval + S23 File Management | ✅ Done |
-| M52  -  PUS S6 Memory Management (load/check/dump) + S8 Function Management (mission-configurable mode transitions), wire-compatible with openobsw | ✅ Done |
-| M53  -  PUS S2 Device Command Distribution + S14 Packet Forwarding | 🗂 Backlog |
-| M54  -  Bus utilization metrics + per-equipment WCET/schedulability reporting | 🗂 Backlog |
-| M55  -  Long-duration/soak campaigns + worst-case-scenario harness | 🗂 Backlog |
-| M56  -  Post-hoc analysis tooling: diff_runs.py, param_extract.py | 🗂 Backlog |
-| M57  -  FDIR supervisor model | 🗂 Backlog |
-| M58  -  Live YAMCS dashboards | 🗂 Backlog |
-| M59  -  Multi-spacecraft / constellation | 🗂 Backlog |
-| M60  -  Migrate orbital environment (SGP4 + dipole) into opensvf-kde FMU | 🗂 Backlog |
-| M61  -  Wire protocol v3 fault injection: WireProtocolLink layer (ISIS Line Model pattern) | 🗂 Backlog |
-| M62  -  DiscreteLine model type: analog/discrete/HPC hard-lines with line-level fault injection (ISIS interface taxonomy) | 🗂 Backlog |
+| M1-M18 | Core platform, FMI, DDS sync, PUS stack, equipment models |
+| M19-M22 | Spacecraft YAML DSL, procedure API, HTML reporting, OBSW integration guide |
+| M23 | Temporal assertions + equipment fault engine |
+| M24-M25 | ZynqMP SIL (aarch64 QEMU + Renode socket); YAMCS TM/TC pipeline and XTCE MDB |
+| M26 | EPS/AOCS/thermal native models + test pyramid restructure |
+| M27-M28 | Dual-OBC topology (ZynqMP + MSP430 lockstep); UART wire protocol transport |
+| M29-M31 | OBT-format init file; CAN 2.0B + SpaceWire RMAP; fidelity levels + calibration curves |
+| M32-M36 | `svf validate`, SRDB namespace lint, fidelity coverage, EquipmentTickError, INCONCLUSIVE verdict |
+| M37-M40 | PUS S9, S11, S12, S19 |
+| M41-M42 | Shared-memory sync for RT HIL; orbital environment (SGP4, eclipse, solar) |
+| M43-M45 | FreeRTOS HIL support, validation and integration campaigns |
+| M46-M47 | F3 sensor fidelity (Allan variance, I-V); S20 tunable AOCS gains + FDIR thresholds |
+| M48-M49 | YAMCS end-to-end B-dot demo; closed-loop detumbling convergence |
+| M50 | SMP-aligned model interface (ISmpModel, SmpEquipmentMixin, catalogue + checksmp) |
+| M51-M52 | PUS S15 + S23; PUS S6 + S8, wire-compatible with openobsw |
+| M63 | SMP lifecycle aligned with ECSS-E-ST-40-07C; SMP claims corrected |
+
+### Planned
+
+Grouped into release trains. M53-M62 come from a 2026-07 gap analysis against a real ESA EUCLID CDMU/AOCS/HGACL SVF validation campaign (see `REQUIREMENTS.md` SVF-DEV-188 to 201). Dates assume one part-time maintainer.
+
+| Release | Theme | Milestones |
+|---|---|---|
+| v1.1 (Oct 2026) | Ship what is built | M50-M52, M63; M69 published Docker image |
+| v1.2 (Q1 2027) | Second reference mission | M65 QUBIK (LSF PocketQube) feasibility spike; M66 QUBIK mission pack; M67 SatNOGS telemetry replay + model-vs-flight report; M56 post-hoc analysis tools |
+| v1.3 (Q2 2027) | Operations preparation | M70 SCOS-2000 MIB import/export (revives SVF-DEV-098); M64 PLUTO (ECSS-E-ST-70-32C) procedure subset; M58 live YAMCS dashboards; M53 PUS S2 + S14 |
+| v1.4 (Q3 2027) | Verification depth | M57 FDIR supervisor; M55 soak + worst-case harness; M54 bus utilisation + WCET; M61 wire protocol fault injection; M62 DiscreteLine hard-line model |
+| v2.0 (2028) | Interoperability | M68 real SMP runtime bridge; M60 orbital environment into opensvf-kde; M59 multi-spacecraft |
 
 ---
 
