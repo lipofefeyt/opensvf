@@ -1,4 +1,4 @@
-name: Publish to PyPI
+name: Publish release
 
 on:
   push:
@@ -52,3 +52,39 @@ jobs:
         # One-time setup on PyPI:
         #   1. Go to https://pypi.org/manage/account/publishing/
         #   2. Add publisher: owner=lipofefeyt repo=opensvf workflow=publish.yml env=pypi
+
+  release:
+    name: Create GitHub release
+    needs: publish            # only release what actually reached PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Create release from tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists - leaving it untouched"
+            exit 0
+          fi
+          # checkout may store the tag as lightweight; refetch the tag object
+          git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+          if [ "$(git cat-file -t "$TAG")" = "tag" ]; then
+            # Annotated tag: subject line is the title, body is the notes
+            git tag -l --format='%(contents:body)' "$TAG" > notes.md
+            gh release create "$TAG" dist/* \
+              --title "$(git tag -l --format='%(contents:subject)' "$TAG")" \
+              --notes-file notes.md --verify-tag
+          else
+            gh release create "$TAG" dist/* --title "$TAG" --generate-notes --verify-tag
+          fi
