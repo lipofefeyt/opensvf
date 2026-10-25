@@ -74,3 +74,22 @@ simulation:
 """)
         with pytest.raises(SpacecraftConfigError):
             SpacecraftLoader.load(cfg)
+
+
+class EpsLoaderSuite:
+
+    @pytest.mark.requirement("SVF-DEV-110")
+    def test_mysat1_loads_eps_chain_with_charge_current_override(self) -> None:
+        """mysat1 declares solar_array, battery and pcdu; the PCDU charge
+        current reaches the battery through an explicit wiring override."""
+        master = SpacecraftLoader.load(EXAMPLES_DIR / "spacecraft.yaml")
+        ids = {getattr(m, "equipment_id", None) for m in master._models}
+        assert {"solar_array", "battery", "pcdu"} <= ids
+        conns = {
+            (c.from_equipment, c.from_port, c.to_equipment, c.to_port)
+            for c in master._wiring.connections
+        }
+        assert ("pcdu", "eps.pcdu.charge_current",
+                "battery", "eps.battery.charge_current") in conns
+        assert ("solar_array", "eps.solar_array.generated_power",
+                "pcdu", "eps.solar_array.generated_power") in conns

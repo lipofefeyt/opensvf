@@ -21,6 +21,9 @@
     <Instance Name="rw1" TypeName="opensvf.aocs.rw1"/>
     <Instance Name="mtq1" TypeName="opensvf.aocs.mtq1"/>
     <Instance Name="sbt" TypeName="opensvf.ttc.sbt"/>
+    <Instance Name="solar_array" TypeName="opensvf.eps.solar_array"/>
+    <Instance Name="battery" TypeName="opensvf.eps.battery"/>
+    <Instance Name="pcdu" TypeName="opensvf.eps.pcdu"/>
   </Instances>
 
   <Connections>

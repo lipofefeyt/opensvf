@@ -168,7 +168,7 @@ class Equipment(ModelAdapter):
         if self._command_store is not None:
             for name, port in self._ports.items():
                 if port.direction == PortDirection.IN:
-                    entry = self._command_store.take(name)
+                    entry = self._command_store.take(name, consumer=self._equipment_id)
                     if entry is not None:
                         self._port_values[name] = entry.value
                         logger.debug(

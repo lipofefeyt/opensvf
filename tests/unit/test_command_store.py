@@ -130,3 +130,37 @@ def test_inject_default_source_id() -> None:
     entry = store.peek("cmd")
     assert entry is not None
     assert entry.source_id == "test_procedure"
+
+
+# ── Per-consumer delivery (SVF-DEV-204) ──────────────────────────────────────
+
+@pytest.mark.requirement("SVF-DEV-204")
+def test_each_consumer_receives_shared_command_once() -> None:
+    """Two models sharing an IN port name both receive one injection."""
+    store = CommandStore()
+    store.inject("eps.solar_array.illumination", value=1.0, source_id="TC-PWR-001")
+    a = store.take("eps.solar_array.illumination", consumer="solar_array")
+    b = store.take("eps.solar_array.illumination", consumer="pcdu")
+    assert a is not None and a.value == pytest.approx(1.0)
+    assert b is not None and b.value == pytest.approx(1.0)
+    assert store.take("eps.solar_array.illumination", consumer="solar_array") is None
+    assert store.take("eps.solar_array.illumination", consumer="pcdu") is None
+
+
+@pytest.mark.requirement("SVF-DEV-204")
+def test_reinjection_is_delivered_again_to_every_consumer() -> None:
+    store = CommandStore()
+    store.inject("cmd", value=1.0)
+    store.take("cmd", consumer="a")
+    store.inject("cmd", value=2.0)
+    entry = store.take("cmd", consumer="a")
+    assert entry is not None and entry.value == pytest.approx(2.0)
+
+
+@pytest.mark.requirement("SVF-DEV-204")
+def test_take_without_consumer_keeps_consume_once_semantics() -> None:
+    """Callers that pass no consumer (bus adapters) still consume once."""
+    store = CommandStore()
+    store.inject("cmd", value=1.0)
+    assert store.take("cmd") is not None
+    assert store.take("cmd") is None

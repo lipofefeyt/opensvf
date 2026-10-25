@@ -40,6 +40,16 @@ equipment:
   - id: sbt
     model: sbt
 
+  # EPS  -  ids fix the port names (eps.solar_array.*, eps.battery.*, eps.pcdu.*)
+  - id: solar_array
+    model: solar_array
+
+  - id: battery
+    model: battery
+
+  - id: pcdu
+    model: pcdu
+
 # 1553 bus  -  uncomment for bus-level integration tests (platform_campaign.yaml).
 # The quickstart campaign uses direct CommandStore injection  -  no bus needed.
 # buses:
@@ -58,6 +68,10 @@ equipment:
 
 wiring:
   auto: true
+  overrides:
+    # Names differ, so auto-wiring cannot match this one
+    - from: pcdu.eps.pcdu.charge_current
+      to:   battery.eps.battery.charge_current
 
 simulation:
   dt: 0.1

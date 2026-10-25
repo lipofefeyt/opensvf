@@ -91,6 +91,8 @@ _MODEL_REGISTRY: dict[str, tuple[str, str]] = {
     "orbital_environment": ("svf.models.environment.orbital_environment", "make_orbital_environment"),
     "thermal":             ("svf.models.thermal.thermal",                 "make_thermal"),
     "pcdu":           ("svf.models.eps.pcdu",            "make_pcdu"),
+    "battery":        ("svf.models.eps.battery",         "make_battery"),
+    "solar_array":    ("svf.models.eps.solar_array",     "make_solar_array"),
     "sbt":            ("svf.models.ttc.sbt",             "make_sbt"),
 }
 

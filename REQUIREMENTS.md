@@ -564,6 +564,9 @@ Every `ISmpModel` lifecycle transition shall be guarded as in ECSS-E-ST-40-07C �
 **SVF-DEV-203** `[SMP]` `IMPLEMENTED`
 Generated SMP-style artefacts (`smp/opensvf.smpcat`, `smp/*.smpconf`) shall not claim SMP conformance: they shall use the opensvf namespace `urn:opensvf:smp-aligned:1` rather than an ESA SMP namespace, and their header shall state that they are not valid against the SMDL schemas (`XML/Smdl/Catalogue.xsd`, `XML/Smdl/Configuration.xsd`). Documentation shall describe the model layer as "SMP-aligned", not "SMP compliant" or "SMP portable", until a real SMP runtime bridge exists (M68). Assigned to M63.
 
+**SVF-DEV-204** `[SIM]` `IMPLEMENTED`
+A command injected into the `CommandStore` shall be delivered once to every equipment model that declares an IN port of that name, not only to the first model that ticks. `CommandStore.take()` shall accept an optional consumer ID: with one, each distinct consumer receives the command once; without one, the command is consumed once (the behaviour bus adapters rely on). A re-injection shall be delivered again to every consumer. Found when the PCDU never received `eps.solar_array.illumination` because the solar array consumed it first; `aocs.truth.rate_*` (gyroscope and CSS) had the same defect.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -880,6 +883,11 @@ power (solar_power × MPPT_efficiency) minus total LCL load equals net
 power; charge current shall be derived from net power and battery voltage,
 clamped to ±MAX_CHARGE_CURRENT.
  
+**PCDU-005** `[PCDU]` `IMPLEMENTED`
+The PCDU model shall publish the power bus voltage `eps.bus.voltage`. The
+bus is an unregulated battery bus: it shall equal the battery voltage while
+loads are connected and drop to 0 V when UVLO disconnects them.
+ 
 ---
 
 ## Traceability Index
@@ -1026,6 +1034,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | PCDU-002      | PCDU | IMPLEMENTED | M9  | test_pcdu_mppt_efficiency        |
 | PCDU-003      | PCDU | IMPLEMENTED | M9  | test_pcdu_uvlo_disconnects_loads  |
 | PCDU-004      | PCDU | IMPLEMENTED | M9  | test_pcdu_power_balance          |
+| PCDU-005      | PCDU | IMPLEMENTED |  -  | test_pcdu_bus_voltage_follows_battery |
 | SVF-DEV-100   | SYS  | IMPLEMENTED | M24 | test_aarch64_starts_and_prints_version |
 | SVF-DEV-101   | SYS  | IMPLEMENTED | M24 | test_renode_zynqmp_ping_pong     |
 | SVF-DEV-110   | SYS  | IMPLEMENTED | M19 | test_spacecraft_loader           |
@@ -1105,6 +1114,7 @@ clamped to ±MAX_CHARGE_CURRENT.
 | SVF-DEV-201   | LNK  | DRAFT       |  -  |  -  |
 | SVF-DEV-202   | SMP  | IMPLEMENTED | M63 | test_publish_twice_is_rejected |
 | SVF-DEV-203   | SMP  | IMPLEMENTED | M63 | test_catalogue_does_not_use_esa_namespace |
+| SVF-DEV-204   | SIM  | IMPLEMENTED |  -  | test_each_consumer_receives_shared_command_once |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |

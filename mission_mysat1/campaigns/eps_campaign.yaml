@@ -1,0 +1,10 @@
+campaign: MySat-1 EPS Validation
+spacecraft: ../spacecraft.yaml
+
+requirements:
+  - MIS-EPS-001
+  - MIS-EPS-002
+  - MIS-EPS-003
+
+procedures:
+  - ../procedures/eps_procedures.py

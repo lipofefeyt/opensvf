@@ -844,6 +844,9 @@ KNOWN_UNPUBLISHED_TM: dict[str, str] = {
     "thermal.obc.temperature":         "Physical sensor; thermal node mapping planned",
     "thermal.solar_panel.temperature": "Physical sensor; thermal node mapping planned",
     "thermal.structure.temperature":   "Physical sensor; thermal node mapping planned",
+    # Battery IN port; mysat1 feeds it from eps.pcdu.charge_current via a
+    # wiring override, so no model declares it as an OUT port.
+    "eps.battery.charge_current":      "Battery input, wired from eps.pcdu.charge_current",
 }
 
 

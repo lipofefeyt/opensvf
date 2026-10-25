@@ -7,8 +7,10 @@ Physics:
 - MPPT: simplified efficiency tracking based on illumination
 - UVLO: under-voltage lockout disconnects loads below threshold
 - Power accounting: solar_power * mppt_efficiency - total_load = charge_current
+- Unregulated battery bus: bus voltage follows the battery while loads are
+  connected and drops to 0 V when UVLO disconnects them
 
-Implements: PCDU-001, PCDU-002, PCDU-003, PCDU-004
+Implements: PCDU-001, PCDU-002, PCDU-003, PCDU-004, PCDU-005
 """
 
 from __future__ import annotations
@@ -109,6 +111,8 @@ def make_pcdu(
         eq.write_port("eps.pcdu.charge_current",  charge_current)
         eq.write_port("eps.pcdu.mppt_efficiency", mppt_eff)
         eq.write_port("eps.pcdu.uvlo_active",     uvlo_active)
+        eq.write_port("eps.bus.voltage",
+                      0.0 if uvlo_active > 0.5 else battery_voltage)
 
     # Build port list
     ports = [
@@ -126,6 +130,8 @@ def make_pcdu(
                        description="MPPT efficiency"),
         PortDefinition("eps.pcdu.uvlo_active", PortDirection.OUT,
                        description="UVLO status"),
+        PortDefinition("eps.bus.voltage", PortDirection.OUT,
+                       unit="V", description="Power bus voltage (0 V under UVLO)"),
     ]
 
     # Add LCL ports

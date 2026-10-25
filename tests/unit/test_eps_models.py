@@ -360,6 +360,27 @@ class PcduTests:
         # With UVLO active and zero generation, charge_current ≈ 0 (no load to drain)
         assert pcdu.read_port("eps.pcdu.total_load") == pytest.approx(0.0)
 
+    @pytest.mark.requirement("PCDU-005")
+    def test_pcdu_bus_voltage_follows_battery(self) -> None:
+        """Bus voltage equals battery voltage while loads are connected."""
+        solar, battery, pcdu = self._make_pcdu()
+        pcdu.receive("eps.solar_array.generated_power", 0.0)
+        pcdu.receive("eps.solar_array.illumination", 0.0)
+        pcdu.receive("eps.battery.voltage", 3.9)
+        pcdu.do_step(t=0.0, dt=1.0)
+        assert pcdu.read_port("eps.bus.voltage") == pytest.approx(3.9)
+
+    @pytest.mark.requirement("PCDU-005")
+    def test_pcdu_bus_voltage_drops_to_zero_under_uvlo(self) -> None:
+        """UVLO disconnects the loads, so the bus reads 0 V."""
+        solar, battery, pcdu = self._make_pcdu()
+        pcdu.receive("eps.solar_array.generated_power", 0.0)
+        pcdu.receive("eps.solar_array.illumination", 0.0)
+        pcdu.receive("eps.battery.voltage", 3.0)
+        pcdu.do_step(t=0.0, dt=1.0)
+        assert pcdu.read_port("eps.pcdu.uvlo_active") == pytest.approx(1.0)
+        assert pcdu.read_port("eps.bus.voltage") == pytest.approx(0.0)
+
     @pytest.mark.requirement("PCDU-004")
     def test_pcdu_power_balance(self) -> None:
         """Charge current reflects power balance: positive surplus, negative deficit."""

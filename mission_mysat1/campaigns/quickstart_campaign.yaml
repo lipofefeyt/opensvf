@@ -2,8 +2,9 @@ campaign: MySat-1 Quickstart Validation
 spacecraft: ../spacecraft.yaml
 
 # Mission requirements this campaign is responsible for covering.
-# MIS-EPS-* are declared here but have no procedures yet  -  they appear
-# as UNCOVERED in the HTML report, showing the gap to close next.
+# MIS-EPS-001..003 are verified by eps_campaign.yaml; they show as
+# UNCOVERED here because this campaign runs no EPS procedures.
+# MIS-EPS-004 has no procedure yet.
 requirements:
   - MIS-AOCS-001
   - MIS-AOCS-002

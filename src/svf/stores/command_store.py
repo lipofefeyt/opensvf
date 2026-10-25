@@ -2,14 +2,14 @@
 SVF CommandStore
 Thread-safe store for telecommands.
 Optionally validates inject() against SRDB definitions.
-Implements: SVF-DEV-035, SVF-DEV-036, SVF-DEV-095
+Implements: SVF-DEV-035, SVF-DEV-036, SVF-DEV-095, SVF-DEV-204
 """
 
 from __future__ import annotations
 
 import logging
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
@@ -29,12 +29,15 @@ class CommandEntry:
         t:         Simulation time at which the command was injected.
         source_id: ID of the issuing entity.
         consumed:  True if the command has been taken by a model adapter.
+        taken_by:  Consumer IDs that have taken this command (per-consumer
+                   delivery, see CommandStore.take).
     """
     name: str
     value: float
     t: float
     source_id: str
     consumed: bool = False
+    taken_by: set[str] = field(default_factory=set)
 
 
 class CommandStore:
@@ -107,13 +110,25 @@ class CommandStore:
             )
         logger.info(f"[{source_id}] Command injected: {name}={value} at t={t:.3f}")
 
-    def take(self, name: str) -> Optional[CommandEntry]:
+    def take(self, name: str, consumer: Optional[str] = None) -> Optional[CommandEntry]:
         """
         Atomically read and consume a command.
-        Returns None if no fresh command exists.
+
+        Without a consumer the command is consumed once, by whoever takes it
+        first. With a consumer ID each distinct consumer receives the command
+        once, so every model declaring the same IN port sees the injection.
+
+        Returns None if no fresh command exists for this caller.
         """
         with self._lock:
             entry = self._store.get(name)
+            if entry is not None and consumer is not None:
+                if consumer in entry.taken_by:
+                    return None
+                entry.taken_by.add(consumer)
+                entry.consumed = True
+                logger.debug(f"Command taken: {name}={entry.value} by {consumer}")
+                return entry
             if entry is not None and not entry.consumed:
                 entry.consumed = True
                 logger.debug(f"Command taken: {name}={entry.value} from {entry.source_id}")
