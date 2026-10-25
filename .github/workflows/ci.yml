@@ -30,6 +30,10 @@ jobs:
   # Renode system test  -  downloads ZynqMP binary from openobsw CI     #
   # and validates TC(17,1) ping/pong via socket transport             #
   # Runs on push to main only                                          #
+  #                                                                    #
+  # openobsw keeps CI artifacts for 30 days. When no binary is         #
+  # available the job is skipped with a warning instead of failing,    #
+  # so opensvf CI does not depend on when openobsw CI last ran.        #
   # ------------------------------------------------------------------ #
   renode-system-test:
     name: Renode ZynqMP system test
@@ -40,25 +44,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: "pip"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-
-      - name: Install Renode
-        run: |
-          wget -q https://github.com/renode/renode/releases/download/v1.15.3/renode-1.15.3.linux-portable.tar.gz
-          mkdir -p /opt/renode
-          tar -xzf renode-1.15.3.linux-portable.tar.gz -C /opt/renode --strip-components=1
-          sudo ln -sf /opt/renode/renode /usr/local/bin/renode
-          renode --version
-
       - name: Download ZynqMP binary from openobsw
         uses: dawidd6/action-download-artifact@v3
         with:
@@ -67,30 +52,62 @@ jobs:
           workflow: ci.yml
           name: obsw_zynqmp_bin
           path: bin/
-          if_no_artifact_found: fail
+          if_no_artifact_found: warn
 
-      - name: Verify binary
-        run: ls -lh bin/obsw_zynqmp.bin
+      - name: Check binary availability
+        id: bin
+        run: |
+          if [ -f bin/obsw_zynqmp.bin ]; then
+            ls -lh bin/obsw_zynqmp.bin
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning title=Renode system test skipped::No obsw_zynqmp_bin artifact in openobsw CI (artifacts expire after 30 days). Re-run openobsw CI on main to restore this test."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python
+        if: steps.bin.outputs.available == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        if: steps.bin.outputs.available == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Install Renode
+        if: steps.bin.outputs.available == 'true'
+        run: |
+          wget -q https://github.com/renode/renode/releases/download/v1.15.3/renode-1.15.3.linux-portable.tar.gz
+          mkdir -p /opt/renode
+          tar -xzf renode-1.15.3.linux-portable.tar.gz -C /opt/renode --strip-components=1
+          sudo ln -sf /opt/renode/renode /usr/local/bin/renode
+          renode --version
 
       - name: Start Renode in background
+        if: steps.bin.outputs.available == 'true'
         run: |
           renode renode/zynqmp_obsw.resc &
           echo "RENODE_PID=$!" >> $GITHUB_ENV
           sleep 8   # wait for ZynqMP boot banner
 
       - name: Run Renode system tests
+        if: steps.bin.outputs.available == 'true'
         run: |
           pytest tests/system/test_renode_zynqmp.py -v \
             --timeout=60 \
             --junitxml=results/renode_junit.xml
 
       - name: Stop Renode
-        if: always()
+        if: always() && steps.bin.outputs.available == 'true'
         run: |
           kill $RENODE_PID 2>/dev/null || true
 
       - name: Upload test results
-        if: always()
+        if: always() && steps.bin.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: renode-test-results
