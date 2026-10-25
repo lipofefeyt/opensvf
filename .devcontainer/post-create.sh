@@ -81,6 +81,19 @@ if [ -f "$CLAUDE_GLOBAL/git-hooks/commit-msg" ]; then
 fi
 echo "[+] Global CLAUDE.md + settings linked; context files seeded to WSL2 host"
 
+# ── GitHub CLI login (persists on the WSL2 host) ──────────────────────
+# gh keeps its login in ~/.config/gh; point that at the bind mount so a
+# rebuild does not log you out. First time: run `gh auth login` once.
+mkdir -p "$CLAUDE_GLOBAL/gh" && chmod 700 "$CLAUDE_GLOBAL/gh"
+mkdir -p /home/vscode/.config
+[ -d /home/vscode/.config/gh ] && [ ! -L /home/vscode/.config/gh ] && rm -rf /home/vscode/.config/gh
+ln -sfn "$CLAUDE_GLOBAL/gh" /home/vscode/.config/gh
+if command -v gh >/dev/null && gh auth status >/dev/null 2>&1; then
+    gh auth setup-git && echo "[+] git pushes authenticate through gh"
+else
+    echo "[!] GitHub CLI not logged in - run: gh auth login"
+fi
+
 echo ""
 echo "=== opensvf container ready ==="
 echo "YAMCS:  yamcsd (config in yamcs/etc/)"

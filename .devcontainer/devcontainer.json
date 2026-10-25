@@ -11,7 +11,8 @@
         "ghcr.io/devcontainers/features/java:1": {
             "version": "21",
             "jdk": "ms"
-        }
+        },
+        "ghcr.io/devcontainers/features/github-cli:1": {}
     },
     "mounts": [
         "source=${localWorkspaceFolder}/../openobsw,target=/workspace/openobsw,type=bind,consistency=cached",
