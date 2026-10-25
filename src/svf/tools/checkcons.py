@@ -46,6 +46,7 @@ import struct
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -786,6 +787,9 @@ KNOWN_NAMESPACE_GAPS: dict[str, str] = {
     "aocs.mag.true_x":   "Internal dynamics→magnetometer coupling; not a TM parameter",
     "aocs.mag.true_y":   "Internal dynamics→magnetometer coupling; not a TM parameter",
     "aocs.mag.true_z":   "Internal dynamics→magnetometer coupling; not a TM parameter",
+    # OBC model internal: TM sequence counter used to signal new TM packets
+    # to the simulation, not an observable parameter.
+    "obc.tm_output":     "Internal OBC TM packet sequence signal; not a TM parameter",
     # GPS SRDB baseline not yet written (no milestone assigned yet).
     "gps.position_x":    "GPS SRDB baseline not yet written",
     "gps.position_y":    "GPS SRDB baseline not yet written",
@@ -830,6 +834,37 @@ KNOWN_NAMESPACE_GAPS: dict[str, str] = {
 # All model factories to instantiate for port extraction.
 # Models that require a binary (FMU) at instantiation are excluded  -  they
 # declare their ports without loading the FMU so all work with mocks.
+# SRDB TM definitions that no model publishes yet, on purpose.
+KNOWN_UNPUBLISHED_TM: dict[str, str] = {
+    # Physical sensor locations. The thermal model exposes internal node IDs
+    # (see the thermal.* entries in KNOWN_NAMESPACE_GAPS); mapping nodes to
+    # these sensors is planned, so the definitions stay.
+    "thermal.battery.temperature":     "Physical sensor; thermal node mapping planned",
+    "thermal.heater.battery_status":   "Physical sensor; thermal node mapping planned",
+    "thermal.obc.temperature":         "Physical sensor; thermal node mapping planned",
+    "thermal.solar_panel.temperature": "Physical sensor; thermal node mapping planned",
+    "thermal.structure.temperature":   "Physical sensor; thermal node mapping planned",
+}
+
+
+# Whole namespaces that are known gaps, matched by prefix.
+KNOWN_NAMESPACE_GAP_PREFIXES: dict[str, str] = {
+    # OrbitalEnvironment truth outputs (ECI state, geodetic position, eclipse,
+    # sun vector, NED B-field) consumed by sensor models. Not SRDB-governed and
+    # not domain.subsystem.parameter shaped; renaming is a separate task.
+    "orbital.": "OrbitalEnvironment truth signal; not a TM parameter",
+}
+
+
+def _known_gap(port: str) -> str | None:
+    if port in KNOWN_NAMESPACE_GAPS:
+        return KNOWN_NAMESPACE_GAPS[port]
+    for prefix, why in KNOWN_NAMESPACE_GAP_PREFIXES.items():
+        if port.startswith(prefix):
+            return why
+    return None
+
+
 _NAMESPACE_CHECK_MODELS: dict[str, tuple[str, str]] = {
     "magnetometer":    ("svf.models.aocs.magnetometer",   "make_magnetometer"),
     "magnetorquer":    ("svf.models.aocs.magnetorquer",   "make_magnetorquer"),
@@ -846,7 +881,26 @@ _NAMESPACE_CHECK_MODELS: dict[str, tuple[str, str]] = {
     "battery":         ("svf.models.eps.battery",           "make_battery"),
     "solar_array":     ("svf.models.eps.solar_array",       "make_solar_array"),
     "sbt":             ("svf.models.ttc.sbt",               "make_sbt"),
+    "rigid_body":      ("svf.models.dynamics.rigid_body",   "make_rigid_body_dynamics"),
+    "orbital_env":     ("svf.tools.checkcons",              "_make_orbital_for_check"),
+    "obc":             ("svf.tools.checkcons",              "_make_obc_for_check"),
 }
+
+
+def _make_obc_for_check(sync: Any, store: Any, cmd: Any) -> Any:
+    """ObcEquipment needs an ObcConfig; adapt it to the (sync, store, cmd) factory shape."""
+    from svf.models.dhs.obc import ObcConfig, ObcEquipment
+    return ObcEquipment(ObcConfig(), sync, store, cmd)
+
+
+def _make_orbital_for_check(sync: Any, store: Any, cmd: Any) -> Any:
+    """OrbitalEnvironment needs a TLE; any valid one exposes the same ports."""
+    from svf.models.environment.orbital_environment import make_orbital_environment
+    return make_orbital_environment(
+        sync, store, cmd,
+        tle_line1="1 25544U 98067A   26001.50000000  .00002182  00000-0  40084-4 0  9995",
+        tle_line2="2 25544  51.6416  87.8613 0006828  93.5613  23.7542 15.49499526431108",
+    )
 
 
 def check_srdb_namespace(svf_root: Path, result: CheckResult) -> None:
@@ -929,11 +983,12 @@ def check_srdb_namespace(svf_root: Path, result: CheckResult) -> None:
         for port in out_ports:
             if port in srdb_names:
                 continue
-            if port in KNOWN_NAMESPACE_GAPS:
+            gap = _known_gap(port)
+            if gap is not None:
                 n_orphan_known += 1
                 result.note(
                     f"[SRDB-NS] '{port}' (model: {model_name}): "
-                    f"no SRDB definition  -  known gap: {KNOWN_NAMESPACE_GAPS[port]}"
+                    f"no SRDB definition  -  known gap: {gap}"
                 )
             else:
                 n_orphan_errors += 1
@@ -945,7 +1000,7 @@ def check_srdb_namespace(svf_root: Path, result: CheckResult) -> None:
                 )
 
     # Dead TM definitions: in SRDB as TM, but no model writes them
-    dead_tm = srdb_tm_names - all_model_out_ports
+    dead_tm = srdb_tm_names - all_model_out_ports - KNOWN_UNPUBLISHED_TM.keys()
     for name in sorted(dead_tm):
         result.warn(
             f"[SRDB-NS] '{name}' is defined in SRDB as TM but no model "
