@@ -183,7 +183,7 @@ models/         FMU binaries (data, not code  -  external models only)
 └── SimpleCounter.fmu        (test double for FmuEquipment infrastructure tests)
 ```
 
-All SVF reference models are implemented as `NativeEquipment` factories  -  pure Python closures with no compiled binaries. `FmuEquipment` is an adapter reserved for operator-supplied external physics (Modelica, Simulink, C++) and the `SpacecraftDynamics.fmu` from `opensvf-kde`. Use `scripts/download_fmu.sh` to download updated FMU binaries from opensvf-kde releases.
+All SVF reference models are implemented as `NativeEquipment` factories  -  pure Python closures with no compiled binaries. `FmuEquipment` is an adapter reserved for operator-supplied external physics (Modelica, Simulink, C++) and the `SpacecraftDynamics.fmu` from `opensvf-kde`. The FMU binaries are committed under `models/`; to update `SpacecraftDynamics.fmu`, rebuild it in opensvf-kde and copy it there.
 
 ---
 
