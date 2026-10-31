@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Any, Callable, Optional, List, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from svf.stores.parameter_store import ParameterStore
+    from svf.stores.parameter_store import ParameterEntry, ParameterStore
     from svf.stores.command_store import CommandStore
     from svf.sim.simulation import SimulationMaster
 
@@ -98,11 +98,17 @@ class ProcedureInconclusiveError(Exception):
 
 class ParameterMonitor:
     """
-    Continuous background assertion on a ParameterStore entry.
+    Continuous assertion on a ParameterStore entry.
+    Created by ``ProcedureContext.monitor()``. Evaluates the current value
+    when created and then every write of the parameter (via
+    ``ParameterStore.subscribe``), so a violation that lasts a single write
+    is never missed and each write is counted once. Call
+    ``assert_no_violations()`` to stop and raise on any breach, or
+    ``summary()`` for the full result without raising.
 
-    Created by ``ProcedureContext.monitor()``. Polls every 50ms in a daemon
-    thread. Call ``assert_no_violations()`` to stop and raise on any breach,
-    or ``summary()`` for the full result without raising.
+    ``poll_interval`` is accepted for compatibility and no longer used.
+
+    Implements: SVF-DEV-131, SVF-DEV-213
     """
     def __init__(
         self,
@@ -118,33 +124,34 @@ class ParameterMonitor:
         self._less_than = less_than
         self._greater_than = greater_than
         self._requirement = requirement
-        self._poll_interval = poll_interval
         self._violations: list[MonitorViolation] = []
         self._samples = 0
         self._max_value: Optional[float] = None
         self._min_value: Optional[float] = None
+        self._lock = threading.Lock()
         self._running = True
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
+        self._unsubscribe = store.subscribe(parameter, self._observe)
+        current = store.read(parameter)
+        if current is not None:
+            self._observe(current)
 
-    def _run(self) -> None:
-        while self._running:
-            entry = self._store.read(self._parameter)
-            if entry is not None:
-                v = entry.value
-                self._samples += 1
-                if self._max_value is None or v > self._max_value: self._max_value = v
-                if self._min_value is None or v < self._min_value: self._min_value = v
-                if self._less_than is not None and v >= self._less_than:
-                    self._violations.append(MonitorViolation(entry.t, v, self._less_than, "less_than"))
-                elif self._greater_than is not None and v <= self._greater_than:
-                    self._violations.append(MonitorViolation(entry.t, v, self._greater_than, "greater_than"))
-            time.sleep(self._poll_interval)
+    def _observe(self, entry: ParameterEntry) -> None:
+        with self._lock:
+            if not self._running:
+                return
+            v = entry.value
+            self._samples += 1
+            if self._max_value is None or v > self._max_value: self._max_value = v
+            if self._min_value is None or v < self._min_value: self._min_value = v
+            if self._less_than is not None and v >= self._less_than:
+                self._violations.append(MonitorViolation(entry.t, v, self._less_than, "less_than"))
+            elif self._greater_than is not None and v <= self._greater_than:
+                self._violations.append(MonitorViolation(entry.t, v, self._greater_than, "greater_than"))
 
     def stop(self) -> None:
-        self._running = False
-        if self._thread.is_alive():
-            self._thread.join(timeout=1.0)
+        with self._lock:
+            self._running = False
+        self._unsubscribe()
 
     def assert_no_violations(self) -> None:
         self.stop()

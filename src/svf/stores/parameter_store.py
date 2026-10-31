@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import threading
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 if TYPE_CHECKING:
     from svf.srdb.loader import Srdb
@@ -39,7 +39,8 @@ class ParameterStore:
     Thread-safe central state store for simulation parameters.
 
     Models write outputs here after each tick. Observables and loggers
-    read from here on demand. No subscriber registration required.
+    read from here on demand, or subscribe() to see every write of one
+    parameter (temporal monitors do, so no value is missed between polls).
 
     Optionally accepts an Srdb instance for runtime validation:
       - Warns when a value falls outside valid_range
@@ -57,6 +58,7 @@ class ParameterStore:
         self._store: dict[str, ParameterEntry] = {}
         self._lock = threading.RLock()
         self._srdb = srdb
+        self._subscribers: dict[str, list[Callable[[ParameterEntry], None]]] = {}
 
     def write(
         self,
@@ -102,13 +104,34 @@ class ParameterStore:
                     f"(written by '{model_id}')"
                 )
 
+        entry = ParameterEntry(value=value, t=t, model_id=model_id)
         with self._lock:
-            self._store[name] = ParameterEntry(
-                value=value,
-                t=t,
-                model_id=model_id,
-            )
+            self._store[name] = entry
+            subscribers = list(self._subscribers.get(name, ()))
+        # Called outside the lock, in the writer's thread, once per write.
+        for callback in subscribers:
+            callback(entry)
         logger.debug(f"[{model_id}] {name}={value} at t={t:.3f}")
+
+    def subscribe(
+        self, name: str, callback: Callable[[ParameterEntry], None]
+    ) -> Callable[[], None]:
+        """
+        Call ``callback(entry)`` on every write of ``name``, in the writer's
+        thread. Returns a function that removes the subscription.
+
+        Implements: SVF-DEV-213
+        """
+        with self._lock:
+            self._subscribers.setdefault(name, []).append(callback)
+
+        def unsubscribe() -> None:
+            with self._lock:
+                callbacks = self._subscribers.get(name, [])
+                if callback in callbacks:
+                    callbacks.remove(callback)
+
+        return unsubscribe
 
     def read(self, name: str) -> Optional[ParameterEntry]:
         """

@@ -591,6 +591,9 @@ opensvf's S11, S12 and S19 TC builders shall produce what openobsw (v0.18 and la
 **SVF-DEV-212** `[SYS]` `IMPLEMENTED`
 CI shall run the L3 suite (`tests/system`) on every push and pull request against one pinned openobsw release. The pin shall live in `.openobsw-version`, and `scripts/build_obsw_sim.sh` shall build `bin/obsw_sim` from that tag, so CI and a developer machine test the same binary. Verified by the CI `system-test` job.
 
+**SVF-DEV-213** `[CAM]` `IMPLEMENTED`
+`ParameterStore.subscribe(name, callback)` shall call the callback on every write of the parameter, in the writer's thread, and return an unsubscribe function. `ParameterMonitor` (`ctx.monitor()`) shall evaluate the current value when created and then every write, instead of polling, so a violation that lasts a single write is recorded and each write is counted once. The polling monitor could miss short violations (and failed CI by missing a 50 ms value) and recorded one stored value many times.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -1147,6 +1150,7 @@ loads are connected and drop to 0 V when UVLO disconnects them.
 | SVF-DEV-210   | DHS  | IMPLEMENTED |  -  | test_nominal_mode_adcs_controller_activates |
 | SVF-DEV-211   | PUS  | IMPLEMENTED |  -  | test_s19_event_dispatches_action_tc |
 | SVF-DEV-212   | SYS  | IMPLEMENTED |  -  | CI system-test job |
+| SVF-DEV-213   | CAM  | IMPLEMENTED |  -  | test_single_write_violation_is_caught |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |

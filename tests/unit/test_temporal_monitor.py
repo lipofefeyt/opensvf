@@ -153,3 +153,39 @@ class TestParameterMonitorSuite:
 
         assert r1.compliant is True
         assert r2.compliant is False
+
+
+class MonitorEveryWriteSuite:
+    """SVF-DEV-213: monitors see every write, without timing assumptions."""
+
+    @pytest.mark.requirement("SVF-DEV-213")
+    def test_single_write_violation_is_caught(self) -> None:
+        """A dip written and overwritten immediately (no sleep) is recorded."""
+        store = make_store()
+        store.write("eps.bus.voltage", 3.9, t=0.0, model_id="pcdu")
+        mon = ParameterMonitor(store, "eps.bus.voltage", greater_than=3.0)
+        store.write("eps.bus.voltage", 2.8, t=0.1, model_id="pcdu")
+        store.write("eps.bus.voltage", 3.9, t=0.2, model_id="pcdu")
+        result = mon.summary()
+        assert result.compliant is False
+        assert [(v.sim_time, v.value) for v in result.violations] == [(0.1, 2.8)]
+
+    @pytest.mark.requirement("SVF-DEV-213")
+    def test_each_write_counted_once(self) -> None:
+        store = make_store()
+        store.write("x", 5.0, t=0.0, model_id="m")      # current value at start
+        mon = ParameterMonitor(store, "x", less_than=1.0)
+        store.write("x", 0.5, t=1.0, model_id="m")
+        result = mon.summary()
+        assert result.samples == 2
+        assert len(result.violations) == 1               # the initial 5.0 only
+
+    @pytest.mark.requirement("SVF-DEV-213")
+    def test_unsubscribe_stops_delivery(self) -> None:
+        store = make_store()
+        seen: list[float] = []
+        unsubscribe = store.subscribe("x", lambda e: seen.append(e.value))
+        store.write("x", 1.0, t=0.0, model_id="m")
+        unsubscribe()
+        store.write("x", 2.0, t=1.0, model_id="m")
+        assert seen == [1.0]
