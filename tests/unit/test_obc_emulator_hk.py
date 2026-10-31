@@ -69,3 +69,47 @@ def test_adapter_tc_sequence_count_increments() -> None:
     first = PusTcParser().parse(adapter._build_s17_ping()).sequence_count
     second = PusTcParser().parse(adapter._build_s17_ping()).sequence_count
     assert second == (first + 1) % 16384
+
+
+@pytest.mark.requirement("SVF-DEV-208")
+def test_receive_tc_from_another_thread_only_queues() -> None:
+    """No pipe I/O on the caller's thread; the TC goes out with the next tick."""
+    import threading
+    adapter, _ = _adapter()
+    written: list[tuple[int, bytes]] = []
+    adapter._write_typed_frame = lambda kind, frame: written.append((kind, frame))  # type: ignore[method-assign]
+    tc = adapter._build_s17_ping()
+    th = threading.Thread(target=adapter.receive_tc, args=(tc,))
+    th.start(); th.join()
+    assert written == []
+    assert adapter._send_tcs(t=0.0) == 1
+    assert [f for _, f in written] == [tc]
+
+
+@pytest.mark.requirement("SVF-DEV-209")
+def test_tm_1_2_failure_code_is_decoded() -> None:
+    from svf.models.dhs.obc_emulator import S1_FAILURE_CODES
+    adapter, store = _adapter()
+    raw = bytes.fromhex("0903c00000102001020000000000000000") + bytes.fromhex("1810c0020007")
+    adapter._parse_tm(raw, t=2.0)
+    code = store.read("svf.tm.1.2.last_code")
+    assert code is not None and int(code.value) == 0x0007
+    assert S1_FAILURE_CODES[0x0007] == "not allowed in this mode"
+
+
+@pytest.mark.requirement("SVF-DEV-210")
+def test_actuator_controller_byte_is_published() -> None:
+    import struct
+    from svf.models.dhs.obc_emulator import _ACTUATOR_FMT
+    adapter, store = _adapter()
+    adapter._parse_actuator(struct.pack(_ACTUATOR_FMT, 0, 0, 0, 1e-3, 0, 0, 1, 5.0))
+    ctrl = store.read("svf.obc.actuator_controller")
+    assert ctrl is not None and ctrl.value == 1.0
+
+
+@pytest.mark.requirement("SVF-DEV-210")
+def test_published_obt_comes_from_hk_not_adapter_clock() -> None:
+    adapter, _ = _adapter()
+    assert adapter._obc_obt is None             # nothing reported yet -> 0.0 published
+    adapter._parse_tm(_set3(MODE_SAFE, 1234), t=0.3)
+    assert adapter._obc_obt == 1234

@@ -297,6 +297,26 @@ class ProcedureContext:
             time.sleep(0.05)
         raise ProcedureError(f"Condition not met within {timeout}s")
 
+    def ensure_nominal(self, timeout: float = 10.0) -> None:
+        """
+        Command the OBC to NOMINAL and wait until it reports NOMINAL.
+
+        openobsw boots in SAFE and rejects most TCs there with TM(1,2)
+        "not allowed in this mode"; call this before sending gated TCs.
+        Works with the stub, the Python OBC model and the real binary,
+        which reports its mode through HK set 3.
+        """
+        from svf.models.dhs.obc import MODE_NOMINAL
+        mode = self.read_parameter("dhs.obc.mode")
+        if mode is not None and mode == float(MODE_NOMINAL):
+            return
+        self.inject("dhs.obc.mode_cmd", float(MODE_NOMINAL))
+        self.wait_until(
+            lambda s: (e := s.read("dhs.obc.mode")) is not None
+            and e.value == float(MODE_NOMINAL),
+            timeout=timeout,
+        )
+
     def wait(self, seconds: float) -> None:
         """
         Block until the simulation has advanced by ``seconds`` of sim-time.

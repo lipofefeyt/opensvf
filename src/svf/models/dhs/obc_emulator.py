@@ -44,6 +44,17 @@ from svf.core.equipment import PortDefinition, PortDirection
 from svf.models.dhs.hil_adapter import HilAdapter
 from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE, MODE_STANDBY
 
+# openobsw TM(1,2)/TM(1,8) failure codes. PUS leaves these to the mission;
+# values from openobsw v0.16+ (SVF-DEV-209).
+S1_FAILURE_CODES: dict[int, str] = {
+    0x0002: "unknown service",
+    0x0003: "unknown subtype",
+    0x0004: "execution error",
+    0x0005: "bad data",
+    0x0006: "memory address",
+    0x0007: "not allowed in this mode",
+}
+
 # openobsw S8 function IDs (obsw/pus/s8.h) used for mode commands.
 _S8_FN_RECOVER_NOMINAL = 1
 _S8_FN_REQUEST_SAFE    = 2
@@ -156,7 +167,7 @@ class OBCEmulatorAdapter(HilAdapter):
     so parsing defaults to ``tm_pec=False``. Pass ``tm_pec=True`` for a
     flight software that appends a CRC-16 to every TM packet.
 
-    Implements: SVF-DEV-029, SVF-DEV-034, SVF-DEV-037, SVF-DEV-205
+    Implements: SVF-DEV-029, SVF-DEV-034, SVF-DEV-037, SVF-DEV-205, SVF-DEV-208
     """
 
     def __init__(
@@ -194,6 +205,7 @@ class OBCEmulatorAdapter(HilAdapter):
         self._obc_health:          int = 0
         self._obc_reset_count:     int = 0
         self._obc_cpu_load:        int = 0
+        self._obc_obt:             Optional[int] = None  # from HK set 3
 
         # FreeRTOS diagnostic counters (parsed from stderr / UART console)
         self._freertos_stack_overflow_count: int = 0
@@ -201,6 +213,10 @@ class OBCEmulatorAdapter(HilAdapter):
 
         self._tm_queue:   list[PusTmPacket] = []
         self._tm_lock     = threading.Lock()
+        # TCs from other threads (procedures, YAMCS) wait here; only the
+        # simulation thread talks to the binary (SVF-DEV-208).
+        self._tc_queue:   list[bytes] = []
+        self._tc_lock     = threading.Lock()
         # openobsw TM packets carry no Packet Error Control field.
         self._tm_pec      = tm_pec
         self._tm_parser   = PusTmParser(pec=tm_pec)
@@ -529,7 +545,9 @@ class OBCEmulatorAdapter(HilAdapter):
             self._parse_tm(pkt, t)
 
         self.write_port("dhs.obc.mode",            float(self._mode))
-        self.write_port("dhs.obc.obt",             self._obt)
+        # Flight-software OBT from HK set 3; 0 until the first report.
+        self.write_port("dhs.obc.obt",
+                        float(self._obc_obt) if self._obc_obt is not None else 0.0)
         self.write_port("dhs.obc.watchdog_status", float(self._obc_watchdog_status))
         self.write_port("dhs.obc.memory_used_pct", float(self._obc_memory_used_pct))
         self.write_port("dhs.obc.health",          float(self._obc_health))
@@ -615,6 +633,10 @@ class OBCEmulatorAdapter(HilAdapter):
         if time_sync >= 0.0:
             frames.append(self._build_s9_set_obt(time_sync))
             self._port_values["dhs.obc.time_sync_cmd"] = -1.0
+
+        with self._tc_lock:
+            frames.extend(self._tc_queue)
+            self._tc_queue.clear()
 
         # FreeRTOS TMTC task queue depth is 4 (obsw/task/tmtc.h).
         # Excess TCs are dropped silently by the OBSW  -  warn before sending.
@@ -719,6 +741,11 @@ class OBCEmulatorAdapter(HilAdapter):
         (mtq_x, mtq_y, mtq_z,
          rw_x,  rw_y,  rw_z,
          controller, sim_time) = struct.unpack_from(_ACTUATOR_FMT, body)
+
+        # Which control law the flight software ran: 0 = B-dot, 1 = ADCS PD.
+        if self._store is not None:
+            self._store.write(name="svf.obc.actuator_controller", value=float(controller),
+                              t=sim_time, model_id=self.equipment_id)
 
         if self._command_store is None:
             return
@@ -850,6 +877,16 @@ class OBCEmulatorAdapter(HilAdapter):
     def _on_s1(self, subsvc: int, pkt: bytes, t: float) -> None:
         labels = {1: "accepted", 2: "accept_failed",
                   7: "completed", 8: "completion_failed"}
+        app = pkt[_APP_DATA_OFFSET:]
+        if subsvc in (2, 8) and len(app) >= 6:
+            request_id, code = struct.unpack_from(">IH", app, 0)
+            logger.warning(
+                f"[obc-emu] TM(1,{subsvc}) {labels[subsvc]} request=0x{request_id:08X} "
+                f"code=0x{code:04X} ({S1_FAILURE_CODES.get(code, 'unknown')}) t={t:.3f}")
+            if self._store is not None:
+                self._store.write(name=f"svf.tm.1.{subsvc}.last_code", value=float(code),
+                                  t=t, model_id=self.equipment_id)
+            return
         logger.debug(
             f"[obc-emu] TM(1,{subsvc}) {labels.get(subsvc, '?')} t={t:.3f}")
 
@@ -875,6 +912,7 @@ class OBCEmulatorAdapter(HilAdapter):
             _DHS_OBC_HK_FMT, app, 1
         )
         self._mode                 = mode
+        self._obc_obt              = obt
         self._obc_watchdog_status  = wd
         self._obc_memory_used_pct  = mem
         self._obc_health           = health
@@ -916,15 +954,16 @@ class OBCEmulatorAdapter(HilAdapter):
         return self._proc is not None and self._proc.poll() is None
 
     def receive_tc(self, raw_tc: bytes, t: float = 0.0) -> list[PusTmPacket]:
-        self._write_typed_frame(FRAME_TC, raw_tc)
-        # Drain pending sync blocks so TM from this TC reaches YAMCS on this tick,
-        # not 2 ticks later.  Short timeout: binary responds in microseconds.
-        for _ in range(3):
-            tm_packets, synced = self._collect_until_sync(timeout=0.3)
-            for pkt in tm_packets:
-                self._parse_tm(pkt, t)
-            if not synced:
-                break
+        """
+        Queue a TC for the binary. Safe to call from any thread.
+
+        The TC is written on the simulation thread at the start of the next
+        do_step(), and its TM arrives in that tick's responses (read them
+        with get_tm_queue()). Writing from the caller's thread raced the
+        simulation thread for the pipe and stalled the simulation.
+        """
+        with self._tc_lock:
+            self._tc_queue.append(bytes(raw_tc))
         return []
 
     def get_tm_queue(self) -> list[PusTmPacket]:

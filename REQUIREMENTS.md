@@ -576,6 +576,15 @@ The L3 suite shall verify, against the real obsw_sim, that HK TM(3,25) is decode
 **SVF-DEV-207** `[DHS]` `IMPLEMENTED`
 Every TC that `OBCEmulatorAdapter` generates on its own (S8 mode commands, the S17 watchdog ping, S9 OBT set) shall be a valid PUS-C packet built by `PusTcBuilder`: the adapter's configured APID, a 5-byte secondary header, a running sequence count and a PEC. The hand-built S8 and S17 packets used before (APID 0x001 or PUS-A header, no PEC) were rejected by openobsw with TM(1,2), so mode commands never reached the flight software.
 
+**SVF-DEV-208** `[DHS]` `IMPLEMENTED`
+`OBCEmulatorAdapter.receive_tc()` shall be safe to call from any thread: it shall only queue the TC, and the simulation thread shall write queued TCs to the binary at the start of its next tick. Before this, a TC sent from a campaign procedure (or the YAMCS bridge thread) did pipe I/O concurrently with the simulation thread and stalled the simulation permanently.
+
+**SVF-DEV-209** `[CAM]` `IMPLEMENTED`
+Campaign procedures shall be able to satisfy openobsw's SAFE-mode TC gate: `ProcedureContext.ensure_nominal()` shall command NOMINAL and wait until the OBC reports NOMINAL, raising `ProcedureError` on timeout. `OBCEmulatorAdapter` shall decode TM(1,2) and TM(1,8) failure codes, log them with names (`S1_FAILURE_CODES`: 0x0002 unknown service, 0x0003 unknown subtype, 0x0004 execution error, 0x0005 bad data, 0x0006 memory address, 0x0007 not allowed in this mode) and publish the last code as `svf.tm.1.2.last_code` / `svf.tm.1.8.last_code`.
+
+**SVF-DEV-210** `[DHS]` `IMPLEMENTED`
+`OBCEmulatorAdapter` outputs shall reflect the flight software, not the adapter's own state: `dhs.obc.obt` shall be the OBT from HK set 3 (0 until the first report), `dhs.obc.mode` the mode from HK, and the actuator frame's controller byte (0 = B-dot, 1 = ADCS PD) shall be published as `svf.obc.actuator_controller`. L3 tests and HIL procedures shall assert these, so a mode command that never reaches the flight software fails a test.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -1127,6 +1136,9 @@ loads are connected and drop to 0 V when UVLO disconnects them.
 | SVF-DEV-205   | PUS  | IMPLEMENTED |  -  | test_adapter_queues_parsed_obsw_tm |
 | SVF-DEV-206   | DHS  | IMPLEMENTED |  -  | test_hk_obt_follows_tc9_128 |
 | SVF-DEV-207   | DHS  | IMPLEMENTED |  -  | test_adapter_tcs_are_valid_pus_c |
+| SVF-DEV-208   | DHS  | IMPLEMENTED |  -  | test_receive_tc_from_another_thread_only_queues |
+| SVF-DEV-209   | CAM  | IMPLEMENTED |  -  | test_safe_gate_rejects_s20_set_until_nominal |
+| SVF-DEV-210   | DHS  | IMPLEMENTED |  -  | test_nominal_mode_adcs_controller_activates |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |

@@ -129,3 +129,48 @@ class TestProcedureSuite:
         summary = result.summary()
         assert "PASS" in summary
         assert "TC-TEST-001" in summary
+
+
+# ── ensure_nominal (SVF-DEV-209) ─────────────────────────────────────────────
+
+class EnsureNominalSuite:
+
+    @staticmethod
+    def _ctx():  # type: ignore[no-untyped-def]
+        from svf.stores.parameter_store import ParameterStore
+        from svf.stores.command_store import CommandStore
+        store, cmd = ParameterStore(), CommandStore()
+        return ProcedureContext(None, store, cmd), store, cmd
+
+    @pytest.mark.requirement("SVF-DEV-209")
+    def test_already_nominal_sends_nothing(self) -> None:
+        from svf.models.dhs.obc import MODE_NOMINAL
+        ctx, store, cmd = self._ctx()
+        store.write("dhs.obc.mode", float(MODE_NOMINAL), t=0.0, model_id="obc")
+        ctx.ensure_nominal(timeout=0.5)
+        assert cmd.peek("dhs.obc.mode_cmd") is None
+
+    @pytest.mark.requirement("SVF-DEV-209")
+    def test_commands_nominal_and_waits_for_report(self) -> None:
+        import threading
+        from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE
+        ctx, store, cmd = self._ctx()
+        store.write("dhs.obc.mode", float(MODE_SAFE), t=0.0, model_id="obc")
+
+        def obc_reacts() -> None:           # stands in for the OBC model
+            import time
+            time.sleep(0.2)
+            store.write("dhs.obc.mode", float(MODE_NOMINAL), t=1.0, model_id="obc")
+        threading.Thread(target=obc_reacts, daemon=True).start()
+
+        ctx.ensure_nominal(timeout=5.0)
+        entry = cmd.peek("dhs.obc.mode_cmd")
+        assert entry is not None and entry.value == float(MODE_NOMINAL)
+
+    @pytest.mark.requirement("SVF-DEV-209")
+    def test_raises_when_obc_never_reports_nominal(self) -> None:
+        from svf.models.dhs.obc import MODE_SAFE
+        ctx, store, _ = self._ctx()
+        store.write("dhs.obc.mode", float(MODE_SAFE), t=0.0, model_id="obc")
+        with pytest.raises(ProcedureError):
+            ctx.ensure_nominal(timeout=0.3)
