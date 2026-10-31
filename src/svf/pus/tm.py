@@ -114,25 +114,42 @@ class PusTmBuilder:
 
 
 class PusTmParser:
-    """Parses raw bytes into PusTmPacket objects."""
+    """
+    Parses raw bytes into PusTmPacket objects.
 
-    MIN_PACKET_LEN = 6 + 10 + 2  # primary + dfh + CRC
+    The Packet Error Control field is optional in PUS-C (a mission choice).
+    With ``pec=True`` (default) the last two bytes are a CRC-16/CCITT that
+    is validated; with ``pec=False`` there is no PEC and the application
+    data runs to the end of the packet (openobsw omits it).
+
+    Implements: SVF-DEV-037, SVF-DEV-205
+    """
+
+    HEADER_LEN = 6 + 11  # primary header + PUS-C TM secondary header
+
+    def __init__(self, pec: bool = True) -> None:
+        self._pec = pec
+
+    @property
+    def min_packet_len(self) -> int:
+        return self.HEADER_LEN + (2 if self._pec else 0)
 
     def parse(self, data: bytes) -> PusTmPacket:
-        """Parse raw bytes into a PusTmPacket. Validates CRC."""
-        if len(data) < self.MIN_PACKET_LEN:
+        """Parse raw bytes into a PusTmPacket, validating the PEC if enabled."""
+        if len(data) < self.min_packet_len:
             raise PusTmError(
                 f"TM packet too short: {len(data)} bytes "
-                f"(minimum {self.MIN_PACKET_LEN})"
+                f"(minimum {self.min_packet_len})"
             )
 
-        received_crc = struct.unpack_from(">H", data, len(data) - 2)[0]
-        computed_crc = crc16(data[:-2])
-        if received_crc != computed_crc:
-            raise PusTmError(
-                f"CRC mismatch: received 0x{received_crc:04X}, "
-                f"computed 0x{computed_crc:04X}"
-            )
+        if self._pec:
+            received_crc = struct.unpack_from(">H", data, len(data) - 2)[0]
+            computed_crc = crc16(data[:-2])
+            if received_crc != computed_crc:
+                raise PusTmError(
+                    f"CRC mismatch: received 0x{received_crc:04X}, "
+                    f"computed 0x{computed_crc:04X}"
+                )
 
         word1, word2, data_length = struct.unpack_from(">HHH", data, 0)
         apid = word1 & 0x7FF
@@ -141,7 +158,7 @@ class PusTmParser:
         dfh_byte0, service, subservice, msg_counter, dest_id, timestamp = \
             struct.unpack_from(">BBBHHI", data, 6)
 
-        app_data = data[17:-2]
+        app_data = data[self.HEADER_LEN:-2] if self._pec else data[self.HEADER_LEN:]
 
         return PusTmPacket(
             apid=apid,

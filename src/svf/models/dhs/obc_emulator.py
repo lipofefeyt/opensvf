@@ -54,7 +54,7 @@ _S8_MODE_FUNCTION: dict[int, int] = {
     MODE_STANDBY: _S8_FN_REQUEST_STANDBY,
 }
 from svf.stores.parameter_store import ParameterStore
-from svf.pus.tc import PusTcBuilder
+from svf.pus.tc import PusTcBuilder, PusTcPacket
 from svf.pus.tm import PusTmPacket, PusTmParser
 from svf.pus.services import PusService9
 
@@ -65,9 +65,8 @@ SYNC_BYTE = 0xFF
 _APP_DATA_OFFSET = 17          # bytes: 6 primary + 11 secondary header
 _DHS_OBC_HK_SID = 3
 _DHS_OBC_HK_FMT = ">BIBBBHB"  # mode, obt, wd, mem, health, reset, cpu
-_DHS_OBC_HK_MIN_PKT_LEN = (
-    _APP_DATA_OFFSET + 1 + struct.calcsize(_DHS_OBC_HK_FMT) + 2  # +2 CRC
-)
+# Header + set id + set 3 fields; add 2 when TM carries a PEC (see tm_pec).
+_DHS_OBC_HK_MIN_PKT_LEN = _APP_DATA_OFFSET + 1 + struct.calcsize(_DHS_OBC_HK_FMT)
 MAX_DESYNC = 3
 
 # openobsw FreeRTOS TMTC task queue depth (obsw/task/tmtc.h, capacity 4).
@@ -153,7 +152,11 @@ class OBCEmulatorAdapter(HilAdapter):
     **aarch64 support:** If ``sim_path`` points to an AArch64 binary, QEMU
     user-mode emulation is detected automatically and applied transparently.
 
-    Implements: SVF-DEV-029, SVF-DEV-034, SVF-DEV-037
+    **TM parsing:** openobsw TM packets carry no Packet Error Control field,
+    so parsing defaults to ``tm_pec=False``. Pass ``tm_pec=True`` for a
+    flight software that appends a CRC-16 to every TM packet.
+
+    Implements: SVF-DEV-029, SVF-DEV-034, SVF-DEV-037, SVF-DEV-205
     """
 
     def __init__(
@@ -168,6 +171,7 @@ class OBCEmulatorAdapter(HilAdapter):
         serial_port: Optional[str] = None,
         baud_rate: int = 115200,
         apid: int = 0x010,
+        tm_pec: bool = False,
     ) -> None:
         self._sim_path = Path(sim_path) if sim_path is not None else None
         self._qemu_prefix = qemu_prefix or []
@@ -178,6 +182,7 @@ class OBCEmulatorAdapter(HilAdapter):
         self._serial_dev: Optional[Any] = None
         self._sync_timeout = sync_timeout
         self._apid = apid
+        self._tc_seq = 0
 
         self._obt:    float = 0.0
         self._mode:   int = MODE_SAFE
@@ -196,7 +201,9 @@ class OBCEmulatorAdapter(HilAdapter):
 
         self._tm_queue:   list[PusTmPacket] = []
         self._tm_lock     = threading.Lock()
-        self._tm_parser   = PusTmParser()
+        # openobsw TM packets carry no Packet Error Control field.
+        self._tm_pec      = tm_pec
+        self._tm_parser   = PusTmParser(pec=tm_pec)
         self._consecutive_desync: int = 0
 
         self._proc:   Optional[subprocess.Popen[bytes]] = None
@@ -629,23 +636,23 @@ class OBCEmulatorAdapter(HilAdapter):
         tc = PusService9.build_set_obt(obt_seconds, tc_apid=self._apid)
         return PusTcBuilder().build(tc)
 
+    def _build_tc(self, service: int, subservice: int, app_data: bytes = b"") -> bytes:
+        """PUS-C TC with this adapter's APID, a running sequence count and PEC."""
+        self._tc_seq = (self._tc_seq + 1) % 16384
+        return PusTcBuilder().build(PusTcPacket(
+            apid=self._apid, sequence_count=self._tc_seq,
+            service=service, subservice=subservice, app_data=app_data,
+        ))
+
     def _build_s17_ping(self) -> bytes:
-        # PUS-A TC(17,1): primary [type=TC, sec_hdr=1, APID] + secondary [0x11, svc, subsvc, src_id]
-        # Length field = secondary_size - 1 = (1+1+1+2) - 1 = 4
-        apid_word = 0x1800 | (self._apid & 0x7FF)
-        return struct.pack(">HHHBBBH", apid_word, 0xC000, 0x0004, 0x11, 17, 1, 0)
+        return self._build_tc(17, 1)
 
     def _build_s8_recover_nominal(self) -> bytes:
         return self._build_s8_perform(_S8_FN_RECOVER_NOMINAL)
 
     def _build_s8_perform(self, function_id: int) -> bytes:
         """TC(8,1) perform function: function_id (u16 BE) + args_len 0."""
-        user_data = struct.pack(">HB", function_id, 0)
-        data_len = 3 + len(user_data) - 1
-        hdr = struct.pack(">HHHBBB",
-                          0x1801, 0xC000, data_len, 0x20, 8, 1,
-                          )
-        return hdr + user_data
+        return self._build_tc(8, 1, struct.pack(">HB", function_id, 0))
 
     def _write_typed_frame(self, frame_type: int, frame: bytes) -> None:
         """Send [type_byte][uint16 BE length][frame bytes] to obsw_sim."""
@@ -859,7 +866,7 @@ class OBCEmulatorAdapter(HilAdapter):
 
     def _on_s3_25(self, pkt: bytes, t: float) -> None:
         """Parse TM(3,25) DHS OBC HK set_id=3 and update instance state."""
-        if len(pkt) < _DHS_OBC_HK_MIN_PKT_LEN:
+        if len(pkt) < _DHS_OBC_HK_MIN_PKT_LEN + (2 if self._tm_pec else 0):
             return
         app = pkt[_APP_DATA_OFFSET:]
         if app[0] != _DHS_OBC_HK_SID:

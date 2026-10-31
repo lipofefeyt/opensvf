@@ -567,6 +567,15 @@ Generated SMP-style artefacts (`smp/opensvf.smpcat`, `smp/*.smpconf`) shall not 
 **SVF-DEV-204** `[SIM]` `IMPLEMENTED`
 A command injected into the `CommandStore` shall be delivered once to every equipment model that declares an IN port of that name, not only to the first model that ticks. `CommandStore.take()` shall accept an optional consumer ID: with one, each distinct consumer receives the command once; without one, the command is consumed once (the behaviour bus adapters rely on). A re-injection shall be delivered again to every consumer. Found when the PCDU never received `eps.solar_array.illumination` because the solar array consumed it first; `aocs.truth.rate_*` (gyroscope and CSS) had the same defect.
 
+**SVF-DEV-205** `[PUS]` `IMPLEMENTED`
+The PUS TM parser shall support packets without a Packet Error Control field, which PUS-C leaves to the mission. `PusTmParser(pec=False)` shall skip CRC validation and treat the bytes after the 17-byte header as application data; the default shall remain `pec=True`. `OBCEmulatorAdapter` shall parse with `pec=False` by default, because openobsw emits no PEC; before this, every obsw_sim TM packet failed the CRC check and the adapter's TM queue stayed empty.
+
+**SVF-DEV-206** `[DHS]` `IMPLEMENTED`
+The L3 suite shall verify, against the real obsw_sim, that HK TM(3,25) is decoded big-endian: DHS OBC HK (set 3) `obc_obt` advances in seconds since boot, follows the value set by TC(9,128), and AOCS HK (set 4) `bdot_gain` equals the value reported by TC(20,3)/TM(20,2). Regression guard for openobsw#82 and opensvf#192.
+
+**SVF-DEV-207** `[DHS]` `IMPLEMENTED`
+Every TC that `OBCEmulatorAdapter` generates on its own (S8 mode commands, the S17 watchdog ping, S9 OBT set) shall be a valid PUS-C packet built by `PusTcBuilder`: the adapter's configured APID, a 5-byte secondary header, a running sequence count and a PEC. The hand-built S8 and S17 packets used before (APID 0x001 or PUS-A header, no PEC) were rejected by openobsw with TM(1,2), so mode commands never reached the flight software.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -1115,6 +1124,9 @@ loads are connected and drop to 0 V when UVLO disconnects them.
 | SVF-DEV-202   | SMP  | IMPLEMENTED | M63 | test_publish_twice_is_rejected |
 | SVF-DEV-203   | SMP  | IMPLEMENTED | M63 | test_catalogue_does_not_use_esa_namespace |
 | SVF-DEV-204   | SIM  | IMPLEMENTED |  -  | test_each_consumer_receives_shared_command_once |
+| SVF-DEV-205   | PUS  | IMPLEMENTED |  -  | test_adapter_queues_parsed_obsw_tm |
+| SVF-DEV-206   | DHS  | IMPLEMENTED |  -  | test_hk_obt_follows_tc9_128 |
+| SVF-DEV-207   | DHS  | IMPLEMENTED |  -  | test_adapter_tcs_are_valid_pus_c |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |

@@ -102,3 +102,41 @@ def test_s3_hk_report_payload(
     parsed_soc, parsed_voltage = struct.unpack_from(">ff", parsed.app_data)
     assert parsed_soc == pytest.approx(soc)
     assert parsed_voltage == pytest.approx(voltage)
+
+
+# ── Optional Packet Error Control (SVF-DEV-205) ──────────────────────────────
+
+@pytest.mark.requirement("SVF-DEV-205")
+def test_parse_without_pec_keeps_full_app_data(
+    builder: PusTmBuilder, packet: PusTmPacket
+) -> None:
+    """With pec=False the last two bytes are application data, not a CRC."""
+    raw = builder.build(packet)[:-2]          # strip the CRC: a PEC-less packet
+    parsed = PusTmParser(pec=False).parse(raw)
+    assert parsed.service == packet.service
+    assert parsed.subservice == packet.subservice
+    assert parsed.app_data == packet.app_data
+
+
+@pytest.mark.requirement("SVF-DEV-205")
+def test_pec_less_packet_fails_default_parser(
+    builder: PusTmBuilder, packet: PusTmPacket
+) -> None:
+    """The default parser still demands a valid CRC."""
+    raw = builder.build(packet)[:-2]
+    with pytest.raises(PusTmError):
+        PusTmParser().parse(raw)
+
+
+@pytest.mark.requirement("SVF-DEV-205")
+def test_openobsw_hk_packet_parses_without_pec() -> None:
+    """A TM(3,25) set 3 packet as emitted by openobsw v0.18 (no PEC)."""
+    raw = bytes.fromhex(
+        "0903c00000162003190000000000000000"   # primary (len 22) + PUS-C secondary
+        "03" "01" "000003e8" "00" "00" "01" "0000" "05"  # set 3: SAFE, OBT 1000
+    )
+    pkt = PusTmParser(pec=False).parse(raw)
+    assert (pkt.service, pkt.subservice) == (3, 25)
+    assert pkt.app_data[0] == 3
+    mode, obt = struct.unpack_from(">BI", pkt.app_data, 1)
+    assert (mode, obt) == (1, 1000)
