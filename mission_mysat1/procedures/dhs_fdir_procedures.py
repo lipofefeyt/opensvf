@@ -13,7 +13,7 @@ Requirements covered: MIS-FDIR-001, MIS-FDIR-002, MIS-FDIR-003, OBC-001
 from __future__ import annotations
 
 from svf.campaign.procedure import Procedure, ProcedureContext
-from svf.models.dhs.obc import MODE_SAFE
+from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE
 from svf.models.dhs.obc_stub import ObcStub, Rule
 from svf.stores.command_store import CommandStore
 
@@ -28,7 +28,7 @@ class OBCBootsInSafeMode(Procedure):
         ctx.wait(0.5)
 
         self.step("Verify OBC in SAFE mode at boot")
-        ctx.assert_parameter("dhs.obc.mode", less_than=0.5)
+        ctx.assert_parameter("dhs.obc.mode", equals=float(MODE_SAFE))
 
         self.step("Verify OBT advancing")
         ctx.assert_parameter("dhs.obc.obt", greater_than=0.0)
@@ -45,14 +45,14 @@ class SafeToNominalTransition(Procedure):
     def run(self, ctx: ProcedureContext) -> None:
         self.step("Verify initial SAFE mode")
         ctx.wait(0.5)
-        ctx.assert_parameter("dhs.obc.mode", less_than=0.5)
+        ctx.assert_parameter("dhs.obc.mode", equals=float(MODE_SAFE))
 
         self.step("Send mode command  -  NOMINAL")
-        ctx.inject("dhs.obc.mode_cmd", 1.0)
+        ctx.inject("dhs.obc.mode_cmd", float(MODE_NOMINAL))
         ctx.wait(1.0)
 
         self.step("Verify NOMINAL mode active")
-        ctx.assert_parameter("dhs.obc.mode", greater_than=0.5)
+        ctx.assert_parameter("dhs.obc.mode", equals=float(MODE_NOMINAL))
 
         self.step("Verify health still nominal after transition")
         ctx.assert_parameter("dhs.obc.health", less_than=0.5)
@@ -88,9 +88,9 @@ class FdirChain(Procedure):
 
     def run(self, ctx: ProcedureContext) -> None:
         self.step("Transition to NOMINAL mode")
-        ctx.inject("dhs.obc.mode_cmd", 1.0)
+        ctx.inject("dhs.obc.mode_cmd", float(MODE_NOMINAL))
         ctx.wait(1.0)
-        ctx.assert_parameter("dhs.obc.mode", greater_than=0.5)
+        ctx.assert_parameter("dhs.obc.mode", equals=float(MODE_NOMINAL))
 
         self.step("Spin up reaction wheel")
         ctx.inject("aocs.rw1.torque_cmd", 0.05)
@@ -120,16 +120,16 @@ class FdirChain(Procedure):
 
         self.step("Verify OBC stub detects stall and transitions to SAFE")
         ctx.wait_until(
-            lambda s: (e := s.read("dhs.obc.mode")) is not None and e.value < 0.5,
+            lambda s: (e := s.read("dhs.obc.mode")) is not None and e.value == float(MODE_SAFE),
             timeout=10.0,
         )
-        ctx.assert_parameter("dhs.obc.mode", less_than=0.5)
+        ctx.assert_parameter("dhs.obc.mode", equals=float(MODE_SAFE))
 
         self.step("Verify S5 anomaly event was generated on SAFE transition")
         ctx.assert_parameter("svf.tm.5.1.received", greater_than=0.0)
 
         self.step("Clear fault and recover to NOMINAL")
         ctx.clear_equipment_faults("rw1")
-        ctx.inject("dhs.obc.mode_cmd", 1.0)
+        ctx.inject("dhs.obc.mode_cmd", float(MODE_NOMINAL))
         ctx.wait(1.0)
-        ctx.assert_parameter("dhs.obc.mode", greater_than=0.5)
+        ctx.assert_parameter("dhs.obc.mode", equals=float(MODE_NOMINAL))

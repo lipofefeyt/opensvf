@@ -7,13 +7,13 @@ parameters:
   # ── OBC health ────────────────────────────────────────────────────────────
 
   dhs.obc.mode:
-    description: OBC operating mode (0=safe, 1=nominal, 2=payload)
+    description: OBC operating mode (0=standby, 1=safe, 2=nominal as openobsw obc_mode; 3=payload, opensvf model only)
     unit: ""
     dtype: int
     classification: TM
     domain: OBDH
     model_id: obc
-    valid_range: [0.0, 2.0]
+    valid_range: [0.0, 3.0]
     pus:
       apid: 0x103
       service: 3
@@ -27,7 +27,7 @@ parameters:
     classification: TC
     domain: OBDH
     model_id: obc
-    valid_range: [0.0, 2.0]
+    valid_range: [0.0, 3.0]
     pus:
       apid: 0x103
       service: 20

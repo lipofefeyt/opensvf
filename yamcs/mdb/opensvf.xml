@@ -193,7 +193,7 @@
         <LongDescription>Mass memory used percentage</LongDescription>
       </Parameter>
       <Parameter name="dhs_obc_mode" parameterTypeRef="int32">
-        <LongDescription>OBC operating mode (0=safe, 1=nominal, 2=payload)</LongDescription>
+        <LongDescription>OBC operating mode (0=standby, 1=safe, 2=nominal as openobsw obc_mode; 3=payload, opensvf model only)</LongDescription>
       </Parameter>
       <Parameter name="dhs_obc_obt" parameterTypeRef="float32">
         <LongDescription>On-board time in seconds since epoch</LongDescription>

@@ -42,7 +42,17 @@ from svf.core.abstractions import SyncProtocol
 from svf.stores.command_store import CommandStore
 from svf.core.equipment import PortDefinition, PortDirection
 from svf.models.dhs.hil_adapter import HilAdapter
-from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE
+from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE, MODE_STANDBY
+
+# openobsw S8 function IDs (obsw/pus/s8.h) used for mode commands.
+_S8_FN_RECOVER_NOMINAL = 1
+_S8_FN_REQUEST_SAFE    = 2
+_S8_FN_REQUEST_STANDBY = 3
+_S8_MODE_FUNCTION: dict[int, int] = {
+    MODE_NOMINAL: _S8_FN_RECOVER_NOMINAL,
+    MODE_SAFE:    _S8_FN_REQUEST_SAFE,
+    MODE_STANDBY: _S8_FN_REQUEST_STANDBY,
+}
 from svf.stores.parameter_store import ParameterStore
 from svf.pus.tc import PusTcBuilder
 from svf.pus.tm import PusTmPacket, PusTmParser
@@ -581,8 +591,12 @@ class OBCEmulatorAdapter(HilAdapter):
 
         mode_cmd = self.read_port("dhs.obc.mode_cmd")
         if mode_cmd >= 0.0:
-            if int(round(mode_cmd)) == MODE_NOMINAL:
-                frames.append(self._build_s8_recover_nominal())
+            fid = _S8_MODE_FUNCTION.get(int(round(mode_cmd)))
+            if fid is not None:
+                frames.append(self._build_s8_perform(fid))
+            else:
+                logger.warning(
+                    f"[obc-emu] mode_cmd={mode_cmd} has no openobsw S8 function; ignored")
             self._port_values["dhs.obc.mode_cmd"] = -1.0
 
         wdg_kick = self.read_port("dhs.obc.watchdog_kick")
@@ -622,7 +636,11 @@ class OBCEmulatorAdapter(HilAdapter):
         return struct.pack(">HHHBBBH", apid_word, 0xC000, 0x0004, 0x11, 17, 1, 0)
 
     def _build_s8_recover_nominal(self) -> bytes:
-        user_data = bytes([0x00, 0x01, 0x00])
+        return self._build_s8_perform(_S8_FN_RECOVER_NOMINAL)
+
+    def _build_s8_perform(self, function_id: int) -> bytes:
+        """TC(8,1) perform function: function_id (u16 BE) + args_len 0."""
+        user_data = struct.pack(">HB", function_id, 0)
         data_len = 3 + len(user_data) - 1
         hdr = struct.pack(">HHHBBB",
                           0x1801, 0xC000, data_len, 0x20, 8, 1,

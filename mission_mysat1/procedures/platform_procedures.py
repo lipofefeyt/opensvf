@@ -13,7 +13,7 @@ from __future__ import annotations
 import struct
 
 from svf.campaign.procedure import Procedure, ProcedureContext
-from svf.models.dhs.obc import ObcEquipment
+from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE, ObcEquipment
 
 
 def _configure_obc(ctx: ProcedureContext) -> None:
@@ -42,7 +42,7 @@ class SafeModeRecovery(Procedure):
 
         self.step("Verify OBC boots in SAFE mode")
         ctx.wait(0.5)
-        ctx.assert_parameter("dhs.obc.mode", equals=0.0)
+        ctx.assert_parameter("dhs.obc.mode", equals=float(MODE_SAFE))
 
         self.step("Power on ST and wait for attitude acquisition")
         ctx.inject("aocs.str1.power_enable", 1.0)
@@ -53,14 +53,14 @@ class SafeModeRecovery(Procedure):
         )
 
         self.step("Command transition to NOMINAL via PUS TC(20,1)")
-        ctx.tc(service=20, subservice=1, data=struct.pack(">Hf", 0x4002, 1.0))
+        ctx.tc(service=20, subservice=1, data=struct.pack(">Hf", 0x4002, float(MODE_NOMINAL)))
 
         self.step("Verify OBC transitions to NOMINAL")
         ctx.wait_until(
-            lambda s: (e := s.read("dhs.obc.mode")) is not None and e.value == 1.0,
+            lambda s: (e := s.read("dhs.obc.mode")) is not None and e.value == float(MODE_NOMINAL),
             timeout=10.0,
         )
-        ctx.assert_parameter("dhs.obc.mode", equals=1.0)
+        ctx.assert_parameter("dhs.obc.mode", equals=float(MODE_NOMINAL))
 
 
 class NominalOperationsLoop(Procedure):

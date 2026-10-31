@@ -14,6 +14,7 @@ Run with:
 """
 from __future__ import annotations
 
+from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE
 from svf.campaign.procedure import Procedure, ProcedureContext
 
 
@@ -33,7 +34,7 @@ class Act1_NominalOps(Procedure):
         ctx.wait(1.0)
 
         self.step("Verify OBC in SAFE mode at boot")
-        ctx.assert_parameter("dhs.obc.mode", less_than=0.5)
+        ctx.assert_parameter("dhs.obc.mode", equals=float(MODE_SAFE))
 
         self.step("Verify OBT advancing")
         ctx.assert_parameter("dhs.obc.obt", greater_than=0.0)
@@ -44,9 +45,9 @@ class Act1_NominalOps(Procedure):
         ctx.assert_parameter("dhs.obc.watchdog_status", less_than=0.5)
 
         self.step("Command NOMINAL mode")
-        ctx.inject("dhs.obc.mode_cmd", 1.0)
+        ctx.inject("dhs.obc.mode_cmd", float(MODE_NOMINAL))
         ctx.wait(1.0)
-        ctx.assert_parameter("dhs.obc.mode", greater_than=0.5)
+        ctx.assert_parameter("dhs.obc.mode", equals=float(MODE_NOMINAL))
 
         self.step("Wait for star tracker acquisition (12s)")
         ctx.wait(13.0)
@@ -113,7 +114,7 @@ class Act3_GroundRecovery(Procedure):
         ctx.inject("aocs.str1.power_enable", 1.0)
         ctx.inject("aocs.str1.sun_angle",    10.0)  # Fault condition active
         ctx.wait(1.0)
-        ctx.assert_parameter("dhs.obc.mode", less_than=0.5)  # SAFE
+        ctx.assert_parameter("dhs.obc.mode", equals=float(MODE_SAFE))  # SAFE
 
         self.step("Ground station: clear star tracker fault condition")
         ctx.inject("aocs.str1.sun_angle", 90.0)   # Rotate away from sun
@@ -121,12 +122,12 @@ class Act3_GroundRecovery(Procedure):
         ctx.assert_parameter("aocs.str1.validity", greater_than=0.5)
 
         self.step("Ground uplinks mode recovery command  -  TC(8,1) recover_nominal")
-        ctx.inject("dhs.obc.mode_cmd", 1.0)
+        ctx.inject("dhs.obc.mode_cmd", float(MODE_NOMINAL))
         ctx.inject("dhs.obc.watchdog_kick", 1.0)
         ctx.wait(2.0)
 
         self.step("Verify OBSW transitioned to NOMINAL mode")
-        ctx.assert_parameter("dhs.obc.mode", greater_than=0.5)
+        ctx.assert_parameter("dhs.obc.mode", equals=float(MODE_NOMINAL))
 
         self.step("Final health check  -  spacecraft fully recovered")
         ctx.assert_parameter("dhs.obc.watchdog_status", less_than=0.5)

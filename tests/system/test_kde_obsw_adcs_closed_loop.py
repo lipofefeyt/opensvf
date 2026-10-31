@@ -26,6 +26,7 @@ from svf.ground.dds_sync import DdsSyncProtocol
 from svf.stores.parameter_store import ParameterStore
 from svf.stores.command_store import CommandStore
 from svf.config.wiring import WiringLoader
+from svf.models.dhs.obc import MODE_NOMINAL
 from svf.models.dhs.obc_emulator import OBCEmulatorAdapter
 from svf.models.ttc.ttc import TtcEquipment
 from svf.models.dynamics.kde_equipment import make_kde_equipment
@@ -183,7 +184,7 @@ def test_nominal_mode_adcs_controller_activates() -> None:
     import threading
     def inject_nominal() -> None:
         time.sleep(6.0)  # wall clock  -  simulation runs fast
-        cmd_store.inject("dhs.obc.mode_cmd", 1.0, source_id="test")
+        cmd_store.inject("dhs.obc.mode_cmd", float(MODE_NOMINAL), source_id="test")
 
     t = threading.Thread(target=inject_nominal, daemon=True)
     t.start()

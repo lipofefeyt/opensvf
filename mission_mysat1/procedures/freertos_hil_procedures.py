@@ -17,6 +17,7 @@ from __future__ import annotations
 import struct
 import time
 
+from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE
 from svf.campaign.procedure import (
     Procedure,
     ProcedureContext,
@@ -123,7 +124,7 @@ class HkTelemetryReception(Procedure):
         ctx.wait_until(_obt_advancing, timeout=5.0)
 
         self.step("Verify OBC mode is SAFE (0) at boot")
-        ctx.assert_parameter("dhs.obc.mode", less_than=0.5)
+        ctx.assert_parameter("dhs.obc.mode", equals=float(MODE_SAFE))
 
         self.step("Verify OBC health is nominal (0)")
         ctx.assert_parameter("dhs.obc.health", less_than=0.5)

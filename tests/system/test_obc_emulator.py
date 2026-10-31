@@ -134,9 +134,9 @@ def test_emulator_mode_reported_via_s5_events() -> None:
 
     mode = store.read("dhs.obc.mode")
     assert mode is not None
-    # OBSW boots in SAFE mode
-    assert mode.value in (float(MODE_SAFE), float(MODE_NOMINAL)), \
-        f"Mode should be SAFE or NOMINAL after boot: {mode.value}"
+    # obsw_sim boots in SAFE (openobsw obc_mode encoding: SAFE=1)
+    assert mode.value == float(MODE_SAFE), \
+        f"Mode should be SAFE after boot: {mode.value}"
 
 
 @pytest.mark.requirement("SVF-DEV-037", "SVF-DEV-029")

@@ -18,6 +18,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from svf.models.dhs.obc import MODE_NOMINAL
 from svf.models.dhs.obc_emulator import OBCEmulatorAdapter
 
 # Resolve obsw_sim: $OBSW_SIM > repo bin/ (as the other L3 tests) > sibling
@@ -153,7 +154,7 @@ class OBCEmulatorAdapterTests:
         adapter.initialise()
         try:
             # Inject NOMINAL mode command
-            adapter.receive("dhs.obc.mode_cmd", 1.0)
+            adapter.receive("dhs.obc.mode_cmd", float(MODE_NOMINAL))
             for i in range(10):
                 adapter.do_step(t=float(i) * 0.1, dt=0.1)
         finally:

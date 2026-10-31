@@ -38,10 +38,13 @@ from svf.pus.services import (
 
 logger = logging.getLogger(__name__)
 
-# OBC mode constants
-MODE_SAFE    = 0
-MODE_NOMINAL = 1
-MODE_PAYLOAD = 2
+# OBC mode constants. 0-2 are openobsw's SRDB obc_mode enumeration, which
+# owns the encoding (dhs_obc_hk.mode, SRDB_ENUM_OBC_MODE_*). PAYLOAD is an
+# opensvf-only extension of the Python OBC model.
+MODE_STANDBY = 0
+MODE_SAFE    = 1
+MODE_NOMINAL = 2
+MODE_PAYLOAD = 3
 
 # Watchdog status constants
 WDG_NOMINAL  = 0
