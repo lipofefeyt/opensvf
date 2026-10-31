@@ -1,12 +1,12 @@
 """
-tests/test_obc_emulator_adapter.py
+tests/system/test_obc_emulator_adapter.py
 End-to-end test for OBCEmulatorAdapter against the real obsw_sim binary.
 
 Requires obsw_sim to be built:
     cd ../openobsw && cmake --build build
 
 Run:
-    pytest tests/test_obc_emulator_adapter.py -v
+    pytest tests/system/test_obc_emulator_adapter.py -v
 """
 
 from __future__ import annotations
@@ -20,18 +20,17 @@ import pytest
 
 from svf.models.dhs.obc_emulator import OBCEmulatorAdapter
 
-# Resolve obsw_sim path: env var > repo root > sibling repo
-_env = os.environ.get("OBSW_SIM")
-if _env:
-    OBSW_SIM = Path(_env)
-else:
-    _root = Path(__file__).parent.parent
-    _candidates = [
-        _root / "obsw_sim",
-        _root / "build" / "sim" / "obsw_sim",
-        _root.parent / "openobsw" / "build" / "sim" / "obsw_sim",
-    ]
-    OBSW_SIM = next((p for p in _candidates if p.exists()), _candidates[0])
+# Resolve obsw_sim: $OBSW_SIM > repo bin/ (as the other L3 tests) > sibling
+# openobsw checkout. First existing candidate wins.
+_repo = Path(__file__).parent.parent.parent
+_candidates = [
+    Path(p) for p in (os.environ.get("OBSW_SIM"),) if p
+] + [
+    _repo / "bin" / "obsw_sim",
+    Path(os.environ.get("OPENOBSW_REPO", _repo.parent / "openobsw")) / "build" / "sim" / "obsw_sim",
+    _repo.parent / "openobsw" / "build" / "sim" / "obsw_sim",
+]
+OBSW_SIM = next((p for p in _candidates if p.exists()), _candidates[0])
 
 
 def make_sync() -> MagicMock:
