@@ -42,7 +42,7 @@ opensvf-kde (C++/Eigen3)        openobsw (C11)
 
 | Package | Version | Notes |
 |---|---|---|
-| opensvf | v1.1.0 | Python 3.12 |
+| opensvf | v1.2.0 | Python 3.12 |
 | openobsw | v0.18 (pinned in `.openobsw-version`) | C11 |
 | opensvf-kde | v0.1.0+ (SGP4 + RK4 build, Aug 2026) | C++ / Eigen3 |
 | YAMCS | 5.12.6 | Java 21+ |
