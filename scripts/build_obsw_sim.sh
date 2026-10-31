@@ -20,7 +20,7 @@ src="${OPENOBSW_SRC:-$work/src}"
 if [ -z "${OPENOBSW_SRC:-}" ]; then
     if [ ! -d "$src/.git" ]; then
         rm -rf "$src"
-        git clone --quiet --depth 1 --branch "$ref" \
+        git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$ref" \
             https://github.com/lipofefeyt/openobsw.git "$src"
     fi
 else
@@ -34,9 +34,18 @@ if [ ! -x "$work/venv/bin/python" ]; then
     "$work/venv/bin/pip" install --quiet --disable-pip-version-check "$src/srdb"
 fi
 
-PATH="$work/venv/bin:$PATH" cmake -S "$src" -B "$work/build" -G Ninja \
-    -DCMAKE_BUILD_TYPE=Release -DOBSW_BUILD_TESTS=OFF -DOBSW_BUILD_SIM=ON >/dev/null
-PATH="$work/venv/bin:$PATH" cmake --build "$work/build" --target obsw_sim >/dev/null
+# Pass the venv interpreter explicitly: CI's setup-python exports
+# Python3_ROOT_DIR, which would otherwise win over PATH in find_package().
+log="$work/build.log"
+if ! { PATH="$work/venv/bin:$PATH" cmake -S "$src" -B "$work/build" -G Ninja \
+           -DCMAKE_BUILD_TYPE=Release -DOBSW_BUILD_TESTS=OFF -DOBSW_BUILD_SIM=ON \
+           -DPython3_EXECUTABLE="$work/venv/bin/python" \
+       && PATH="$work/venv/bin:$PATH" cmake --build "$work/build" --target obsw_sim; } \
+       > "$log" 2>&1; then
+    cat "$log" >&2
+    echo "[build_obsw_sim] build failed (log: $log)" >&2
+    exit 1
+fi
 
 mkdir -p "$repo/bin"
 cp "$work/build/sim/obsw_sim" "$repo/bin/obsw_sim"
