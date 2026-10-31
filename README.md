@@ -356,11 +356,12 @@ Grouped into release trains. M53-M62 come from a 2026-07 gap analysis against a 
 
 | Release | Theme | Milestones |
 |---|---|---|
-| v1.1 (Oct 2026) | Ship what is built | M50-M52, M63; M69 published Docker image |
-| v1.2 (Q1 2027) | Second reference mission | M65 QUBIK (LSF PocketQube) feasibility spike; M66 QUBIK mission pack; M67 SatNOGS telemetry replay + model-vs-flight report; M56 post-hoc analysis tools |
-| v1.3 (Q2 2027) | Operations preparation | M70 SCOS-2000 MIB import/export (revives SVF-DEV-098); M64 PLUTO (ECSS-E-ST-70-32C) procedure subset; M58 live YAMCS dashboards; M53 PUS S2 + S14 |
-| v1.4 (Q3 2027) | Verification depth | M57 FDIR supervisor; M55 soak + worst-case harness; M54 bus utilisation + WCET; M61 wire protocol fault injection; M62 DiscreteLine hard-line model |
-| v2.0 (2028) | Interoperability | M68 real SMP runtime bridge; M60 orbital environment into opensvf-kde; M59 multi-spacecraft |
+| v1.1 (Oct 2026) | Ship what is built | M50-M52, M63 (released) |
+| v1.2 (Nov 2026) | Align with openobsw v0.18 | SRDB mode encoding, TM without PEC, valid adapter TCs, thread-safe TC queue, HIL procedures re-validated, S11/S12/S19 against the flight software, L3 in CI against pinned openobsw (SVF-DEV-205 to 212) |
+| v1.3 (Q1 2027) | Second reference mission | M65 QUBIK (LSF PocketQube) feasibility spike; M66 QUBIK mission pack; M67 SatNOGS telemetry replay + model-vs-flight report; M56 post-hoc analysis tools; M72 SimLogger structured logging; M69 published Docker image |
+| v1.4 (Q2 2027) | Operations preparation | M70 SCOS-2000 MIB import/export (revives SVF-DEV-098); M64 PLUTO (ECSS-E-ST-70-32C) procedure subset; M58 live YAMCS dashboards; M71 pre-built YAMCS display pages; M53 PUS S2 + S14 |
+| v1.5 (Q3 2027) | Verification depth | M57 FDIR supervisor; M73 FaultPlan fault scheduler; M74 FDIR validation campaign; M55 soak + worst-case harness; M54 bus utilisation + WCET; M61 wire protocol fault injection; M62 DiscreteLine hard-line model |
+| v2.0 (2028) | Interoperability | M68 real SMP runtime bridge; M75 FMU export of SimulationMaster; M60 orbital environment into opensvf-kde; M59 multi-spacecraft |
 
 ---
 
