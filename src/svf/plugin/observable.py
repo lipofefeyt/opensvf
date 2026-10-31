@@ -57,8 +57,14 @@ class WithinClause:
                     )
                     return entry.value
 
-            # If simulation is done and condition still not met  -  fail fast
+            # Simulation finished: judge the final value, which may have been
+            # written after the read above, then fail fast.
             if self._session is not None and self._session._done:
+                final = self._store.read(self._variable)
+                if final is not None:
+                    last_value = final.value
+                    if self._condition(final.value):
+                        return final.value
                 break
 
             time.sleep(0.001)

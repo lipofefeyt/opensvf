@@ -174,3 +174,31 @@ def test_observe_satisfies(
     thread.join()
 
     assert result > 0.7
+
+@pytest.mark.requirement("SVF-DEV-041")
+def test_within_rereads_store_when_simulation_finishes_mid_poll() -> None:
+    """
+    Race: the poll reads a value below target, the simulation then finishes
+    and sets _done. within() must re-read the final value before failing.
+    """
+    from types import SimpleNamespace
+    from svf.plugin.observable import WithinClause
+    from svf.stores.parameter_store import ParameterStore
+
+    store = ParameterStore()
+    store.write("counter", 0.9, t=0.9, model_id="counter")
+    session = SimpleNamespace(_done=False)
+    real_read = store.read
+
+    def read_then_finish(name: str):  # type: ignore[no-untyped-def]
+        entry = real_read(name)
+        # The simulation completes right after this read.
+        store.write("counter", 2.0, t=2.0, model_id="counter")
+        session._done = True
+        return entry
+
+    store.read = read_then_finish  # type: ignore[method-assign]
+    clause = WithinClause(store=store, variable="counter",
+                          condition=lambda v: v >= 1.0, condition_desc="reaches 1.0",
+                          session=session)  # type: ignore[arg-type]
+    assert clause.within(1.0) == 2.0
