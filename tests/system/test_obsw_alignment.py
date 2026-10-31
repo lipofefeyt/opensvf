@@ -8,6 +8,9 @@ use. Covers:
 - TM without Packet Error Control is parsed (SVF-DEV-205)
 - HK TM(3,25) byte order: OBT in seconds, TC(9,128) sets it, AOCS floats
   match their S20 values (SVF-DEV-206, opensvf#192)
+- SAFE TC gate: rejection code 0x0007, accepted once NOMINAL (SVF-DEV-209)
+- S11, S12, S19 built with opensvf's codecs behave as openobsw specifies
+  (SVF-DEV-211)
 
 Run:
     pytest tests/system/test_obsw_alignment.py -v
@@ -197,3 +200,103 @@ def test_safe_gate_rejects_s20_set_until_nominal(obsw: ObswHarness) -> None:
     assert _s1_failures(packets) == [], "TC(20,1) rejected in NOMINAL"
     reports = [p.app_data for p in packets if (p.service, p.subservice) == (20, 2)]
     assert reports and struct.unpack_from(">f", reports[-1], 2)[0] == pytest.approx(new_gain)
+
+
+# ── S11, S12, S19 against the flight software (SVF-DEV-211) ─────────────────
+# TCs are built with opensvf's own codecs, so these tests prove that what
+# opensvf campaigns send is what openobsw v0.18 implements (OBSW-SRS-280..306).
+
+
+def _ping() -> bytes:
+    """A complete TC(17,1) space packet, to embed in S11/S19 definitions."""
+    return PusTcBuilder().build(PusTcPacket(apid=0x010, sequence_count=900,
+                                            service=17, subservice=1))
+
+
+def _nominal_at_obt(obsw: ObswHarness, obt: int) -> None:
+    """Set OBT with TC(9,128) and command NOMINAL (S11/S12/S19 are gated)."""
+    from svf.models.dhs.obc import MODE_NOMINAL
+    obsw.run(3)
+    obsw.tc(9, 128, struct.pack(">I", obt))
+    obsw.adapter.receive("dhs.obc.mode_cmd", float(MODE_NOMINAL))
+    obsw.run(12)
+    obsw.take()
+
+
+def _pongs(packets: list[PusTmPacket]) -> int:
+    return sum(1 for p in packets if (p.service, p.subservice) == (17, 2))
+
+
+def _events(packets: list[PusTmPacket], event_id: int) -> list[bytes]:
+    return [p.app_data for p in packets
+            if p.service == 5 and struct.unpack_from(">H", p.app_data, 0)[0] == event_id]
+
+
+@pytest.mark.requirement("SVF-DEV-211")
+def test_s11_activity_released_at_its_time_tag(obsw: ObswHarness) -> None:
+    from svf.pus.services.s11_scheduling import PusService11
+    _nominal_at_obt(obsw, 100)
+    # Report set 3 every tick so the observed OBT is current, not up to 1 s old.
+    obsw.tc(3, 5, struct.pack(">BI", 3, 1))
+    obsw.run(2)
+    obsw.take()
+    obsw.tc(11, 4, PusService11.build_insert(103.0, _ping(), tc_apid=0x010).app_data)
+    released_at = None
+    for _ in range(60):                       # 6 s, one tick at a time
+        obsw.run(1)
+        if _pongs(obsw.take()):
+            released_at = obsw.adapter._obc_obt
+            break
+    assert released_at is not None, "scheduled TC(17,1) never released"
+    assert 103 <= released_at <= 104, f"released at OBT {released_at}, tag 103"
+
+
+@pytest.mark.requirement("SVF-DEV-211")
+def test_s11_delete_and_nested_rejection(obsw: ObswHarness) -> None:
+    from svf.pus.services.s11_scheduling import PusService11
+    _nominal_at_obt(obsw, 100)
+    nested = PusTcBuilder().build(PusService11.build_insert(200.0, _ping(), tc_apid=0x010))
+    obsw.tc(11, 4, PusService11.build_insert(110.0, nested, tc_apid=0x010).app_data)
+    obsw.run(3)
+    assert _s1_failures(obsw.take()) == [0x0005], "nested S11 TC not rejected"
+
+    obsw.tc(11, 4, PusService11.build_insert(103.0, _ping(), tc_apid=0x010).app_data)
+    obsw.tc(11, 5, struct.pack(">H", 1))      # first accepted insert since boot
+    obsw.run(50)
+    packets = obsw.take()
+    assert _s1_failures(packets) == [], "TC(11,5) for request ID 1 rejected"
+    assert _pongs(packets) == 0, "deleted activity was still released"
+
+
+@pytest.mark.requirement("SVF-DEV-211")
+def test_s12_event_once_with_value_as_be_float(obsw: ObswHarness) -> None:
+    from svf.pus.services.s12_monitoring import PusService12
+    _nominal_at_obt(obsw, 100)
+    obsw.tc(20, 3, struct.pack(">H", BDOT_GAIN_PARAM))
+    obsw.tc(12, 3, PusService12.build_add(BDOT_GAIN_PARAM, None, 5000.0,
+                                          0x7001, 0x7002, 2, tc_apid=0x010).app_data)
+    obsw.run(5)
+    packets = obsw.take()
+    gain = [struct.unpack_from(">f", p.app_data, 2)[0] for p in packets
+            if (p.service, p.subservice) == (20, 2)]
+    events = _events(packets, 0x7002)
+    assert len(events) == 1, f"expected one high-limit event, got {len(events)}"
+    assert struct.unpack_from(">f", events[0], 2)[0] == pytest.approx(gain[-1])
+    obsw.run(20)
+    assert _events(obsw.take(), 0x7002) == [], "event repeated while still out of limit"
+
+
+@pytest.mark.requirement("SVF-DEV-211")
+def test_s19_event_dispatches_action_tc(obsw: ObswHarness) -> None:
+    from svf.pus.services.s12_monitoring import PusService12
+    from svf.pus.services.s19_event_action import PusService19
+    _nominal_at_obt(obsw, 100)
+    obsw.tc(19, 1, PusService19.build_add(0x7004, _ping(), tc_apid=0x010).app_data)
+    obsw.run(3)
+    assert _pongs(obsw.take()) == 0, "action ran before its event"
+    obsw.tc(12, 3, PusService12.build_add(BDOT_GAIN_PARAM, None, 5000.0,
+                                          0x7003, 0x7004, 2, tc_apid=0x010).app_data)
+    obsw.run(5)
+    packets = obsw.take()
+    assert _events(packets, 0x7004), "triggering S12 event not raised"
+    assert _pongs(packets) == 1, "S19 action TC(17,1) not dispatched"

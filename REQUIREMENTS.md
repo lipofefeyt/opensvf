@@ -585,6 +585,9 @@ Campaign procedures shall be able to satisfy openobsw's SAFE-mode TC gate: `Proc
 **SVF-DEV-210** `[DHS]` `IMPLEMENTED`
 `OBCEmulatorAdapter` outputs shall reflect the flight software, not the adapter's own state: `dhs.obc.obt` shall be the OBT from HK set 3 (0 until the first report), `dhs.obc.mode` the mode from HK, and the actuator frame's controller byte (0 = B-dot, 1 = ADCS PD) shall be published as `svf.obc.actuator_controller`. L3 tests and HIL procedures shall assert these, so a mode command that never reaches the flight software fails a test.
 
+**SVF-DEV-211** `[PUS]` `IMPLEMENTED`
+opensvf's S11, S12 and S19 TC builders shall produce what openobsw (v0.18 and later) parses, and the L3 suite shall show it against obsw_sim: a TC(11,4) activity is released when OBT reaches its CUC-4,2 tag, TC(11,5) deletes by request ID and a nested S11 TC is rejected (0x0005); a TC(12,3) out-of-limit raises its S5 event once, with the value as a big-endian float; a TC(19,1) definition dispatches its action TC when its event is raised. All three need NOMINAL. Counterpart of OBSW-SRS-280 to 306.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -1139,6 +1142,7 @@ loads are connected and drop to 0 V when UVLO disconnects them.
 | SVF-DEV-208   | DHS  | IMPLEMENTED |  -  | test_receive_tc_from_another_thread_only_queues |
 | SVF-DEV-209   | CAM  | IMPLEMENTED |  -  | test_safe_gate_rejects_s20_set_until_nominal |
 | SVF-DEV-210   | DHS  | IMPLEMENTED |  -  | test_nominal_mode_adcs_controller_activates |
+| SVF-DEV-211   | PUS  | IMPLEMENTED |  -  | test_s19_event_dispatches_action_tc |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
