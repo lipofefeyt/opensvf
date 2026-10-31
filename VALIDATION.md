@@ -178,7 +178,7 @@ V&V evidence for the OBSW under test.
 | `dhs_campaign.yaml` | 3 | MIS-FDIR-001/002, OBC-001 | OBC boot, mode transition, watchdog |
 | `platform_campaign.yaml` | 2 | MIS-PLAT-* | Platform health, bus routing |
 | `freertos_campaign.yaml` | 3 | MIS-RTOS-001/002/003 | Tick timing, SRDB namespace, FreeRTOS diagnostic counters (stub + pipe/socket) |
-| `freertos_hil_campaign.yaml` | 4 | MIS-HIL-001/002/003/004 | Ping/pong, HK telemetry, tick sync stability, no FreeRTOS faults  -  INCONCLUSIVE until `bin/obsw_sim` present; swap to `spacecraft_hil.yaml` for real verdicts |
+| `freertos_hil_campaign.yaml` | 4 | MIS-HIL-001/002/003/004 | Ping/pong, HK telemetry and SAFE/NOMINAL gate, tick sync stability, FreeRTOS faults. Stub by default (all INCONCLUSIVE). With `spacecraft_hil.yaml` against openobsw v0.18 host `obsw_sim` (2026-10-31): 001-003 PASS; 004 INCONCLUSIVE because the host sim does not run FreeRTOS (needs an STM32H7 over Renode or serial). Verdicts recorded before 2026-10-31 are not valid evidence: TM was not parsed, procedure TCs stalled the simulation, and mode commands were rejected by the OBSW (SVF-DEV-205/207/208) |
 
 **To add your own OBSW campaign:**
 

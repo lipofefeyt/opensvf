@@ -166,3 +166,34 @@ def test_hk_mode_decodes_openobsw_encoding(obsw: ObswHarness) -> None:
     obsw.run(15)
     after = store.read("obc_mode")
     assert after is not None and after.value == float(MODE_NOMINAL)
+
+
+def _s1_failures(packets: list[PusTmPacket]) -> list[int]:
+    """Failure codes from TM(1,2): request id (u32) then code (u16)."""
+    return [struct.unpack_from(">H", p.app_data, 4)[0] for p in packets
+            if (p.service, p.subservice) == (1, 2) and len(p.app_data) >= 6]
+
+
+@pytest.mark.requirement("SVF-DEV-209")
+def test_safe_gate_rejects_s20_set_until_nominal(obsw: ObswHarness) -> None:
+    """TC(20,1) gets TM(1,2) 0x0007 in SAFE and is accepted once NOMINAL."""
+    from svf.models.dhs.obc import MODE_NOMINAL
+    new_gain = 2.0e4
+    set_gain = struct.pack(">Hf", BDOT_GAIN_PARAM, new_gain)
+
+    obsw.run(5)
+    obsw.take()
+    obsw.tc(20, 1, set_gain)
+    obsw.run(3)
+    assert _s1_failures(obsw.take()) == [0x0007], "TC(20,1) not rejected in SAFE"
+
+    obsw.adapter.receive("dhs.obc.mode_cmd", float(MODE_NOMINAL))
+    obsw.run(5)
+    obsw.take()
+    obsw.tc(20, 1, set_gain)
+    obsw.tc(20, 3, struct.pack(">H", BDOT_GAIN_PARAM))
+    obsw.run(3)
+    packets = obsw.take()
+    assert _s1_failures(packets) == [], "TC(20,1) rejected in NOMINAL"
+    reports = [p.app_data for p in packets if (p.service, p.subservice) == (20, 2)]
+    assert reports and struct.unpack_from(">f", reports[-1], 2)[0] == pytest.approx(new_gain)

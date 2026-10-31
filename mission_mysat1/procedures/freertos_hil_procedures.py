@@ -83,48 +83,49 @@ class PingPong(Procedure):
 
 class HkTelemetryReception(Procedure):
     """
-    TC-HIL-002  -  Enable DHS_OBC_HK (S3, SID 3) and verify OBT advances.
+    TC-HIL-002  -  DHS_OBC_HK (S3, SID 3) received from the flight software,
+    on-board time advancing, and TC(3,5) accepted in NOMINAL.
 
-    Sends TC(3,5) to enable HK reporting at 1-tick intervals, then polls the
-    ParameterStore for obc.obt to confirm the OBSW is advancing on-board time
-    and that SVF is correctly parsing the TM(3,25) DHS_OBC_HK report.
+    Every value checked here comes from TM(3,25) decoded from the binary:
+    ``dhs.obc.obt`` is the flight software's OBT (0 until the first report)
+    and ``dhs.obc.mode`` its reported mode. openobsw boots in SAFE, where
+    TC(3,5) is rejected with TM(1,2) 0x0007, so the procedure commands
+    NOMINAL first.
     """
 
     id          = "TC-HIL-002"
-    title       = "DHS_OBC_HK received and OBT advancing within 5 s"
+    title       = "DHS_OBC_HK received, OBT advancing, TC(3,5) accepted in NOMINAL"
     requirement = "MIS-HIL-002"
 
     def run(self, ctx: ProcedureContext) -> None:
         self.step("Verify OBCEmulatorAdapter is active")
         _get_emulator(ctx)
 
-        self.step("Wait for OBSW boot")
-        ctx.wait(1.0)
+        self.step("Wait for the first DHS_OBC_HK reports (set 3 is on at boot)")
+        ctx.wait_until(
+            lambda s: (e := s.read("dhs.obc.obt")) is not None and e.value > 0.0,
+            timeout=10.0,
+        )
 
-        self.step("Enable DHS_OBC_HK reporting (TC(3,5), SID=3, interval=1)")
-        # TC(3,5) app_data: set_id (u8) + interval_ticks (u32 BE)
-        app_data = struct.pack(">BI", _HK_SID_DHS_OBC, 1)
-        ctx.tc(*_S3_ENABLE_HK, data=app_data)
-
-        self.step("Wait up to 5 s for OBT to appear and advance")
-        obt_start: list[float] = []
-
-        def _obt_advancing(store: "object") -> bool:  # type: ignore[type-arg]
-            from svf.stores.parameter_store import ParameterStore
-            if not isinstance(store, ParameterStore):
-                return False
-            e = store.read("dhs.obc.obt")
-            if e is None:
-                return False
-            if not obt_start:
-                obt_start.append(e.value)
-                return False
-            return e.value > obt_start[0]
-
-        ctx.wait_until(_obt_advancing, timeout=5.0)
-
-        self.step("Verify OBC mode is SAFE (0) at boot")
+        self.step("Verify the flight software reports SAFE at boot")
         ctx.assert_parameter("dhs.obc.mode", equals=float(MODE_SAFE))
+
+        self.step("Command NOMINAL (TC(3,5) is not allowed in SAFE)")
+        ctx.ensure_nominal()
+
+        self.step("Enable DHS_OBC_HK at 1-tick interval (TC(3,5), SID=3)")
+        ctx.tc(*_S3_ENABLE_HK, data=struct.pack(">BI", _HK_SID_DHS_OBC, 1))
+        ctx.wait(1.0)
+        rejected = ctx.read_parameter("svf.tm.1.2.last_code")
+        if rejected is not None:
+            raise ProcedureError(f"TC rejected with TM(1,2) code 0x{int(rejected):04X}")
+
+        self.step("Verify flight-software OBT advances")
+        obt_start = ctx.read_parameter("dhs.obc.obt") or 0.0
+        ctx.wait_until(
+            lambda s: (e := s.read("dhs.obc.obt")) is not None and e.value > obt_start,
+            timeout=5.0,
+        )
 
         self.step("Verify OBC health is nominal (0)")
         ctx.assert_parameter("dhs.obc.health", less_than=0.5)
@@ -191,8 +192,14 @@ class FreeRTOSDiagnosticsClean(Procedure):
     requirement = "MIS-HIL-004"
 
     def run(self, ctx: ProcedureContext) -> None:
-        self.step("Verify OBCEmulatorAdapter is active")
+        self.step("Verify OBCEmulatorAdapter is active on a FreeRTOS target")
         emulator = _get_emulator(ctx)
+        if emulator._sock is None and emulator._serial_dev is None:
+            # Host obsw_sim does not run FreeRTOS: these counters cannot move.
+            raise ProcedureInconclusiveError(
+                "FreeRTOS diagnostics need an STM32H7 target (Renode socket or "
+                "serial); the host obsw_sim does not run FreeRTOS"
+            )
 
         self.step("Run 30 s nominal HIL session under FreeRTOS diagnostic watch")
         ctx.wait(30.0)

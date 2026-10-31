@@ -139,11 +139,11 @@ def test_emulator_mode_reported_via_s5_events() -> None:
         f"Mode should be SAFE after boot: {mode.value}"
 
 
-@pytest.mark.requirement("SVF-DEV-037", "SVF-DEV-029")
+@pytest.mark.requirement("SVF-DEV-037", "SVF-DEV-029", "SVF-DEV-210")
 def test_emulator_recover_nominal_command() -> None:
     """
     TC-EMU-004: Mode command MODE_NOMINAL sent to OBSW via S8/1.
-    OBC should transition to NOMINAL (via S5 event).
+    The flight software must report NOMINAL (HK set 3 / S5 event).
     """
     master, store, cmd_store, obc = make_emulator_system(stop_time=5.0)
     cmd_store.inject("dhs.obc.mode_cmd", float(MODE_NOMINAL), source_id="test")
@@ -151,8 +151,7 @@ def test_emulator_recover_nominal_command() -> None:
 
     mode = store.read("dhs.obc.mode")
     assert mode is not None
-    # Mode should have transitioned or attempted transition
-    assert mode.value >= 0.0
+    assert mode.value == float(MODE_NOMINAL), f"OBSW mode {mode.value}, expected NOMINAL"
 
 
 @pytest.mark.requirement("SVF-DEV-037", "SVF-DEV-034")

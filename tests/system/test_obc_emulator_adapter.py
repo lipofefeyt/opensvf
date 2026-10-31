@@ -57,6 +57,7 @@ def make_adapter(**kwargs: object) -> OBCEmulatorAdapter:
     )
 
 
+@pytest.mark.requirement("SVF-DEV-029", "SVF-DEV-034")
 @pytest.mark.skipif(
     not OBSW_SIM.exists(),
     reason=f"obsw_sim not found at {OBSW_SIM}  -  run 'cmake --build build' in openobsw"
@@ -141,6 +142,7 @@ class OBCEmulatorAdapterTests:
 
         assert sync.publish_ready.call_count == 10
 
+    @pytest.mark.requirement("SVF-DEV-210")
     def test_mode_cmd_sends_recover_tc(self) -> None:
         """Setting mode_cmd=NOMINAL sends TC(8,1) to obsw_sim."""
         sync  = make_sync()
@@ -160,17 +162,19 @@ class OBCEmulatorAdapterTests:
         finally:
             adapter.teardown()
 
-        # mode_cmd should be consumed after first tick
+        # mode_cmd consumed, and the flight software reports NOMINAL in HK
         assert adapter.read_port("dhs.obc.mode_cmd") == -1.0
+        assert adapter.read_port("dhs.obc.mode") == float(MODE_NOMINAL)
 
+    @pytest.mark.requirement("SVF-DEV-210")
     def test_obt_advances_each_tick(self) -> None:
-        """On-board time increments by dt each do_step()."""
+        """dhs.obc.obt is the flight software's OBT (whole seconds, from HK set 3)."""
         adapter = make_adapter()
         adapter.initialise()
         try:
-            for i in range(10):
+            for i in range(25):
                 adapter.do_step(t=float(i) * 0.1, dt=0.1)
         finally:
             adapter.teardown()
 
-        assert adapter.read_port("dhs.obc.obt") == pytest.approx(1.0, abs=0.01)
+        assert 1.0 <= adapter.read_port("dhs.obc.obt") <= 3.0

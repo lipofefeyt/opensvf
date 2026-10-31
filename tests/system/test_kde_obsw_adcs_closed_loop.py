@@ -168,33 +168,27 @@ def test_bdot_dipoles_reach_mtq() -> None:
 
 
 @pytest.mark.timeout(120)
-@pytest.mark.requirement("KDE-001", "KDE-003")
+@pytest.mark.requirement("KDE-001", "KDE-003", "SVF-DEV-210")
 def test_nominal_mode_adcs_controller_activates() -> None:
     """
-    TC-ADCS-003: After SAFE→NOMINAL transition, ADCS PD controller activates.
+    TC-ADCS-003: After SAFE->NOMINAL, obsw_sim runs the ADCS PD controller.
 
-    Send TC(8,1) recover_nominal at t=5s. After transition, obsw_sim
-    should switch from b-dot to ADCS PD (controller=1 in actuator frame).
-    Validated via RW torque commands appearing in CommandStore.
+    The NOMINAL command is injected before the run, so the adapter sends
+    TC(8,1) recover_nominal on the first tick. Checks what the flight
+    software reports, not what the adapter assumes: the mode decoded from
+    HK set 3 and the controller byte of the actuator frame (1 = ADCS PD).
     """
     master, store, cmd_store = make_adcs_system(stop_time=20.0, dt=0.1)
-
-    # Schedule NOMINAL recovery at t=5s via mode_cmd
-    # OBCEmulatorAdapter will send TC(8,1) to obsw_sim
-    import threading
-    def inject_nominal() -> None:
-        time.sleep(6.0)  # wall clock  -  simulation runs fast
-        cmd_store.inject("dhs.obc.mode_cmd", float(MODE_NOMINAL), source_id="test")
-
-    t = threading.Thread(target=inject_nominal, daemon=True)
-    t.start()
+    cmd_store.inject("dhs.obc.mode_cmd", float(MODE_NOMINAL), source_id="test")
     master.run()
-    t.join(timeout=1.0)
 
-    # RW torque commands should appear after NOMINAL transition
-    rw_torque = cmd_store.peek("aocs.rw1.torque_cmd")
-    assert rw_torque is not None, (
-        "RW torque_cmd never injected  -  ADCS controller did not activate"
+    mode = store.read("obc_mode")
+    assert mode is not None and mode.value == float(MODE_NOMINAL), (
+        f"flight software did not report NOMINAL: {mode}"
+    )
+    controller = store.read("svf.obc.actuator_controller")
+    assert controller is not None and controller.value == 1.0, (
+        f"actuator frame not from ADCS PD (controller={controller})"
     )
 
 

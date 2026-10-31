@@ -1,8 +1,9 @@
 campaign: MySat-1 FreeRTOS HIL Integration Validation
 
-# Default: stub OBC  -  procedures produce INCONCLUSIVE (binary not found).
-# When bin/obsw_sim is available, change spacecraft to spacecraft_hil.yaml
-# to exercise the real openobsw binary and get PASS/FAIL verdicts.
+# Default: stub OBC  -  procedures produce INCONCLUSIVE.
+# Point spacecraft at spacecraft_hil.yaml to run the real openobsw binary.
+# Against the host obsw_sim, TC-HIL-004 stays INCONCLUSIVE: FreeRTOS
+# diagnostics need an STM32H7 target (Renode socket or serial).
 spacecraft: ../spacecraft.yaml
 
 requirements:
