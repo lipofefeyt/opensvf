@@ -40,3 +40,6 @@ CONTEXT.md
 OBSW_CONTEXT.md
 CLAUDE.md
 .devcontainer/claude-global/
+
+# openobsw builds for the L3 suite (scripts/build_obsw_sim.sh)
+build/

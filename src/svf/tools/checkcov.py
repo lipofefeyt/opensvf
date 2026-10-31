@@ -25,6 +25,7 @@ KNOWN_GAPS: dict[str, str] = {
     "SVF-DEV-072": "Verified by traceability.txt generation",
     "SVF-DEV-080": "Verified by pyproject.toml presence",
     "SVF-DEV-081": "Verified by CI pipeline on Ubuntu-latest",
+    "SVF-DEV-212": "Verified by the CI system-test job (L3 against pinned openobsw)",
     "SVF-DEV-087": "Verified by CI pipeline coverage gate",
     "SVF-DEV-088": "Verified by CI pipeline mypy gate",
 

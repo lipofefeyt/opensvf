@@ -43,7 +43,7 @@ opensvf-kde (C++/Eigen3)        openobsw (C11)
 | Package | Version | Notes |
 |---|---|---|
 | opensvf | v1.1.0 | Python 3.12 |
-| openobsw | v0.11+ | C11 |
+| openobsw | v0.18 (pinned in `.openobsw-version`) | C11 |
 | opensvf-kde | v0.1.0+ (SGP4 + RK4 build, Aug 2026) | C++ / Eigen3 |
 | YAMCS | 5.12.6 | Java 21+ |
 
@@ -96,7 +96,7 @@ OpenSVF is structured around a four-level validation pyramid:
 | L3 | System | SpacecraftDynamics.fmu + OBSW binary | Full SIL: flight software in the loop, dynamics, PUS over YAMCS |
 | L4 | Campaign | Mission spacecraft.yaml | Operator-level test procedures with HTML verdict reports |
 
-CI runs L1 + L2 (no compiled flight software needed). L3 and L4 require the `openobsw` binary and `opensvf-kde` FMU.
+CI runs L1 + L2, and L3 against the openobsw release pinned in `.openobsw-version`: the job builds `obsw_sim` from that tag with `scripts/build_obsw_sim.sh` and runs `tests/system`. Run the same locally with `bash scripts/build_obsw_sim.sh && pytest tests/system`. L4 campaigns run on a developer machine.
 
 ---
 
@@ -262,6 +262,8 @@ TM pipeline: obsw_sim → SVF → TCP port 10015 → YAMCS packet viewer
 
 ```bash
 testosvf                              # full test suite (800+ tests, L1+L2)
+bash scripts/build_obsw_sim.sh        # build bin/obsw_sim from the pinned openobsw
+pytest tests/system                   # L3 against that binary
 checkosvf                             # mypy strict type check
 svf validate spacecraft.yaml          # fast pre-flight config check (no DDS, no FMU)
 checkcov                              # requirement coverage + equipment fidelity report

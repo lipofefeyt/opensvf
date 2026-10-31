@@ -27,6 +27,47 @@ jobs:
         run: pytest tests/ --junitxml=results/junit.xml -v
 
   # ------------------------------------------------------------------ #
+  # L3 system tests against the openobsw release pinned in             #
+  # .openobsw-version: obsw_sim is built from that tag, then the whole #
+  # tests/system suite runs against it (wire protocol, TM/TC, modes,   #
+  # S9/S11/S12/S19/S20, closed-loop dynamics).                         #
+  # ------------------------------------------------------------------ #
+  system-test:
+    name: L3 system tests (openobsw pinned)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmake ninja-build gcc
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Build obsw_sim from the pinned openobsw release
+        run: |
+          bash scripts/build_obsw_sim.sh
+          echo "Pinned openobsw: \`$(cat .openobsw-version)\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run L3 system tests
+        run: pytest tests/system -v --junitxml=results/system_junit.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: system-test-results
+          path: results/system_junit.xml
+
+  # ------------------------------------------------------------------ #
   # Renode system test  -  downloads ZynqMP binary from openobsw CI     #
   # and validates TC(17,1) ping/pong via socket transport             #
   # Runs on push to main only                                          #
