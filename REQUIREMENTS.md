@@ -597,6 +597,9 @@ CI shall run the L3 suite (`tests/system`) on every push and pull request agains
 **SVF-DEV-214** `[CAM]` `IMPLEMENTED`
 `OBCEmulatorAdapter` shall keep communication-health counters (`LinkHealth`): TM packets received, parsed and dropped (with the reason, logged rather than discarded), TCs sent, accepted (TM(1,1)), completed (TM(1,7)) and rejected per failure code, the mode timeline reported in HK, and ticks without a sync byte. `HilAdapter` shall let observers register TM listeners that see every decoded packet. The campaign runner shall attach the counters to each procedure result (JSON, HTML report, terminal summary) and turn a PASS into a FAIL when any TM was dropped or sync was lost.
 
+**SVF-DEV-215** `[CAM]` `IMPLEMENTED`
+The platform shall provide `svf console <spacecraft.yaml>`: run the spacecraft in real time (or `--fast`) and accept operator commands (ping, mode, OBT set, HK enable/disable, S20 get/set, raw TC, wait, expect, status, watch). Every decoded TM packet shall be printed as it arrives, with TC verification reports tied to the TC that caused them by sequence count and failure codes named; `status` shall show the OBC mode, OBT and link health. The same commands shall run from `-c` or `--script`, exiting non-zero when an `expect` is not met. `mission_mysat1/spacecraft_hil.yaml` shall use the pinned `bin/obsw_sim`.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -1155,6 +1158,7 @@ loads are connected and drop to 0 V when UVLO disconnects them.
 | SVF-DEV-212   | SYS  | IMPLEMENTED |  -  | CI system-test job |
 | SVF-DEV-213   | CAM  | IMPLEMENTED |  -  | test_single_write_violation_is_caught |
 | SVF-DEV-214   | CAM  | IMPLEMENTED |  -  | test_pass_on_an_unhealthy_link_becomes_fail |
+| SVF-DEV-215   | CAM  | IMPLEMENTED |  -  | test_console_script_session_against_obsw_sim |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |

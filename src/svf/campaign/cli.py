@@ -164,6 +164,21 @@ def cmd_check(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_console(args: argparse.Namespace) -> int:
+    """Drive a spacecraft by hand: send TCs and watch decoded TM (SVF-DEV-215)."""
+    from svf.config.spacecraft import SpacecraftLoader
+    from svf.console import run_console
+    commands: list[str] | None = None
+    if args.command_list is not None:
+        commands = [c.strip() for c in args.command_list.split(";")]
+    elif args.script is not None:
+        with open(args.script) as f:
+            commands = [line.rstrip("\n") for line in f]
+    master = SpacecraftLoader.load(args.config)
+    return run_console(master, commands, realtime=not args.fast,
+                       duration=args.duration)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="svf",
@@ -198,6 +213,22 @@ def main() -> None:
         help="Also save JSON results to this path"
     )
     p_camp.set_defaults(func=cmd_campaign)
+
+    # svf console
+    p_con = sub.add_parser(
+        "console",
+        help="Interactive console: send TCs, watch decoded TM, check the OBSW link",
+    )
+    p_con.add_argument("config", help="Path to spacecraft.yaml (e.g. spacecraft_hil.yaml)")
+    p_con.add_argument("-c", dest="command_list", default=None,
+                       help='Run commands non-interactively, separated by ";"')
+    p_con.add_argument("--script", default=None,
+                       help="Run commands from a file, one per line")
+    p_con.add_argument("--fast", action="store_true",
+                       help="Run the simulation as fast as possible instead of real time")
+    p_con.add_argument("--duration", type=float, default=1.0e9,
+                       help="Stop the simulation after this many sim seconds")
+    p_con.set_defaults(func=cmd_console)
 
     # svf profiles
     p_prof = sub.add_parser("profiles", help="List available hardware profiles")

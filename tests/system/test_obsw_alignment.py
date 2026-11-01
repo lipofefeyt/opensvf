@@ -303,3 +303,34 @@ def test_s19_event_dispatches_action_tc(obsw: ObswHarness) -> None:
     packets = obsw.take()
     assert _events(packets, 0x7004), "triggering S12 event not raised"
     assert _pongs(packets) == 1, "S19 action TC(17,1) not dispatched"
+
+
+# ── svf console against the flight software (SVF-DEV-215) ───────────────────
+
+@pytest.mark.requirement("SVF-DEV-215")
+def test_console_script_session_against_obsw_sim(capsys: pytest.CaptureFixture[str]) -> None:
+    """The documented manual check, run as a script: exit 0, rejection named."""
+    from svf.config.spacecraft import SpacecraftLoader
+    from svf.console import run_console
+    master = SpacecraftLoader.load(_repo / "mission_mysat1" / "spacecraft_hil.yaml")
+    code = run_console(master, [
+        "ping", "expect 17,2",
+        "param set 0x20A0 20000", "expect 1,2",
+        "mode nominal", "wait 1.5",
+        "param set 0x20A0 20000", "param get 0x20A0", "expect 20,2",
+    ], realtime=False)
+    out = capsys.readouterr().out
+    assert code == 0, out
+    assert "rejected: 0x0007 not allowed in this mode" in out
+    assert "TM(20,2) param 0x20A0 = 20000" in out
+    assert "0 dropped" in out
+
+
+@pytest.mark.requirement("SVF-DEV-215")
+def test_console_failed_expect_exits_nonzero(capsys: pytest.CaptureFixture[str]) -> None:
+    from svf.config.spacecraft import SpacecraftLoader
+    from svf.console import run_console
+    master = SpacecraftLoader.load(_repo / "mission_mysat1" / "spacecraft_hil.yaml")
+    code = run_console(master, ["expect 5,4 1"], realtime=False)
+    assert code == 1
+    assert "FAILED: expected TM(5,4)" in capsys.readouterr().out

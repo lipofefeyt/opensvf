@@ -12,9 +12,10 @@ spacecraft: MySat-1 (FreeRTOS HIL)
 
 obsw:
   type: pipe
-  # Absolute path to the host sim binary from the openobsw sibling workspace.
-  # Alternatively: symlink it → ln -s /workspace/openobsw/build/sim/obsw_sim bin/obsw_sim
-  binary: /workspace/openobsw/build/sim/obsw_sim
+  # The host sim built from the openobsw release pinned in .openobsw-version:
+  #   bash scripts/build_obsw_sim.sh
+  # (relative to this file, so CI and every checkout use the same binary)
+  binary: ../bin/obsw_sim
 
 equipment:
   - id: mag1

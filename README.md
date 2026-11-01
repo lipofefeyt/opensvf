@@ -258,6 +258,34 @@ TM pipeline: obsw_sim → SVF → TCP port 10015 → YAMCS packet viewer
 
 ---
 
+## Manual checks with `svf console`
+
+Drive the spacecraft by hand and watch what the flight software sends back.
+Every TM packet is decoded as it arrives, and TC rejections are named and
+tied to the TC that caused them:
+
+```
+$ bash scripts/build_obsw_sim.sh
+$ svf console mission_mysat1/spacecraft_hil.yaml
+svf> param set 0x20A0 20000
+  -> TC(20,1) #2 sent data=20a0469c4000
+  <- t=    0.1s TM(1,2) TC(20,1) #2 rejected: 0x0007 not allowed in this mode
+svf> mode nominal
+svf> param set 0x20A0 20000
+  <- t=    2.1s TM(1,1) TC(20,1) #3 accepted
+  <- t=    2.1s TM(1,7) TC(20,1) #3 completed
+svf> status
+  sim t=3.2s  mode=NOMINAL  obt=1000.0
+  link: TM 31/31 parsed, 0 dropped | TC 6 sent, 5 accepted, 5 completed, rejected: 0x0007 not allowed in this mode x1 | ...
+```
+
+`help` lists the commands. `-c "ping; expect 17,2"` or `--script file`
+runs the same commands non-interactively and exits non-zero if an `expect`
+fails. Campaign reports show the same link counters for every procedure, and
+a procedure that passed while TM was dropped is marked FAIL.
+
+---
+
 ## Developer tools
 
 ```bash
@@ -269,6 +297,7 @@ svf validate spacecraft.yaml          # fast pre-flight config check (no DDS, no
 checkcov                              # requirement coverage + equipment fidelity report
 checkcons                             # SRDB consistency: 7 checks including namespace lint
 regen-xtce                            # regenerate YAMCS XTCE database from SRDB
+svf console <spacecraft.yaml>         # send TCs by hand, watch decoded TM and link health
 checksmp                              # SMP-aligned catalogue vs SRDB consistency
 ```
 
@@ -349,6 +378,8 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 | M50 | SMP-aligned model interface (ISmpModel, SmpEquipmentMixin, catalogue + checksmp) |
 | M51-M52 | PUS S15 + S23; PUS S6 + S8, wire-compatible with openobsw |
 | M63 | SMP lifecycle aligned with ECSS-E-ST-40-07C; SMP claims corrected |
+| v1.2 | Aligned with openobsw v0.18; L3 in CI against a pinned release |
+| M76-M77 | `svf console`; OBSW communication health in every campaign result |
 
 ### Planned
 

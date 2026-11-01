@@ -297,11 +297,40 @@ feat/xxx     -  feature branches
 fix/xxx      -  bug fixes
 ```
 
+## Testing against the real flight software
+
+Tests and procedures that run against `obsw_sim` (L3, HIL campaigns) must
+prove something about the flight software, not about opensvf's view of it.
+Until v1.2.0 several such checks passed while opensvf could not read the
+OBSW's telemetry or command it at all.
+
+1. **Assert on what the OBSW reported.** Use decoded TM (HK values, TM(1,x)
+   verification, TM(5,x) events, the actuator frame) or the store entries the
+   adapter derives from it. Never assert on adapter defaults, the adapter's
+   own clock, or packet counters alone.
+2. **Show the check can fail.** For every new assertion, run it once against
+   a broken condition (skip the mode command, use an impossible threshold,
+   remove the TC) and confirm it fails with the expected message. Say in the
+   commit message what you mutated.
+3. **Do not wait on wall-clock time for simulation events.** Inject commands
+   before `master.run()` or at a sim time, and read results after it; use
+   `ctx.wait()` (sim time), not `time.sleep()`.
+4. **Check the communication health.** Every campaign report and the console
+   show TM parsed/dropped and TC accepted/rejected. A dropped TM packet or an
+   unexplained rejection is a defect, not noise.
+5. **Look at it.** Before trusting a new L3 test, drive the same exchange by
+   hand with `svf console mission_mysat1/spacecraft_hil.yaml` and watch the TM.
+
+The L3 suite runs in CI against the openobsw release pinned in
+`.openobsw-version`; build the same binary locally with
+`bash scripts/build_obsw_sim.sh`.
+
 ## Before submitting a PR
  
 ```bash
 checkosvf   # mypy strict  -  must be clean
 testosvf    # full test suite  -  must be green
+pytest tests/system   # L3 against bin/obsw_sim (scripts/build_obsw_sim.sh)
 checkcov    # requirement coverage  -  no unexpected gaps
 checkcons   # SRDB cross-repo consistency  -  no ungoverned requirements
 ```
