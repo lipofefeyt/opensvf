@@ -59,6 +59,8 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
     .ev-type { font-weight: 700; width: 80px; flex-shrink: 0; white-space: nowrap; }
     .type-TC { color: var(--tc); } .type-TM { color: var(--tm); } .type-INJECT { color: var(--inject); } .type-MONITOR { color: var(--fail); } .type-STEP { color: var(--primary); }
     
+    .link-box { border: 1px solid #334155; border-left: 4px solid var(--pass); padding: 0.6rem 0.75rem; border-radius: 6px; font-size: 0.85rem; margin-top: 1rem; }
+    .link-box.link-bad { border-left-color: var(--fail); }
     .seed-box { background: #1e293b; color: #f8fafc; padding: 0.75rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; }
     .copy-btn { background: #334155; border: none; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
 
@@ -110,6 +112,17 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
                 {% endfor %}
             </div>
             
+            {% if r.link %}
+            <div class="link-box{% if not r.link.healthy %} link-bad{% endif %}">
+                <strong>OBSW link</strong>
+                TM {{ r.link.tm_parsed }}/{{ r.link.tm_received }} parsed, {{ r.link.tm_dropped }} dropped
+                {% if r.link.last_drop_reason %}({{ r.link.last_drop_reason }}){% endif %} &middot;
+                TC {{ r.link.tc_sent }} sent, {{ r.link.tc_accepted }} accepted, {{ r.link.tc_completed }} completed,
+                rejected: {% if r.link.tc_rejected %}{% for code, n in r.link.tc_rejected.items() %}{{ code }} x{{ n }} {% endfor %}{% else %}none{% endif %} &middot;
+                mode changes: {% for m in r.link.mode_changes %}t={{ "%.1f"|format(m[0]) }}s&rarr;{{ m[1] }} {% else %}none{% endfor %} &middot;
+                desyncs {{ r.link.desyncs }}
+            </div>
+            {% endif %}
             {% if r.seed %}
             <div class="seed-box">
                 <span>Replay seed: <code>{{ r.seed }}</code></span>

@@ -62,6 +62,8 @@ class ProcedureResult:
     steps:          list[StepResult] = field(default_factory=list)
     error:          Optional[str] = None
     seed:           Optional[int] = None
+    # Communication health with a real OBSW (LinkHealth.to_dict()), if any
+    link:           Optional[dict[str, Any]] = None
 
     def summary(self) -> str:
         lines = [f"Procedure: {self.procedure_id}  -  {self.title}", f"Verdict: {self.verdict.value}"]

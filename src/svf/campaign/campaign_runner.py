@@ -30,7 +30,7 @@ import time
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Type
+from typing import Any, Optional, Type
 
 import yaml
 
@@ -101,6 +101,11 @@ class CampaignReport:
                 f"{r.requirement:<20} "
                 f"{r.title}"
             )
+            if r.link is not None:
+                rejected = ", ".join(f"{c} x{n}" for c, n in r.link["tc_rejected"].items()) or "none"
+                print(f"{'':<20} link: TM {r.link['tm_parsed']}/{r.link['tm_received']} parsed, "
+                      f"{r.link['tm_dropped']} dropped; TC {r.link['tc_sent']} sent, "
+                      f"{r.link['tc_accepted']} accepted, rejected {rejected}")
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -120,6 +125,7 @@ class CampaignReport:
                     "verdict": r.verdict.value,
                     "duration_s": r.duration_s,
                     "error": r.error,
+                    "link": r.link,
                     "steps": [
                         {
                             "name": s.step_name,
@@ -132,6 +138,25 @@ class CampaignReport:
                 for r in self.results
             ],
         }
+
+
+def _attach_link_health(result: ProcedureResult, master: Any) -> None:
+    """
+    Record the OBSW link counters on the result. A procedure that passed
+    while TM was dropped or sync was lost is turned into a FAIL: its
+    evidence came from a link that did not work (SVF-DEV-214).
+    """
+    from svf.models.dhs.hil_adapter import HilAdapter
+    for model in getattr(master, "_models", []):
+        if isinstance(model, HilAdapter):
+            health = model.link_health()
+            if health is None:
+                continue
+            result.link = health.to_dict()
+            if not health.healthy and result.verdict == Verdict.PASS:
+                result.verdict = Verdict.FAIL
+                result.error = "OBSW link unhealthy: " + "; ".join(health.problems())
+            return
 
 
 class CampaignRunner:
@@ -362,6 +387,7 @@ class CampaignRunner:
                 continue
 
             result = proc.execute(fresh_master, fresh_store, fresh_cmd_store)
+            _attach_link_health(result, fresh_master)
             results.append(result)
 
             # Stop simulation after procedure completes

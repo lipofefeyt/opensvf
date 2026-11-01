@@ -869,6 +869,8 @@ class ObcEquipment(HilAdapter):
     def _enqueue_tm(self, packets: list[PusTmPacket]) -> None:
         with self._lock:
             self._tm_queue.extend(packets)
+        for p in packets:
+            self._notify_tm(p, self._obt)
         if not self._packet_store_feed_suppressed:
             for store in self._packet_stores.values():
                 if store.enabled:

@@ -95,6 +95,9 @@ def obsw() -> Iterator[ObswHarness]:
         yield h
     finally:
         h.adapter.teardown()
+    # Every alignment test also guards the link itself (SVF-DEV-214).
+    health = h.adapter.link_health()
+    assert health.healthy, "OBSW link unhealthy: " + "; ".join(health.problems())
 
 
 def _obt_values(packets: list[PusTmPacket]) -> list[int]:

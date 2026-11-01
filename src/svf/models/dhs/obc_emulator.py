@@ -43,6 +43,7 @@ from svf.stores.command_store import CommandStore
 from svf.core.equipment import PortDefinition, PortDirection
 from svf.models.dhs.hil_adapter import HilAdapter
 from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE, MODE_STANDBY
+from svf.models.dhs.link_health import LinkHealth
 
 # openobsw TM(1,2)/TM(1,8) failure codes. PUS leaves these to the mission;
 # values from openobsw v0.16+ (SVF-DEV-209).
@@ -216,6 +217,7 @@ class OBCEmulatorAdapter(HilAdapter):
         # TCs from other threads (procedures, YAMCS) wait here; only the
         # simulation thread talks to the binary (SVF-DEV-208).
         self._tc_queue:   list[bytes] = []
+        self._link        = LinkHealth()
         self._tc_lock     = threading.Lock()
         # openobsw TM packets carry no Packet Error Control field.
         self._tm_pec      = tm_pec
@@ -525,6 +527,7 @@ class OBCEmulatorAdapter(HilAdapter):
         tm_packets, synced = self._collect_until_sync(self._sync_timeout)
         if not synced:
             self._consecutive_desync += 1
+            self._link.desyncs += 1
             logger.warning(
                 f"[obc-emu] No sync at t={t:.3f} "
                 f"(missed={self._consecutive_desync})"
@@ -652,7 +655,12 @@ class OBCEmulatorAdapter(HilAdapter):
 
         for frame in frames:
             self._write_typed_frame(FRAME_TC, frame)
+        self._link.tc_sent += len(frames)
         return len(frames)
+
+    def link_health(self) -> LinkHealth:
+        """Communication counters since this adapter was created (SVF-DEV-214)."""
+        return self._link
 
     def _build_s9_set_obt(self, obt_seconds: float) -> bytes:
         tc = PusService9.build_set_obt(obt_seconds, tc_apid=self._apid)
@@ -857,13 +865,22 @@ class OBCEmulatorAdapter(HilAdapter):
             except Exception:
                 pass
 
-        # Queue for campaign procedures (Gap 1)
+        # Queue for campaign procedures (Gap 1). A packet that does not parse
+        # is counted and logged, never silently discarded (SVF-DEV-214).
+        self._link.tm_received += 1
         try:
             parsed = self._tm_parser.parse(pkt)
+        except Exception as exc:
+            self._link.tm_dropped += 1
+            self._link.last_drop_reason = f"TM({svc},{subsvc}): {exc}"
+            if self._link.tm_dropped == 1 or self._link.tm_dropped % 100 == 0:
+                logger.error(f"[obc-emu] dropped TM packet #{self._link.tm_dropped}: "
+                             f"{self._link.last_drop_reason}")
+        else:
+            self._link.tm_parsed += 1
             with self._tm_lock:
                 self._tm_queue.append(parsed)
-        except Exception:
-            pass
+            self._notify_tm(parsed, t)
 
         if svc == 1:
             self._on_s1(subsvc, pkt, t)
@@ -878,8 +895,13 @@ class OBCEmulatorAdapter(HilAdapter):
         labels = {1: "accepted", 2: "accept_failed",
                   7: "completed", 8: "completion_failed"}
         app = pkt[_APP_DATA_OFFSET:]
+        if subsvc == 1:
+            self._link.tc_accepted += 1
+        elif subsvc == 7:
+            self._link.tc_completed += 1
         if subsvc in (2, 8) and len(app) >= 6:
             request_id, code = struct.unpack_from(">IH", app, 0)
+            self._link.tc_rejected[code] = self._link.tc_rejected.get(code, 0) + 1
             logger.warning(
                 f"[obc-emu] TM(1,{subsvc}) {labels[subsvc]} request=0x{request_id:08X} "
                 f"code=0x{code:04X} ({S1_FAILURE_CODES.get(code, 'unknown')}) t={t:.3f}")
@@ -913,6 +935,8 @@ class OBCEmulatorAdapter(HilAdapter):
         )
         self._mode                 = mode
         self._obc_obt              = obt
+        if not self._link.mode_changes or self._link.mode_changes[-1][1] != mode:
+            self._link.mode_changes.append((t, mode))
         self._obc_watchdog_status  = wd
         self._obc_memory_used_pct  = mem
         self._obc_health           = health

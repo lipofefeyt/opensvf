@@ -594,6 +594,9 @@ CI shall run the L3 suite (`tests/system`) on every push and pull request agains
 **SVF-DEV-213** `[CAM]` `IMPLEMENTED`
 `ParameterStore.subscribe(name, callback)` shall call the callback on every write of the parameter, in the writer's thread, and return an unsubscribe function. `ParameterMonitor` (`ctx.monitor()`) shall evaluate the current value when created and then every write, instead of polling, so a violation that lasts a single write is recorded and each write is counted once. The polling monitor could miss short violations (and failed CI by missing a 50 ms value) and recorded one stored value many times.
 
+**SVF-DEV-214** `[CAM]` `IMPLEMENTED`
+`OBCEmulatorAdapter` shall keep communication-health counters (`LinkHealth`): TM packets received, parsed and dropped (with the reason, logged rather than discarded), TCs sent, accepted (TM(1,1)), completed (TM(1,7)) and rejected per failure code, the mode timeline reported in HK, and ticks without a sync byte. `HilAdapter` shall let observers register TM listeners that see every decoded packet. The campaign runner shall attach the counters to each procedure result (JSON, HTML report, terminal summary) and turn a PASS into a FAIL when any TM was dropped or sync was lost.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -1151,6 +1154,7 @@ loads are connected and drop to 0 V when UVLO disconnects them.
 | SVF-DEV-211   | PUS  | IMPLEMENTED |  -  | test_s19_event_dispatches_action_tc |
 | SVF-DEV-212   | SYS  | IMPLEMENTED |  -  | CI system-test job |
 | SVF-DEV-213   | CAM  | IMPLEMENTED |  -  | test_single_write_violation_is_caught |
+| SVF-DEV-214   | CAM  | IMPLEMENTED |  -  | test_pass_on_an_unhealthy_link_becomes_fail |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
