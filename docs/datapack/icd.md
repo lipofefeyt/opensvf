@@ -303,13 +303,24 @@ User data: `[0x00, 0x01, 0x00]` (mode = NOMINAL = 1).
 
 ### S5 Event IDs  -  Mode Transitions
 
-`OBCEmulatorAdapter._on_s5()` parses the event ID from bytes [17:19] of the
-TM(5,1) packet (big-endian uint16):
+`OBCEmulatorAdapter._on_s5()` reads the event ID (big-endian uint16) from
+bytes [17:19] of a TM(5,x) packet of any severity and looks it up in
+`S5_MODE_EVENTS`:
 
-| Event ID | Meaning | opensvf action |
+| Event ID | openobsw event | Mode hint |
 |---|---|---|
-| `0x0002` | Transition to SAFE mode | Sets `self._mode = MODE_SAFE (0)` |
-| `0x0003` | Transition to NOMINAL mode | Sets `self._mode = MODE_NOMINAL (1)` |
+| `0x0002` | `safe_mode_entry` | `MODE_SAFE` (1) |
+| `0x0003` | `safe_mode_exit` | `MODE_NOMINAL` (2) |
+| `0x0004` | `standby_entry` | `MODE_STANDBY` (0) |
+| `0x0005` | `nominal_entry` | `MODE_NOMINAL` (2) |
+
+The mode taken from an event is a hint. It updates `dhs.obc.mode` until the
+next TM(3,25) set 3 report, which is the authoritative mode source and always
+overrides it; `obc_mode` and the link-health mode timeline record HK reports
+only. As of openobsw v0.18 the FreeRTOS mode task emits `0x0002`, `0x0004` and
+`0x0005`, `obsw_sim` reports mode transitions in HK set 3 only, and nothing
+emits `0x0003`. `checkcons` check [8/8] compares the table with openobsw
+`srdb/data/events.yaml`.
 
 ## TM(3,25) DHS OBC Housekeeping Packet
 
@@ -630,10 +641,11 @@ IDs within APID `0x103` / S3(25) are allocated by range to avoid collisions:
 
 `checkcons` (`tools/srdb_consistency_check.py`) automatically verifies that:
 
-- Python struct formats match C struct byte counts ([1/7])
-- `obc_emulator.py` store keys match the SRDB parameter mapping ([2/7])
-- Sensor model port names in opensvf match field names in the C struct ([4/7])
-- Equipment OUT ports declared in Python exist in the SRDB baseline ([7/7])
+- Python struct formats match C struct byte counts ([1/8])
+- `obc_emulator.py` store keys match the SRDB parameter mapping ([2/8])
+- Sensor model port names in opensvf match field names in the C struct ([4/8])
+- Equipment OUT ports declared in Python exist in the SRDB baseline ([7/8])
+- The mode-transition event IDs the OBC adapter keys on match openobsw `events.yaml` ([8/8])
 
 Run `checkcons` before any pull request that touches SRDB, wire protocol
 structs, or sensor model port names.

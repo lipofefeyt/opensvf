@@ -268,7 +268,7 @@ checkcov
 
 Some requirements are verified by means other than pytest markers:
 
-- **CI pipeline checks**  -  `checkcons` struct size check ([1/7]) verifies the
+- **CI pipeline checks**  -  `checkcons` struct size check ([1/8]) verifies the
   wire protocol struct byte counts match C layout without running pytest
 - **Hardware tests**  -  L3 tests that require `obsw_sim` are not run in CI but
   are covered in the KNOWN_GAPS with a reference to the L3 test file

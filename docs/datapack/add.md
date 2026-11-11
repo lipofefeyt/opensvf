@@ -395,20 +395,22 @@ after every `testosvf` run by collecting `@pytest.mark.requirement` markers.
 
 ## `checkcons`  -  Cross-Repository Consistency
 
-`checkcons` (`tools/srdb_consistency_check.py`) runs seven automated checks
+`checkcons` (`tools/srdb_consistency_check.py`) runs eight automated checks
 to detect divergence between the opensvf Python layer and the openobsw C layer:
 
 | Check | What it detects |
 |---|---|
-| [1/7] Struct sizes | `_SENSOR_FMT` / `_ACTUATOR_FMT` drift from C struct byte count |
-| [2/7] Python-side mapping | `obc_emulator.py` store keys diverging from parameter mapping table |
-| [3/7] C struct fields | Field renames in openobsw not propagated to SVF packer |
-| [4/7] Producer/consumer | Sensor model port renames producing silent zeros in the OBSW |
-| [5/7] Requirement orphans | `@pytest.mark.requirement` IDs absent from `REQUIREMENTS.md` |
-| [6/7] Profile symmetry | Mission hardware profiles missing from bundled directory |
-| [7/7] SRDB namespace | Equipment OUT ports declared but absent from SRDB baseline |
+| [1/8] Struct sizes | `_SENSOR_FMT` / `_ACTUATOR_FMT` drift from C struct byte count |
+| [2/8] Python-side mapping | `obc_emulator.py` store keys diverging from parameter mapping table |
+| [3/8] C struct fields | Field renames in openobsw not propagated to SVF packer |
+| [4/8] Producer/consumer | Sensor model port renames producing silent zeros in the OBSW |
+| [5/8] Requirement orphans | `@pytest.mark.requirement` IDs absent from `REQUIREMENTS.md` |
+| [6/8] Profile symmetry | Mission hardware profiles missing from bundled directory |
+| [7/8] SRDB namespace | Equipment OUT ports declared but absent from SRDB baseline |
+| [8/8] S5 mode events | Adapter mode-event IDs diverging from openobsw `events.yaml` |
 
-The C struct check ([3/7]) accepts either a real openobsw checkout or a
+The C struct check ([3/8]) and the openobsw side of the S5 mode-event check
+([8/8]) accept either a real openobsw checkout or a
 gitingest snapshot file  -  the correct approach in single-workspace environments
 where both repositories cannot coexist.
 
@@ -483,7 +485,7 @@ simulation infrastructure is instantiated. It catches:
 Every inter-component parameter has one canonical name defined in the SRDB. The
 OBSW, SVF, and YAMCS all use the same names. A parameter rename in the SRDB
 breaks the build  -  intentionally. This property is enforced by `checkcons` checks
-[2/7] and [4/7].
+[2/8] and [4/8].
 
 ## Equipment as the Universal Abstraction
 
@@ -523,6 +525,6 @@ platform where non-reproducible test failures are unacceptable.
 | M30 | CAN 2.0B full validation, SpaceWire RMAP completion | Done |
 | M31 | Equipment fidelity levels, SRDB calibration curves | Done |
 | M32 | SpacecraftValidator pre-flight config check | Done |
-| M33 | SRDB namespace linting (`checkcons` [7/7]) | Done |
+| M33 | SRDB namespace linting (`checkcons` [7/8]) | Done |
 | M34 | Equipment fidelity coverage in `checkcov` | Done |
 | M35 | `EquipmentTickError` and `on_tick_error` callback | Done |
