@@ -34,9 +34,6 @@ events:
     auxiliary_data:
       - name: trigger_source
         type: uint8
-  - id: 0x0003
-    name: safe_mode_exit
-    severity: INFO
   - id: 0x0004
     name: standby_entry
     severity: INFO
@@ -52,7 +49,6 @@ events:
 _ADAPTER_TABLE = """\
 S5_MODE_EVENTS: dict[int, int] = {
     0x0002: MODE_SAFE,
-    0x0003: MODE_NOMINAL,
     0x0004: MODE_STANDBY,
     0x0005: MODE_NOMINAL,
 }
@@ -93,7 +89,7 @@ def test_repo_adapter_matches_openobsw_event_definitions(tmp_path: Path) -> None
     result = _run(_REPO, _obsw(tmp_path))
     assert result.errors == []
     assert result.warnings == []
-    assert any("4 mode events compared with openobsw" in n for n in result.info)
+    assert any("3 mode events compared with openobsw" in n for n in result.info)
 
 
 @pytest.mark.requirement("SVF-DEV-216")
@@ -101,9 +97,11 @@ def test_pre_fix_adapter_mapping_is_an_error(tmp_path: Path) -> None:
     """The mapping before SVF-DEV-216: 0x0002 and 0x0003 only."""
     old = "S5_MODE_EVENTS = {\n    0x0002: MODE_SAFE,\n    0x0003: MODE_NOMINAL,\n}\n"
     errors = _run(_svf(tmp_path, old), None).errors
-    assert len(errors) == 2
+    assert len(errors) == 3
     assert any("0x0004 (standby_entry)" in e and "does not map it" in e for e in errors)
     assert any("0x0005 (nominal_entry)" in e and "does not map it" in e for e in errors)
+    assert any("0x0003" in e and "S5_MODE_EVENT_TABLE has no such mode event" in e
+               for e in errors)
 
 
 @pytest.mark.requirement("SVF-DEV-216")
@@ -137,14 +135,26 @@ def test_unreadable_adapter_table_is_an_error(tmp_path: Path, source: str) -> No
 
 @pytest.mark.requirement("SVF-DEV-216")
 def test_event_removed_from_openobsw_is_an_error(tmp_path: Path) -> None:
-    """openobsw dropping safe_mode_exit (the open D5 decision) must be flagged."""
-    without_exit = _EVENTS_YAML.replace(
-        "  - id: 0x0003\n    name: safe_mode_exit\n    severity: INFO\n", "")
-    assert "safe_mode_exit" not in without_exit
-    errors = _run(_REPO, _obsw(tmp_path, without_exit)).errors
+    """How the removal of 0x0003 safe_mode_exit was caught; here with standby_entry."""
+    without_standby = _EVENTS_YAML.replace(
+        "  - id: 0x0004\n    name: standby_entry\n    severity: INFO\n", "")
+    assert "standby_entry" not in without_standby
+    errors = _run(_REPO, _obsw(tmp_path, without_standby)).errors
     assert len(errors) == 1
-    assert "no longer defines event 'safe_mode_exit'" in errors[0]
-    assert "0x0003 -> NOMINAL" in errors[0]
+    assert "no longer defines event 'standby_entry'" in errors[0]
+    assert "0x0004 -> STANDBY" in errors[0]
+
+
+@pytest.mark.requirement("SVF-DEV-216")
+def test_openobsw_v0_18_safe_mode_exit_is_a_warning(tmp_path: Path) -> None:
+    """v0.18 still defines 0x0003, which nothing emits: reported, not an error."""
+    v0_18 = _EVENTS_YAML.replace(
+        "  - id: 0x0004\n", "  - id: 0x0003\n    name: safe_mode_exit\n"
+        "    severity: INFO\n  - id: 0x0004\n")
+    result = _run(_REPO, _obsw(tmp_path, v0_18))
+    assert result.errors == []
+    assert len(result.warnings) == 1
+    assert "'safe_mode_exit' (0x0003)" in result.warnings[0]
 
 
 @pytest.mark.requirement("SVF-DEV-216")

@@ -1037,10 +1037,10 @@ def check_srdb_namespace(svf_root: Path, result: CheckResult) -> None:
 # IDs (S5_MODE_EVENTS in obc_emulator.py). An event that openobsw renumbers,
 # renames or removes leaves the adapter keyed on an ID nothing emits, with no
 # error anywhere: that was the state before SVF-DEV-216 (0x0003 mapped,
-# 0x0004 and 0x0005 ignored).
+# 0x0004 and 0x0005 ignored). 0x0003 safe_mode_exit is not listed: openobsw
+# removed it after v0.18, having never emitted it.
 S5_MODE_EVENT_TABLE: dict[str, tuple[int, str]] = {
     "safe_mode_entry": (0x0002, "SAFE"),
-    "safe_mode_exit":  (0x0003, "NOMINAL"),
     "standby_entry":   (0x0004, "STANDBY"),
     "nominal_entry":   (0x0005, "NOMINAL"),
 }

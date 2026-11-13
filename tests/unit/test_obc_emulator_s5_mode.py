@@ -42,11 +42,10 @@ def _adapter() -> tuple[OBCEmulatorAdapter, ParameterStore]:
 
 
 @pytest.mark.requirement("SVF-DEV-216")
-def test_mapping_is_the_four_openobsw_mode_events() -> None:
-    """0x0005 (nominal_entry) and 0x0004 (standby_entry) are what openobsw emits."""
+def test_mapping_is_the_three_openobsw_mode_events() -> None:
+    """What openobsw emits. 0x0003 (safe_mode_exit) was never emitted and is gone."""
     assert S5_MODE_EVENTS == {
         0x0002: MODE_SAFE,
-        0x0003: MODE_NOMINAL,
         0x0004: MODE_STANDBY,
         0x0005: MODE_NOMINAL,
     }
@@ -55,7 +54,6 @@ def test_mapping_is_the_four_openobsw_mode_events() -> None:
 @pytest.mark.requirement("SVF-DEV-216")
 @pytest.mark.parametrize("event_id, start, hinted", [
     (0x0002, MODE_NOMINAL, MODE_SAFE),       # safe_mode_entry
-    (0x0003, MODE_SAFE,    MODE_NOMINAL),    # safe_mode_exit
     (0x0004, MODE_NOMINAL, MODE_STANDBY),    # standby_entry
     (0x0005, MODE_SAFE,    MODE_NOMINAL),    # nominal_entry
 ])
@@ -87,6 +85,16 @@ def test_other_events_leave_the_mode_alone(event_id: int) -> None:
     adapter._mode = MODE_NOMINAL
     adapter._parse_tm(_event(4, event_id, aux=bytes(4)), t=1.0)
     assert adapter._mode == MODE_NOMINAL
+
+
+@pytest.mark.requirement("SVF-DEV-216")
+@pytest.mark.parametrize("subservice", [1, 2, 3, 4])
+def test_removed_safe_mode_exit_event_is_not_a_mode_event(subservice: int) -> None:
+    """0x0003 no longer exists in openobsw; it must not move the mode out of SAFE."""
+    adapter, _ = _adapter()
+    adapter._mode = MODE_SAFE
+    adapter._parse_tm(_event(subservice, 0x0003), t=1.0)
+    assert adapter._mode == MODE_SAFE
 
 
 @pytest.mark.requirement("SVF-DEV-216")

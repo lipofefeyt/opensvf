@@ -70,9 +70,10 @@ _S8_MODE_FUNCTION: dict[int, int] = {
 # one announces. A hint between housekeeping reports only: HK set 3 carries the
 # mode the flight software is in and overrides it (SVF-DEV-210, SVF-DEV-216).
 # checkcons check [8/8] compares this table with openobsw's events.yaml.
+# 0x0003 was safe_mode_exit: no target ever emitted it and openobsw removed it;
+# leaving SAFE is announced by the entry event of the mode that follows.
 S5_MODE_EVENTS: dict[int, int] = {
     0x0002: MODE_SAFE,       # safe_mode_entry
-    0x0003: MODE_NOMINAL,    # safe_mode_exit ("Recovery to NOMINAL mode completed")
     0x0004: MODE_STANDBY,    # standby_entry
     0x0005: MODE_NOMINAL,    # nominal_entry
 }

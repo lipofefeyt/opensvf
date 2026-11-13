@@ -310,17 +310,17 @@ bytes [17:19] of a TM(5,x) packet of any severity and looks it up in
 | Event ID | openobsw event | Mode hint |
 |---|---|---|
 | `0x0002` | `safe_mode_entry` | `MODE_SAFE` (1) |
-| `0x0003` | `safe_mode_exit` | `MODE_NOMINAL` (2) |
 | `0x0004` | `standby_entry` | `MODE_STANDBY` (0) |
 | `0x0005` | `nominal_entry` | `MODE_NOMINAL` (2) |
 
 The mode taken from an event is a hint. It updates `dhs.obc.mode` until the
 next TM(3,25) set 3 report, which is the authoritative mode source and always
 overrides it; `obc_mode` and the link-health mode timeline record HK reports
-only. As of openobsw v0.18 the FreeRTOS mode task emits `0x0002`, `0x0004` and
-`0x0005`, `obsw_sim` reports mode transitions in HK set 3 only, and nothing
-emits `0x0003`. `checkcons` check [8/8] compares the table with openobsw
-`srdb/data/events.yaml`.
+only. The openobsw FreeRTOS mode task emits these three events; `obsw_sim`
+v0.18 reports mode transitions in HK set 3 only and emits them in later
+builds. `0x0003` `safe_mode_exit` was defined up to v0.18, never emitted, and
+has since been removed from openobsw: the adapter ignores it. `checkcons`
+check [8/8] compares the table with openobsw `srdb/data/events.yaml`.
 
 ## TM(3,25) DHS OBC Housekeeping Packet
 

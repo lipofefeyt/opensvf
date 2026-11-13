@@ -306,9 +306,9 @@ def test_s19_event_dispatches_action_tc(obsw: ObswHarness) -> None:
 
 
 # ── S5 mode events are a hint, HK set 3 is the mode source (SVF-DEV-216) ────
-# obsw_sim reports mode transitions in HK set 3 only (openobsw emits the mode
-# events from its FreeRTOS mode task). To put a mode-event ID in a TM(5,x)
-# built by the binary, an S12 definition raises it: openobsw then emits the
+# obsw_sim v0.18 reports mode transitions in HK set 3 only; later builds also
+# emit the mode events themselves. To put a chosen mode-event ID in a TM(5,x)
+# built by either binary, an S12 definition raises it: openobsw then emits the
 # event without changing mode, since none of these IDs is a safe trigger. The
 # adapter must take the hint from the real packet and drop it again at the
 # next set 3 report, which still says NOMINAL.
