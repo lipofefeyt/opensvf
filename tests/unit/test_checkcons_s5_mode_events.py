@@ -1,5 +1,5 @@
 """
-L1 tests for checkcons check [8/8]: the S5 mode-event mapping used by
+L1 tests for checkcons check [8/9]: the S5 mode-event mapping used by
 OBCEmulatorAdapter against the checkcons table and openobsw's events.yaml.
 
 The openobsw side is exercised with event definitions written to tmp_path,

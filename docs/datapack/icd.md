@@ -320,7 +320,7 @@ only. The openobsw FreeRTOS mode task emits these three events; `obsw_sim`
 v0.18 reports mode transitions in HK set 3 only and emits them in later
 builds. `0x0003` `safe_mode_exit` was defined up to v0.18, never emitted, and
 has since been removed from openobsw: the adapter ignores it. `checkcons`
-check [8/8] compares the table with openobsw `srdb/data/events.yaml`.
+check [8/9] compares the table with openobsw `srdb/data/events.yaml`.
 
 ## TM(3,25) DHS OBC Housekeeping Packet
 
@@ -336,31 +336,42 @@ Offset  Size  Field
 0–5      6    PUS-C primary header (CCSDS)
 6–16    11    PUS-C secondary header (version, svc=3, subsvc=25, ...)
 17       1    set_id = 0x03  (DHS OBC HK set)
-18       1    mode         uint8   -  0=SAFE, 1=NOMINAL, 2=PAYLOAD
+18       1    mode         uint8   -  0=STANDBY, 1=SAFE, 2=NOMINAL
 19–22    4    obt          uint32 BE  -  on-board time [s]
 23       1    watchdog_status  uint8   -  0=nominal, 1=timeout_warning, 2=reset
 24       1    memory_used_pct  uint8   -  mass memory utilisation [%]
 25       1    health       uint8   -  0=nominal, 1=degraded, 2=failed
 26–27    2    reset_count  uint16 BE  -  resets since launch
 28       1    cpu_load     uint8   -  CPU utilisation [%]
-end–2    2    CRC-16/CCITT
 ```
 
-**Python struct format (application data fields only, starting at offset 18):**
+openobsw TM carries no Packet Error Control field. With `tm_pec=True` the
+adapter expects a trailing CRC-16/CCITT and excludes it from the report.
 
-```python
-_DHS_OBC_HK_FMT = ">BIBBBHB"
-# B   -  mode         (uint8)
-# I   -  obt          (uint32 BE)
-# B   -  watchdog     (uint8)
-# B   -  memory_used  (uint8)
-# B   -  health       (uint8)
-# H   -  reset_count  (uint16 BE)
-# B   -  cpu_load     (uint8)
-```
+### SRDB-driven decoding
 
-The byte at offset 17 (`set_id`) is read separately and must equal `0x03`
-before the HK fields are parsed.
+The adapter has no per-set struct. The byte at offset 17 (`set_id`) selects a
+housekeeping set layout from the SRDB (`src/svf/data/srdb/hk_sets.yaml`,
+loaded by `SrdbLoader.load_hk_sets()`), which lists the set's parameters in
+report order with their raw types. All seven openobsw sets are defined:
+
+| Set | Name | Parameter sizes [bytes] |
+|---|---|---|
+| 1 | `nominal_hk` | 2, 2, 2, 4 |
+| 2 | `fdir_hk` | 2, 4, 4 |
+| 3 | `dhs_obc_hk` | 1, 4, 1, 1, 1, 2, 1 |
+| 4 | `aocs_hk` | 4, 4, 4 |
+| 5 | `aocs_orbit_hk` | 4, 4, 4, 4, 4, 4 |
+| 6 | `aocs_state_hk` | 4, 4, 1 |
+| 7 | `aocs_bdot_hk` | 4, 4, 4, 4, 4, 4, 1 |
+
+Each parameter is decoded big-endian and written raw to the ParameterStore as
+`dhs.obc.<openobsw parameter name>`, for example `dhs.obc.obc_temperature`
+(set 1, int16, degC = 0.1 * raw - 40). Set 3 also drives the adapter's mode,
+OBT and the OUT ports in Table 5. A report of a defined set whose length is
+not what its layout says is not decoded; it is counted in the link health
+(`hk_undecoded`) and makes the link unhealthy. A set with no layout is logged
+once and left undecoded.
 
 ### SRDB Mapping
 
@@ -641,11 +652,12 @@ IDs within APID `0x103` / S3(25) are allocated by range to avoid collisions:
 
 `checkcons` (`tools/srdb_consistency_check.py`) automatically verifies that:
 
-- Python struct formats match C struct byte counts ([1/8])
-- `obc_emulator.py` store keys match the SRDB parameter mapping ([2/8])
-- Sensor model port names in opensvf match field names in the C struct ([4/8])
-- Equipment OUT ports declared in Python exist in the SRDB baseline ([7/8])
-- The mode-transition event IDs the OBC adapter keys on match openobsw `events.yaml` ([8/8])
+- Python struct formats match C struct byte counts ([1/9])
+- `obc_emulator.py` store keys match the SRDB parameter mapping ([2/9])
+- Sensor model port names in opensvf match field names in the C struct ([4/9])
+- Equipment OUT ports declared in Python exist in the SRDB baseline ([7/9])
+- The mode-transition event IDs the OBC adapter keys on match openobsw `events.yaml` ([8/9])
+- The TM(3,25) set layouts the OBC adapter decodes with match openobsw `hk_sets.yaml` and `parameters.yaml` ([9/9])
 
 Run `checkcons` before any pull request that touches SRDB, wire protocol
 structs, or sensor model port names.

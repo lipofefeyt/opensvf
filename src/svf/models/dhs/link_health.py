@@ -4,9 +4,10 @@ Communication health between opensvf and a real flight software.
 Counts what crossed the link and what became of it, so a run that could not
 read the OBSW's telemetry or command it is visible at a glance: TM packets
 received, parsed and dropped; TCs sent, accepted, completed and rejected
-(by failure code); mode changes reported by the OBSW; sync losses.
+(by failure code); mode changes reported by the OBSW; sync losses;
+housekeeping reports that did not match their SRDB layout.
 
-Implements: SVF-DEV-214
+Implements: SVF-DEV-214, SVF-DEV-217
 """
 
 from __future__ import annotations
@@ -29,6 +30,9 @@ class LinkHealth:
     tc_rejected: dict[int, int] = field(default_factory=dict)   # code -> count, TM(1,2)/(1,8)
     mode_changes: list[tuple[float, int]] = field(default_factory=list)  # (sim time, mode)
     desyncs: int = 0
+    # TM(3,25) reports of a set the SRDB defines whose length is not the SRDB's
+    hk_undecoded: int = 0
+    last_hk_problem: Optional[str] = None
 
     @property
     def n_rejected(self) -> int:
@@ -36,8 +40,8 @@ class LinkHealth:
 
     @property
     def healthy(self) -> bool:
-        """No TM was lost and the link never lost sync."""
-        return self.tm_dropped == 0 and self.desyncs == 0
+        """No TM was lost or left undecoded and the link never lost sync."""
+        return self.tm_dropped == 0 and self.desyncs == 0 and self.hk_undecoded == 0
 
     def problems(self) -> list[str]:
         """Human-readable reasons why the link is not healthy."""
@@ -47,6 +51,9 @@ class LinkHealth:
                        f" ({self.last_drop_reason})")
         if self.desyncs:
             out.append(f"{self.desyncs} tick(s) without the OBSW sync byte")
+        if self.hk_undecoded:
+            out.append(f"{self.hk_undecoded} HK report(s) not decoded"
+                       f" ({self.last_hk_problem})")
         return out
 
     def summary(self, code_names: Optional[dict[int, str]] = None) -> str:
@@ -73,5 +80,7 @@ class LinkHealth:
             "tc_rejected": {f"0x{c:04X}": n for c, n in sorted(self.tc_rejected.items())},
             "mode_changes": [[t, m] for t, m in self.mode_changes],
             "desyncs": self.desyncs,
+            "hk_undecoded": self.hk_undecoded,
+            "last_hk_problem": self.last_hk_problem,
             "healthy": self.healthy,
         }

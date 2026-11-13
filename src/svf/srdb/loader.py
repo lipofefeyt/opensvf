@@ -2,14 +2,16 @@
 SVF SRDB Loader
 Parses YAML parameter definition files into typed ParameterDefinition objects.
 Supports baseline domain files and mission-level overrides.
-Implements: SVF-DEV-092, SVF-DEV-093
+Implements: SVF-DEV-092, SVF-DEV-093, SVF-DEV-217
 """
 
 from __future__ import annotations
 
+import functools
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from types import MappingProxyType
+from typing import Any, Mapping, Optional
 
 import yaml
 
@@ -18,11 +20,18 @@ from svf.srdb.definitions import (
     Classification,
     Domain,
     Dtype,
+    HkParameter,
+    HkSetDefinition,
+    HkWireType,
     ParameterDefinition,
     PusMapping,
 )
 
 logger = logging.getLogger(__name__)
+
+# Housekeeping set layouts shipped with opensvf: the TM(3,25) sets openobsw
+# reports. Inside the package so an installed opensvf decodes HK as well.
+BUNDLED_HK_SETS = Path(__file__).parent.parent / "data" / "srdb" / "hk_sets.yaml"
 
 
 class SrdbLoadError(Exception):
@@ -49,8 +58,22 @@ class Srdb:
         eps_params = srdb.by_domain(Domain.EPS)
     """
 
-    def __init__(self, parameters: dict[str, ParameterDefinition]) -> None:
+    def __init__(
+        self,
+        parameters: dict[str, ParameterDefinition],
+        hk_sets: Optional[Mapping[int, HkSetDefinition]] = None,
+    ) -> None:
         self._parameters = dict(parameters)
+        self._hk_sets = dict(hk_sets or {})
+
+    @property
+    def hk_sets(self) -> Mapping[int, HkSetDefinition]:
+        """Housekeeping set layouts by set ID (empty unless loaded)."""
+        return MappingProxyType(self._hk_sets)
+
+    def hk_set(self, set_id: int) -> Optional[HkSetDefinition]:
+        """Return the layout of a housekeeping set or None if not defined."""
+        return self._hk_sets.get(set_id)
 
     def get(self, name: str) -> Optional[ParameterDefinition]:
         """Return the definition for a parameter, or None if not found."""
@@ -106,6 +129,7 @@ class SrdbLoader:
       1. load_baseline()  -  one or more domain baseline files
       2. load_mission()   -  optional mission override (last-writer wins
                            for all fields except classification)
+      3. load_hk_sets()   -  optional TM(3,25) housekeeping set layouts
 
     Usage:
         loader = SrdbLoader()
@@ -118,6 +142,7 @@ class SrdbLoader:
     def __init__(self) -> None:
         self._baseline: dict[str, ParameterDefinition] = {}
         self._mission_overrides: dict[str, dict[str, Any]] = {}
+        self._hk_sets: dict[int, HkSetDefinition] = {}
 
     def load_baseline(self, path: Path) -> None:
         """
@@ -185,6 +210,48 @@ class SrdbLoader:
             f"Loaded {len(parameters)} mission overrides from {path.name}"
         )
 
+    def load_hk_sets(self, path: Path) -> dict[int, HkSetDefinition]:
+        """
+        Load TM(3,25) housekeeping set layouts from a YAML file.
+
+        Format::
+
+            hk_sets:
+              - id: 1
+                name: nominal_hk
+                parameters:
+                  - {key: dhs.obc.obc_temperature, obsw: obc_temperature, type: int16}
+
+        ``key`` is the ParameterStore name the decoded value is written to,
+        ``obsw`` the parameter name in the flight software's SRDB and ``type``
+        its raw encoding (see HkWireType). ``unit`` and ``description`` are
+        optional. Returns the sets loaded from this file; they are also part
+        of the Srdb returned by build().
+
+        Raises SrdbLoadError on any schema or validation error, including a
+        set ID defined twice.
+        """
+        logger.info(f"Loading SRDB housekeeping sets: {path}")
+        raw = self._read_yaml(path)
+        sets = raw.get("hk_sets")
+        if not isinstance(sets, list):
+            raise SrdbLoadError(
+                f"{path}: 'hk_sets' key must be a list, got {type(sets).__name__}"
+            )
+
+        loaded: dict[int, HkSetDefinition] = {}
+        for entry in sets:
+            defn = self._parse_hk_set(entry, path)
+            if defn.set_id in self._hk_sets or defn.set_id in loaded:
+                raise SrdbLoadError(
+                    f"{path}: duplicate housekeeping set ID {defn.set_id}"
+                )
+            loaded[defn.set_id] = defn
+        self._hk_sets.update(loaded)
+
+        logger.info(f"Loaded {len(loaded)} housekeeping sets from {path.name}")
+        return loaded
+
     def build(self) -> Srdb:
         """
         Build the final Srdb by merging baselines and mission overrides.
@@ -207,7 +274,7 @@ class SrdbLoader:
                 )
 
         logger.info(f"SRDB built: {len(merged)} parameters total")
-        return Srdb(merged)
+        return Srdb(merged, self._hk_sets)
 
     # ── Private helpers ───────────────────────────────────────────────────────
 
@@ -239,6 +306,64 @@ class SrdbLoader:
             return data
         except yaml.YAMLError as e:
             raise SrdbLoadError(f"{path}: YAML parse error: {e}") from e
+
+    def _parse_hk_set(self, entry: Any, source: Path) -> HkSetDefinition:
+        if not isinstance(entry, dict):
+            raise SrdbLoadError(f"{source}: each housekeeping set must be a mapping")
+        for key in ("id", "name", "parameters"):
+            if key not in entry:
+                raise SrdbLoadError(
+                    f"{source}: housekeeping set {entry.get('id', '?')} is "
+                    f"missing required field '{key}'"
+                )
+        set_id, set_name = entry["id"], str(entry["name"])
+        if isinstance(set_id, bool) or not isinstance(set_id, int):
+            raise SrdbLoadError(
+                f"{source}: housekeeping set '{set_name}' id must be an "
+                f"integer, got {set_id!r}"
+            )
+        if not isinstance(entry["parameters"], list):
+            raise SrdbLoadError(
+                f"{source}: housekeeping set {set_id} 'parameters' must be a list"
+            )
+
+        parameters: list[HkParameter] = []
+        for p in entry["parameters"]:
+            if not isinstance(p, dict) or not all(k in p for k in ("key", "obsw", "type")):
+                raise SrdbLoadError(
+                    f"{source}: housekeeping set {set_id} ({set_name}): each "
+                    f"parameter needs 'key', 'obsw' and 'type', got {p!r}"
+                )
+            try:
+                wire_type = HkWireType(p["type"])
+            except ValueError:
+                raise SrdbLoadError(
+                    f"{source}: housekeeping set {set_id} ({set_name}): "
+                    f"parameter '{p['key']}' has invalid type '{p['type']}'. "
+                    f"Must be one of: {[t.value for t in HkWireType]}"
+                )
+            try:
+                parameters.append(HkParameter(
+                    name=str(p["key"]),
+                    obsw_name=str(p["obsw"]),
+                    wire_type=wire_type,
+                    unit=str(p.get("unit", "")),
+                    description=str(p.get("description", "")),
+                ))
+            except ValueError as e:
+                raise SrdbLoadError(
+                    f"{source}: housekeeping set {set_id} ({set_name}): {e}"
+                ) from e
+
+        try:
+            return HkSetDefinition(
+                set_id=set_id,
+                name=set_name,
+                parameters=tuple(parameters),
+                description=str(entry.get("description", "")),
+            )
+        except ValueError as e:
+            raise SrdbLoadError(f"{source}: {e}") from e
 
     def _parse_definition(
         self,
@@ -416,3 +541,13 @@ class SrdbLoader:
                     "table": [list(pt) for pt in cal.table],
                 }
         return d
+
+
+@functools.lru_cache(maxsize=1)
+def load_bundled_hk_sets() -> Mapping[int, HkSetDefinition]:
+    """
+    Housekeeping set layouts shipped with opensvf (BUNDLED_HK_SETS), by set ID.
+
+    Read once per process; the returned mapping is read-only.
+    """
+    return MappingProxyType(SrdbLoader().load_hk_sets(BUNDLED_HK_SETS))

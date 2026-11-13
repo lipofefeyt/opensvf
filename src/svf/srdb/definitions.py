@@ -6,14 +6,15 @@ Inspired by ECSS-E-TM-10-23 and the Astrium SRDB Next Generation.
 One data one source: every parameter has exactly one authoritative
 definition shared across all engineering disciplines.
 
-Implements: SVF-DEV-090, SVF-DEV-096
+Implements: SVF-DEV-090, SVF-DEV-096, SVF-DEV-217
 """
 
 from __future__ import annotations
 
 import enum
-from dataclasses import dataclass
-from typing import Optional
+import struct
+from dataclasses import dataclass, field
+from typing import Optional, Union
 
 
 class Classification(enum.Enum):
@@ -219,3 +220,125 @@ class ParameterDefinition:
             f"({self.classification.value}, {self.domain.value})"
             f"{range_str}"
         )
+
+
+# ── Housekeeping set layouts (TM(3,25)) ──────────────────────────────────────
+
+class HkWireType(enum.Enum):
+    """
+    Raw encoding of a housekeeping parameter in a TM(3,25) report.
+
+    The names are openobsw's SRDB parameter types. A report carries its
+    parameters big-endian with no padding, so the byte size of each type is
+    the width the flight software binds for it (``SRDB_HK_<SET>_SIZES``).
+    """
+    UINT8   = "uint8"
+    INT8    = "int8"
+    UINT16  = "uint16"
+    INT16   = "int16"
+    UINT32  = "uint32"
+    INT32   = "int32"
+    FLOAT32 = "float32"
+    FLOAT64 = "float64"
+
+    @property
+    def struct_code(self) -> str:
+        """``struct`` format character for this type."""
+        return _HK_STRUCT_CODES[self]
+
+    @property
+    def size(self) -> int:
+        """Encoded size in bytes."""
+        return struct.calcsize(">" + _HK_STRUCT_CODES[self])
+
+
+_HK_STRUCT_CODES: dict[HkWireType, str] = {
+    HkWireType.UINT8: "B",   HkWireType.INT8: "b",
+    HkWireType.UINT16: "H",  HkWireType.INT16: "h",
+    HkWireType.UINT32: "I",  HkWireType.INT32: "i",
+    HkWireType.FLOAT32: "f", HkWireType.FLOAT64: "d",
+}
+
+
+@dataclass(frozen=True)
+class HkParameter:
+    """
+    One parameter of a housekeeping set.
+
+    Attributes:
+        name:         Canonical ParameterStore key the decoded raw value is
+                      written to, e.g. "dhs.obc.obc_temperature"
+        obsw_name:    Parameter name in the flight software's SRDB
+        wire_type:    Raw encoding in the report
+        unit:         Unit of the raw value. Empty string for dimensionless.
+        description:  Human-readable description
+    """
+    name: str
+    obsw_name: str
+    wire_type: HkWireType
+    unit: str = ""
+    description: str = ""
+
+    def __post_init__(self) -> None:
+        if len(self.name.split(".")) < 3 or not all(self.name.split(".")):
+            raise ValueError(
+                f"HK parameter key '{self.name}' is not of the form "
+                f"domain.subsystem.parameter"
+            )
+        if not self.obsw_name:
+            raise ValueError(f"HK parameter '{self.name}' has no obsw name")
+
+
+@dataclass(frozen=True)
+class HkSetDefinition:
+    """
+    Layout of one housekeeping set as reported in TM(3,25).
+
+    The application data of a report is the set ID (uint8) followed by the
+    parameters in order, big-endian, each as wide as its wire type.
+
+    Attributes:
+        set_id:       Housekeeping set ID (the first application data byte)
+        name:         Set name in the flight software's SRDB
+        parameters:   Parameters in report order
+        description:  Human-readable description
+    """
+    set_id: int
+    name: str
+    parameters: tuple[HkParameter, ...]
+    description: str = ""
+    _struct: struct.Struct = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if not (0 <= self.set_id <= 255):
+            raise ValueError(f"HK set ID must be 0-255, got {self.set_id}")
+        if not self.parameters:
+            raise ValueError(f"HK set {self.set_id} ({self.name}) has no parameters")
+        for attr in ("name", "obsw_name"):
+            seen = [getattr(p, attr) for p in self.parameters]
+            dup = sorted({n for n in seen if seen.count(n) > 1})
+            if dup:
+                raise ValueError(
+                    f"HK set {self.set_id} ({self.name}) lists {dup} more than once"
+                )
+        object.__setattr__(self, "_struct", struct.Struct(
+            ">" + "".join(p.wire_type.struct_code for p in self.parameters)))
+
+    @property
+    def sizes(self) -> tuple[int, ...]:
+        """Byte size of each parameter, in report order."""
+        return tuple(p.wire_type.size for p in self.parameters)
+
+    @property
+    def data_len(self) -> int:
+        """Bytes of parameter data in a report, without the set ID."""
+        return self._struct.size
+
+    def decode(self, data: bytes, offset: int = 0) -> tuple[Union[int, float], ...]:
+        """
+        Decode the raw parameter values of a report, in report order.
+
+        ``data[offset:]`` starts at the first parameter, after the set ID.
+        Raises ``struct.error`` when fewer than ``data_len`` bytes follow.
+        """
+        return self._struct.unpack_from(data, offset)

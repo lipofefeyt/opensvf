@@ -374,20 +374,21 @@ checkcons
 checkcons-full lipofefeyt-openobsw-*.txt
 ```
 
-`checkcons` (`tools/srdb_consistency_check.py`) runs 8 checks:
+`checkcons` (`tools/srdb_consistency_check.py`) runs 9 checks:
 
 | Check | What it catches |
 |---|---|
-| [1/8] Struct sizes | `_SENSOR_FMT` / `_ACTUATOR_FMT` drift from C struct layout |
-| [2/8] Python-side mapping | `obc_emulator.py` store keys diverging from mapping table |
-| [3/8] C struct fields | Field renames in openobsw not propagated to SVF packer |
-| [4/8] Producer/consumer | Sensor model port renames that produce silent zeros in the OBSW |
-| [5/8] Requirement orphans | `@pytest.mark.requirement` IDs absent from `REQUIREMENTS.md` |
-| [6/8] Profile symmetry | Mission hardware profiles missing from bundled directory |
-| [7/8] SRDB namespace | OUT ports declared by equipment models but absent from SRDB baseline |
-| [8/8] S5 mode events | `S5_MODE_EVENTS` in `obc_emulator.py` diverging from openobsw `srdb/data/events.yaml` |
+| [1/9] Struct sizes | `_SENSOR_FMT` / `_ACTUATOR_FMT` drift from C struct layout |
+| [2/9] Python-side mapping | `obc_emulator.py` store keys diverging from mapping table |
+| [3/9] C struct fields | Field renames in openobsw not propagated to SVF packer |
+| [4/9] Producer/consumer | Sensor model port renames that produce silent zeros in the OBSW |
+| [5/9] Requirement orphans | `@pytest.mark.requirement` IDs absent from `REQUIREMENTS.md` |
+| [6/9] Profile symmetry | Mission hardware profiles missing from bundled directory |
+| [7/9] SRDB namespace | OUT ports declared by equipment models but absent from SRDB baseline |
+| [8/9] S5 mode events | `S5_MODE_EVENTS` in `obc_emulator.py` diverging from openobsw `srdb/data/events.yaml` |
+| [9/9] HK set layouts | `src/svf/data/srdb/hk_sets.yaml` diverging from openobsw `hk_sets.yaml` / `parameters.yaml` (set IDs, parameter order, types) |
 
-The C struct check and the openobsw side of the S5 mode-event check accept
+The C struct check and the openobsw side of checks [8/9] and [9/9] accept
 either a real openobsw checkout (directory) or a gitingest snapshot (`.txt`
 file), which is the correct approach in
 single-workspace environments (Firebase IDX, GitHub Codespaces) where both

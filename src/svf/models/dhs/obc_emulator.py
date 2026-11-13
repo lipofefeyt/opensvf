@@ -15,7 +15,7 @@ obsw_sensor_frame_t (packed, little-endian floats):
 obsw_sim stdout (unchanged):
   [uint16 BE length][TM packet bytes] ... [0xFF sync]
 
-Implements: SVF-DEV-029, SVF-DEV-034, SVF-DEV-037, SVF-DEV-169
+Implements: SVF-DEV-029, SVF-DEV-034, SVF-DEV-037, SVF-DEV-169, SVF-DEV-217
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ import importlib.metadata
 import threading
 import time
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any, Mapping, Optional, Union
 
 try:
     import serial as _pyserial
@@ -69,7 +69,7 @@ _S8_MODE_FUNCTION: dict[int, int] = {
 # openobsw mode-transition events (srdb/data/events.yaml) and the obc_mode each
 # one announces. A hint between housekeeping reports only: HK set 3 carries the
 # mode the flight software is in and overrides it (SVF-DEV-210, SVF-DEV-216).
-# checkcons check [8/8] compares this table with openobsw's events.yaml.
+# checkcons check [8/9] compares this table with openobsw's events.yaml.
 # 0x0003 was safe_mode_exit: no target ever emitted it and openobsw removed it;
 # leaving SAFE is announced by the entry event of the mode that follows.
 S5_MODE_EVENTS: dict[int, int] = {
@@ -81,6 +81,8 @@ from svf.stores.parameter_store import ParameterStore
 from svf.pus.tc import PusTcBuilder, PusTcPacket
 from svf.pus.tm import PusTmPacket, PusTmParser
 from svf.pus.services import PusService9
+from svf.srdb.definitions import HkSetDefinition
+from svf.srdb.loader import load_bundled_hk_sets
 
 logger = logging.getLogger(__name__)
 
@@ -88,9 +90,13 @@ SYNC_BYTE = 0xFF
 
 _APP_DATA_OFFSET = 17          # bytes: 6 primary + 11 secondary header
 _DHS_OBC_HK_SID = 3
-_DHS_OBC_HK_FMT = ">BIBBBHB"  # mode, obt, wd, mem, health, reset, cpu
-# Header + set id + set 3 fields; add 2 when TM carries a PEC (see tm_pec).
-_DHS_OBC_HK_MIN_PKT_LEN = _APP_DATA_OFFSET + 1 + struct.calcsize(_DHS_OBC_HK_FMT)
+# DHS OBC HK (set 3) parameters the adapter mirrors into its own state and
+# OUT ports, by openobsw name. Where they sit in the report comes from the
+# SRDB housekeeping set layout, like every other set.
+_DHS_OBC_HK_STATE = (
+    "obc_mode", "obc_obt", "obc_watchdog_status", "obc_memory_used_pct",
+    "obc_health", "obc_reset_count", "obc_cpu_load",
+)
 MAX_DESYNC = 3
 
 # openobsw FreeRTOS TMTC task queue depth (obsw/task/tmtc.h, capacity 4).
@@ -196,6 +202,7 @@ class OBCEmulatorAdapter(HilAdapter):
         baud_rate: int = 115200,
         apid: int = 0x010,
         tm_pec: bool = False,
+        hk_sets: Optional[Mapping[int, HkSetDefinition]] = None,
     ) -> None:
         self._sim_path = Path(sim_path) if sim_path is not None else None
         self._qemu_prefix = qemu_prefix or []
@@ -234,6 +241,22 @@ class OBCEmulatorAdapter(HilAdapter):
         # openobsw TM packets carry no Packet Error Control field.
         self._tm_pec      = tm_pec
         self._tm_parser   = PusTmParser(pec=tm_pec)
+        # TM(3,25) set layouts from the SRDB; the bundled openobsw sets by default.
+        self._hk_sets: Mapping[int, HkSetDefinition] = (
+            dict(hk_sets) if hk_sets is not None else load_bundled_hk_sets())
+        self._hk_unknown_sets: set[int] = set()
+        dhs_obc_hk = self._hk_sets.get(_DHS_OBC_HK_SID)
+        if dhs_obc_hk is None:
+            logger.warning(
+                f"[obc-emu] no SRDB layout for HK set {_DHS_OBC_HK_SID}: mode and "
+                "OBT will not follow the flight software")
+        else:
+            reported = {p.obsw_name for p in dhs_obc_hk.parameters}
+            missing = [n for n in _DHS_OBC_HK_STATE if n not in reported]
+            if missing:
+                raise ValueError(
+                    f"SRDB HK set {_DHS_OBC_HK_SID} ({dhs_obc_hk.name}) lacks "
+                    f"{missing}, which OBCEmulatorAdapter reports as OBC state")
         self._consecutive_desync: int = 0
 
         self._proc:   Optional[subprocess.Popen[bytes]] = None
@@ -945,41 +968,78 @@ class OBCEmulatorAdapter(HilAdapter):
             self._mode = hinted_mode
 
     def _on_s3_25(self, pkt: bytes, t: float) -> None:
-        """Parse TM(3,25) DHS OBC HK set_id=3 and update instance state."""
-        if len(pkt) < _DHS_OBC_HK_MIN_PKT_LEN + (2 if self._tm_pec else 0):
+        """
+        Decode a TM(3,25) housekeeping report with its SRDB set layout.
+
+        Every parameter of the set is written to the ParameterStore under its
+        SRDB key (``dhs.obc.<parameter>``), raw as reported. A set without an
+        SRDB layout is logged once and left undecoded. A report whose length
+        is not what the layout says is not decoded at all, since every value
+        after the mismatch would be wrong: it is counted in ``LinkHealth``
+        and makes the link unhealthy.
+
+        Implements: SVF-DEV-217
+        """
+        end = len(pkt) - (2 if self._tm_pec else 0)
+        if end <= _APP_DATA_OFFSET:
             return
-        app = pkt[_APP_DATA_OFFSET:]
-        if app[0] != _DHS_OBC_HK_SID:
+        set_id = pkt[_APP_DATA_OFFSET]
+        hk_set = self._hk_sets.get(set_id)
+        if hk_set is None:
+            if set_id not in self._hk_unknown_sets:
+                self._hk_unknown_sets.add(set_id)
+                logger.warning(
+                    f"[obc-emu] TM(3,25) set {set_id} has no SRDB layout; "
+                    "its reports are not decoded")
             return
-        mode, obt, wd, mem, health, reset, cpu = struct.unpack_from(
-            _DHS_OBC_HK_FMT, app, 1
-        )
+
+        data_len = end - _APP_DATA_OFFSET - 1
+        if data_len != hk_set.data_len:
+            self._link.hk_undecoded += 1
+            self._link.last_hk_problem = (
+                f"TM(3,25) set {set_id} ({hk_set.name}) carries {data_len} "
+                f"parameter bytes, SRDB layout has {hk_set.data_len}")
+            if self._link.hk_undecoded == 1 or self._link.hk_undecoded % 100 == 0:
+                logger.error(f"[obc-emu] HK report #{self._link.hk_undecoded} not "
+                             f"decoded: {self._link.last_hk_problem}")
+            return
+
+        values = hk_set.decode(pkt, _APP_DATA_OFFSET + 1)
+        if self._store is not None:
+            for param, value in zip(hk_set.parameters, values):
+                self._store.write(
+                    name=param.name, value=float(value),
+                    t=t, model_id=self.equipment_id,
+                )
+        if set_id == _DHS_OBC_HK_SID:
+            self._on_dhs_obc_hk(
+                {p.obsw_name: v for p, v in zip(hk_set.parameters, values)}, t)
+
+    def _on_dhs_obc_hk(self, hk: Mapping[str, Union[int, float]], t: float) -> None:
+        """Mirror DHS OBC HK (set 3) into adapter state: the mode source."""
+        mode = int(hk["obc_mode"])
         self._mode                 = mode
-        self._obc_obt              = obt
+        self._obc_obt              = int(hk["obc_obt"])
         if not self._link.mode_changes or self._link.mode_changes[-1][1] != mode:
             self._link.mode_changes.append((t, mode))
-        self._obc_watchdog_status  = wd
-        self._obc_memory_used_pct  = mem
-        self._obc_health           = health
-        self._obc_reset_count      = reset
-        self._obc_cpu_load         = cpu
+        self._obc_watchdog_status  = int(hk["obc_watchdog_status"])
+        self._obc_memory_used_pct  = int(hk["obc_memory_used_pct"])
+        self._obc_health           = int(hk["obc_health"])
+        self._obc_reset_count      = int(hk["obc_reset_count"])
+        self._obc_cpu_load         = int(hk["obc_cpu_load"])
         if self._store is not None:
-            for name, val in (
-                ("obc_mode",            mode),
-                ("obc_obt",             obt),
-                ("obc_watchdog_status", wd),
-                ("obc_memory_used_pct", mem),
-                ("obc_health",          health),
-                ("obc_reset_count",     reset),
-                ("obc_cpu_load",        cpu),
-            ):
+            # Unqualified names from before SVF-DEV-217, kept for existing
+            # procedures and tests; dhs.obc.<name> is the SRDB key.
+            for name in _DHS_OBC_HK_STATE:
                 self._store.write(
-                    name=name, value=float(val),
+                    name=name, value=float(hk[name]),
                     t=t, model_id=self.equipment_id,
                 )
         logger.debug(
-            f"[obc-emu] TM(3,25) mode={mode} obt={obt} wd={wd} "
-            f"mem={mem}% health={health} reset={reset} cpu={cpu}%"
+            f"[obc-emu] TM(3,25) mode={mode} obt={self._obc_obt} "
+            f"wd={self._obc_watchdog_status} mem={self._obc_memory_used_pct}% "
+            f"health={self._obc_health} reset={self._obc_reset_count} "
+            f"cpu={self._obc_cpu_load}%"
         )
 
     # ── HilAdapter interface ──────────────────────────────────────────────────

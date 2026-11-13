@@ -1,0 +1,222 @@
+# SVF SRDB  -  TM(3,25) housekeeping set layouts
+#
+# The housekeeping sets openobsw reports, in the form OBCEmulatorAdapter
+# decodes them: application data is the set ID (uint8) followed by the
+# parameters below in order, big-endian, each as wide as its type. The types
+# give the per-parameter byte sizes openobsw binds to each set
+# (SRDB_HK_<SET>_SIZES, generated from its srdb/data/hk_sets.yaml and
+# parameters.yaml).
+#
+# Each parameter has:
+#   key          ParameterStore name the decoded value is written to
+#   obsw         Parameter name in openobsw's SRDB
+#   type         Raw encoding: uint8/int8/uint16/int16/uint32/int32/float32/float64
+#   unit         Unit of the stored value (optional)
+#   description  Human-readable description (optional)
+#
+# Values are stored raw, as reported: no calibration is applied. A raw unit
+# that needs conversion says so (obc_temperature).
+#
+# Keep in step with openobsw: checkcons check [9/9] compares set IDs, names,
+# parameter order and types with an openobsw checkout (--obsw).
+
+hk_sets:
+  - id: 1
+    name: nominal_hk
+    description: "Nominal housekeeping - thermal, power, uptime"
+    parameters:
+      - key: dhs.obc.obc_temperature
+        obsw: obc_temperature
+        type: int16
+        unit: "raw (degC = 0.1 * raw - 40)"
+        description: "OBC board temperature (internal sensor)"
+      - key: dhs.obc.obc_voltage_3v3
+        obsw: obc_voltage_3v3
+        type: uint16
+        unit: "mV"
+        description: "OBC 3.3V rail voltage"
+      - key: dhs.obc.obc_voltage_5v
+        obsw: obc_voltage_5v
+        type: uint16
+        unit: "mV"
+        description: "OBC 5V rail voltage"
+      - key: dhs.obc.obc_uptime
+        obsw: obc_uptime
+        type: uint32
+        unit: "s"
+        description: "OBC uptime since last boot"
+
+  - id: 2
+    name: fdir_hk
+    description: "FDIR housekeeping - safe mode and watchdog statistics"
+    parameters:
+      - key: dhs.obc.safe_mode_entry_count
+        obsw: safe_mode_entry_count
+        type: uint16
+        unit: "count"
+        description: "Number of safe mode transitions since boot"
+      - key: dhs.obc.watchdog_kick_count
+        obsw: watchdog_kick_count
+        type: uint32
+        unit: "count"
+        description: "Total watchdog kick count since boot"
+      - key: dhs.obc.watchdog_ticks_remaining
+        obsw: watchdog_ticks_remaining
+        type: uint32
+        unit: "ticks"
+        description: "Ticks remaining before watchdog expiry"
+
+  - id: 3
+    name: dhs_obc_hk
+    description: "DHS OBC housekeeping - mode, OBT, watchdog, health, resources"
+    parameters:
+      - key: dhs.obc.obc_mode
+        obsw: obc_mode
+        type: uint8
+        unit: ""
+        description: "OBC operational mode (0=STANDBY, 1=SAFE, 2=NOMINAL)"
+      - key: dhs.obc.obc_obt
+        obsw: obc_obt
+        type: uint32
+        unit: "s"
+        description: "On-board time"
+      - key: dhs.obc.obc_watchdog_status
+        obsw: obc_watchdog_status
+        type: uint8
+        unit: ""
+        description: "Software watchdog status (0=NOMINAL, 1=EXPIRED)"
+      - key: dhs.obc.obc_memory_used_pct
+        obsw: obc_memory_used_pct
+        type: uint8
+        unit: "%"
+        description: "Mass memory fill percentage"
+      - key: dhs.obc.obc_health
+        obsw: obc_health
+        type: uint8
+        unit: ""
+        description: "OBC health status (0=NOMINAL, 1=DEGRADED, 2=FAILED)"
+      - key: dhs.obc.obc_reset_count
+        obsw: obc_reset_count
+        type: uint16
+        unit: "count"
+        description: "OBC reset counter since first boot"
+      - key: dhs.obc.obc_cpu_load
+        obsw: obc_cpu_load
+        type: uint8
+        unit: "%"
+        description: "OBC CPU utilisation"
+
+  - id: 4
+    name: aocs_hk
+    description: "AOCS housekeeping - control gains (S20-tunable)"
+    parameters:
+      - key: dhs.obc.bdot_gain
+        obsw: bdot_gain
+        type: float32
+        unit: "Am2.s/T"
+        description: "B-dot controller gain k_bdot (m_cmd = -k * B_dot)"
+      - key: dhs.obc.adcs_kp
+        obsw: adcs_kp
+        type: float32
+        unit: "N.m/rad"
+        description: "ADCS PD proportional gain Kp (τ = -Kp*q_err_vec - Kd*ω)"
+      - key: dhs.obc.adcs_kd
+        obsw: adcs_kd
+        type: float32
+        unit: "N.m.s/rad"
+        description: "ADCS PD derivative gain Kd (τ = -Kp*q_err_vec - Kd*ω)"
+
+  - id: 5
+    name: aocs_orbit_hk
+    description: "AOCS orbit and dynamics configuration - altitude, inclination, inertia tensor, MTQ limits"
+    parameters:
+      - key: dhs.obc.orbit_altitude_km
+        obsw: orbit_altitude_km
+        type: float32
+        unit: "km"
+        description: "Orbital altitude above Earth's surface"
+      - key: dhs.obc.orbit_inclination_deg
+        obsw: orbit_inclination_deg
+        type: float32
+        unit: "deg"
+        description: "Orbital inclination"
+      - key: dhs.obc.sc_inertia_xx
+        obsw: sc_inertia_xx
+        type: float32
+        unit: "kg.m2"
+        description: "Spacecraft principal moment of inertia Ixx"
+      - key: dhs.obc.sc_inertia_yy
+        obsw: sc_inertia_yy
+        type: float32
+        unit: "kg.m2"
+        description: "Spacecraft principal moment of inertia Iyy"
+      - key: dhs.obc.sc_inertia_zz
+        obsw: sc_inertia_zz
+        type: float32
+        unit: "kg.m2"
+        description: "Spacecraft principal moment of inertia Izz"
+      - key: dhs.obc.mtq_max_dipole
+        obsw: mtq_max_dipole
+        type: float32
+        unit: "Am2"
+        description: "Magnetorquer maximum dipole moment per axis"
+
+  - id: 6
+    name: aocs_state_hk
+    description: "AOCS live state - attitude error from nadir, angular rate magnitude, active controller"
+    parameters:
+      - key: dhs.obc.aocs_angle_err_rad
+        obsw: aocs_angle_err_rad
+        type: float32
+        unit: "rad"
+        description: "Attitude error angle from nadir target (valid in NOMINAL mode)"
+      - key: dhs.obc.aocs_omega_mag
+        obsw: aocs_omega_mag
+        type: float32
+        unit: "rad/s"
+        description: "Angular velocity magnitude |ω| in body frame"
+      - key: dhs.obc.aocs_controller
+        obsw: aocs_controller
+        type: uint8
+        unit: ""
+        description: "Active AOCS controller (0=OFF, 1=BDOT, 2=PD)"
+
+  - id: 7
+    name: aocs_bdot_hk
+    description: "AOCS B-dot HIL state - raw magnetometer readings and MTQ dipole commands from QMC5883L + bdot.c"
+    parameters:
+      - key: dhs.obc.bdot_mag_x
+        obsw: bdot_mag_x
+        type: float32
+        unit: "T"
+        description: "Magnetometer reading X - body frame, raw QMC5883L output"
+      - key: dhs.obc.bdot_mag_y
+        obsw: bdot_mag_y
+        type: float32
+        unit: "T"
+        description: "Magnetometer reading Y - body frame, raw QMC5883L output"
+      - key: dhs.obc.bdot_mag_z
+        obsw: bdot_mag_z
+        type: float32
+        unit: "T"
+        description: "Magnetometer reading Z - body frame, raw QMC5883L output"
+      - key: dhs.obc.bdot_m_cmd_x
+        obsw: bdot_m_cmd_x
+        type: float32
+        unit: "A*m^2"
+        description: "B-dot MTQ dipole command X"
+      - key: dhs.obc.bdot_m_cmd_y
+        obsw: bdot_m_cmd_y
+        type: float32
+        unit: "A*m^2"
+        description: "B-dot MTQ dipole command Y"
+      - key: dhs.obc.bdot_m_cmd_z
+        obsw: bdot_m_cmd_z
+        type: float32
+        unit: "A*m^2"
+        description: "B-dot MTQ dipole command Z"
+      - key: dhs.obc.bdot_mag_valid
+        obsw: bdot_mag_valid
+        type: uint8
+        unit: ""
+        description: "Magnetometer validity flag - 1 if QMC5883L init succeeded and last read returned data (0=INVALID, 1=VALID)"
