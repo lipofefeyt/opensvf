@@ -11,6 +11,9 @@ use. Covers:
 - SAFE TC gate: rejection code 0x0007, accepted once NOMINAL (SVF-DEV-209)
 - S11, S12, S19 built with opensvf's codecs behave as openobsw specifies
   (SVF-DEV-211)
+- S5 mode events are a hint that HK set 3 overrides (SVF-DEV-216)
+- Every HK set is decoded into named parameters from its SRDB layout
+  (SVF-DEV-217)
 
 Run:
     pytest tests/system/test_obsw_alignment.py -v
@@ -365,6 +368,70 @@ def test_s5_mode_event_is_a_hint_until_hk_set3(
     assert ObswHarness.hk(obsw.take(), 3), "no set 3 report after the event"
     assert adapter._mode == MODE_NOMINAL, "HK set 3 did not override the S5 hint"
     assert adapter.link_health().mode_changes == timeline
+
+
+# ── SRDB-driven HK decoding against the flight software (SVF-DEV-217) ───────
+
+OBC_TEMPERATURE_PARAM = 0x0001
+
+
+@pytest.mark.requirement("SVF-DEV-217")
+def test_hk_set1_obc_temperature_follows_tc20_1(obsw: ObswHarness) -> None:
+    """dhs.obc.obc_temperature is what TC(20,1) set, by name, sign included."""
+    store = obsw.adapter._store
+    assert store is not None
+    _nominal_at_obt(obsw, 100)                    # TC(20,1) is gated in SAFE
+
+    def reported() -> float:
+        """Run until the next nominal_hk (set 1) report and return the stored value."""
+        obsw.take()
+        for _ in range(15):                       # reported every 10 ticks
+            obsw.run(1)
+            packets = obsw.take()
+            assert _s1_failures(packets) == [], "TC(20,1) rejected in NOMINAL"
+            if ObswHarness.hk(packets, 1):
+                entry = store.read("dhs.obc.obc_temperature")
+                assert entry is not None, "set 1 reported but not decoded by name"
+                return float(entry.value)
+        pytest.fail("no nominal_hk (set 1) report in 15 ticks")
+
+    assert reported() == 0.0                      # obsw_sim boot value
+    for raw in (1300, -100):                      # 90 degC and -50 degC in raw counts
+        obsw.tc(20, 1, struct.pack(">Hi", OBC_TEMPERATURE_PARAM, raw))
+        obsw.run(2)
+        assert reported() == float(raw)
+
+    # The rest of set 1 arrives by name too, with the values obsw_sim holds.
+    v3v3, v5v, uptime = (store.read(f"dhs.obc.{n}") for n in
+                         ("obc_voltage_3v3", "obc_voltage_5v", "obc_uptime"))
+    assert v3v3 is not None and v3v3.value == 3300.0
+    assert v5v is not None and v5v.value == 5000.0
+    assert uptime is not None and obsw.t - 2 <= uptime.value <= obsw.t
+
+
+@pytest.mark.requirement("SVF-DEV-217", "SVF-DEV-206")
+def test_every_reported_hk_set_is_decoded_by_name(obsw: ObswHarness) -> None:
+    """Each set obsw_sim reports lands in the store under its SRDB keys, none undecoded."""
+    from svf.srdb.loader import load_bundled_hk_sets
+    store = obsw.adapter._store
+    assert store is not None
+    obsw.run(70)                                  # fdir_hk (set 2) is reported every 60 ticks
+    packets = obsw.take()
+    layouts = load_bundled_hk_sets()
+    seen = sorted({d[0] for p in packets if (p.service, p.subservice) == (3, 25)
+                   for d in [p.app_data]})
+    assert seen == [1, 2, 3, 4, 6], f"sets reported by obsw_sim: {seen}"
+    for set_id in seen:
+        last = ObswHarness.hk(packets, set_id)[-1]
+        assert len(last) == 1 + layouts[set_id].data_len
+        expected = layouts[set_id].decode(last, 1)
+        for param, value in zip(layouts[set_id].parameters, expected):
+            entry = store.read(param.name)
+            assert entry is not None, f"{param.name} (set {set_id}) not in the store"
+            assert entry.value == pytest.approx(float(value))
+    gain = store.read("dhs.obc.bdot_gain")
+    assert gain is not None and gain.value == pytest.approx(1.0e4)
+    assert obsw.adapter.link_health().hk_undecoded == 0
 
 
 # ── svf console against the flight software (SVF-DEV-215) ───────────────────

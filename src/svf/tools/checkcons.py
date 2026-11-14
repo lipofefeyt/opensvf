@@ -2,7 +2,7 @@
 """
 srdb_consistency_check.py  -  Cross-repository SRDB consistency checker.
 
-Verifies four things:
+Verifies five things:
 
   1. WIRE PROTOCOL STRUCT ALIGNMENT
      obsw_sensor_frame_t fields (C, openobsw) vs SVF ParameterStore
@@ -30,6 +30,13 @@ Verifies four things:
      here and, with --obsw, against openobsw's srdb/data/events.yaml, so a
      renumbered or removed event does not leave the adapter keyed on an ID
      nothing emits.
+
+  5. HOUSEKEEPING SET LAYOUTS
+     OBCEmulatorAdapter decodes every TM(3,25) set with the layout in
+     src/svf/data/srdb/hk_sets.yaml. With --obsw, set IDs, parameter order
+     and types are checked against openobsw's hk_sets.yaml and
+     parameters.yaml, so a parameter added to or retyped in a set does not
+     shift every value after it unnoticed.
 
 Usage:
     python tools/srdb_consistency_check.py [--obsw ../openobsw] [--verbose]
@@ -1049,11 +1056,55 @@ S5_MODE_EVENT_TABLE: dict[str, tuple[int, str]] = {
 # in S5_MODE_EVENT_TABLE is reported as a warning: the name is a heuristic.
 _MODE_EVENT_NAME_RE = re.compile(r"_(entry|exit)$")
 
-_SNAPSHOT_EVENTS_RE = re.compile(
-    r"^={8,}\n(?:FILE|File):[ \t]*\S*srdb/data/events\.yaml[ \t]*\n={8,}\n"
-    r"(.*?)(?=^={8,}\n(?:FILE|File):|\Z)",
-    re.MULTILINE | re.DOTALL,
-)
+def _openobsw_srdb_yaml(
+    obsw_root: Path,
+    filename: str,
+    tag: str,
+    result: CheckResult,
+) -> tuple[Any, str] | None:
+    """
+    Parse ``srdb/data/<filename>`` of openobsw; returns (content, source).
+
+    ``obsw_root`` is an openobsw checkout or a gitingest ``.txt`` snapshot
+    containing that file. Returns None, with a warning, when the file cannot
+    be read, so a skipped comparison is never mistaken for a passed one.
+    """
+    import yaml
+
+    if obsw_root.is_file():
+        if obsw_root.suffix != ".txt":
+            result.warn(
+                f"[{tag}] --obsw points to a file that is not a .txt snapshot: "
+                f"{obsw_root}  -  skipping the openobsw side"
+            )
+            return None
+        section = re.compile(
+            r"^={8,}\n(?:FILE|File):[ \t]*\S*srdb/data/" + re.escape(filename)
+            + r"[ \t]*\n={8,}\n(.*?)(?=^={8,}\n(?:FILE|File):|\Z)",
+            re.MULTILINE | re.DOTALL,
+        )
+        m = section.search(obsw_root.read_text(encoding="utf-8", errors="replace"))
+        if m is None:
+            result.warn(
+                f"[{tag}] no srdb/data/{filename} section in snapshot "
+                f"{obsw_root.name}  -  skipping the openobsw side"
+            )
+            return None
+        text, source = m.group(1), f"{obsw_root.name} (srdb/data/{filename})"
+    else:
+        path = obsw_root / "srdb" / "data" / filename
+        if not path.exists():
+            result.warn(f"[{tag}] {path} not found  -  skipping the openobsw side")
+            return None
+        text, source = path.read_text(encoding="utf-8"), str(path)
+
+    try:
+        return yaml.safe_load(text), source
+    except Exception as e:
+        result.warn(
+            f"[{tag}] could not parse {source}: {e}  -  skipping the openobsw side"
+        )
+        return None
 
 
 def _adapter_s5_mode_events(emulator_py: Path) -> dict[int, str] | None:
@@ -1089,41 +1140,15 @@ def _adapter_s5_mode_events(emulator_py: Path) -> dict[int, str] | None:
 
 def _openobsw_events(obsw_root: Path, result: CheckResult) -> dict[str, int] | None:
     """
-    Read openobsw's event definitions as {name: event ID}.
+    Read openobsw's event definitions (srdb/data/events.yaml) as {name: ID}.
 
-    ``obsw_root`` is an openobsw checkout (srdb/data/events.yaml) or a
-    gitingest ``.txt`` snapshot containing that file. Returns None, with a
-    warning, when the definitions cannot be read.
+    Returns None, with a warning, when the definitions cannot be read.
     """
-    import yaml
-
-    if obsw_root.is_file():
-        if obsw_root.suffix != ".txt":
-            result.warn(
-                f"[S5-MODE] --obsw points to a file that is not a .txt snapshot: "
-                f"{obsw_root}  -  skipping the openobsw side"
-            )
-            return None
-        m = _SNAPSHOT_EVENTS_RE.search(
-            obsw_root.read_text(encoding="utf-8", errors="replace"))
-        if m is None:
-            result.warn(
-                f"[S5-MODE] no srdb/data/events.yaml section in snapshot "
-                f"{obsw_root.name}  -  skipping the openobsw side"
-            )
-            return None
-        text, source = m.group(1), f"{obsw_root.name} (srdb/data/events.yaml)"
-    else:
-        events_yaml = obsw_root / "srdb" / "data" / "events.yaml"
-        if not events_yaml.exists():
-            result.warn(
-                f"[S5-MODE] {events_yaml} not found  -  skipping the openobsw side"
-            )
-            return None
-        text, source = events_yaml.read_text(encoding="utf-8"), str(events_yaml)
-
+    loaded = _openobsw_srdb_yaml(obsw_root, "events.yaml", "S5-MODE", result)
+    if loaded is None:
+        return None
+    raw, source = loaded
     try:
-        raw = yaml.safe_load(text)
         events = {str(e["name"]): int(e["id"]) for e in raw["events"]}
     except Exception as e:
         result.warn(
@@ -1237,6 +1262,154 @@ def check_s5_mode_events(
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Check 9: Housekeeping set layouts
+# Implements: SVF-DEV-217
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _fmt_sizes(sizes: Any) -> str:
+    return "{" + ", ".join(str(n) for n in sizes) + "}"
+
+
+def check_hk_set_layouts(
+    svf_root: Path,
+    obsw_root: Path | None,
+    result: CheckResult,
+) -> None:
+    """
+    Verify the TM(3,25) housekeeping set layouts OBCEmulatorAdapter decodes with.
+
+    Python side (always): src/svf/data/srdb/hk_sets.yaml loads through
+    SrdbLoader, and every key is ``dhs.obc.<openobsw parameter name>``.
+
+    openobsw side (with --obsw): the same sets exist in openobsw's
+    srdb/data/hk_sets.yaml with the same ID, name and parameter order, and
+    each parameter has the type openobsw's parameters.yaml gives it, hence
+    the byte sizes openobsw binds (SRDB_HK_<SET>_SIZES). Any difference is an
+    error: the adapter would decode shifted or mis-typed values without one.
+
+    Implements: SVF-DEV-217
+    """
+    import sys as _sys
+
+    svf_src = svf_root / "src"
+    if str(svf_src) not in _sys.path:
+        _sys.path.insert(0, str(svf_src))
+
+    hk_yaml = svf_root / "src" / "svf" / "data" / "srdb" / "hk_sets.yaml"
+    if not hk_yaml.exists():
+        result.error(
+            f"[HK-SETS] {hk_yaml.relative_to(svf_root)} not found. "
+            f"OBCEmulatorAdapter has no housekeeping set layouts to decode with."
+        )
+        return
+    try:
+        from svf.srdb.loader import SrdbLoader
+        svf_sets = SrdbLoader().load_hk_sets(hk_yaml)
+    except Exception as e:
+        result.error(f"[HK-SETS] could not load {hk_yaml.relative_to(svf_root)}: {e}")
+        return
+
+    for set_id, hk_set in sorted(svf_sets.items()):
+        for param in hk_set.parameters:
+            if param.name != f"dhs.obc.{param.obsw_name}":
+                result.error(
+                    f"[HK-SETS] set {set_id} ({hk_set.name}): key '{param.name}' "
+                    f"for openobsw parameter '{param.obsw_name}' is not "
+                    f"'dhs.obc.{param.obsw_name}'."
+                )
+    result.note(
+        f"[HK-SETS] {len(svf_sets)} housekeeping sets loaded from "
+        f"{hk_yaml.relative_to(svf_root)}"
+    )
+
+    if obsw_root is None:
+        result.note(
+            "[HK-SETS] openobsw side skipped (pass --obsw to compare with "
+            "srdb/data/hk_sets.yaml and parameters.yaml)"
+        )
+        return
+
+    loaded_sets = _openobsw_srdb_yaml(obsw_root, "hk_sets.yaml", "HK-SETS", result)
+    loaded_params = _openobsw_srdb_yaml(obsw_root, "parameters.yaml", "HK-SETS", result)
+    if loaded_sets is None or loaded_params is None:
+        return
+    try:
+        obsw_types = {str(p["name"]): str(p["type"])
+                      for p in loaded_params[0]["parameters"]}
+        obsw_sets = {int(h["id"]): (str(h["name"]), [str(n) for n in h["parameters"]])
+                     for h in loaded_sets[0]["hk_sets"]}
+    except Exception as e:
+        result.warn(
+            f"[HK-SETS] could not read openobsw housekeeping sets: {e}  -  "
+            f"skipping the openobsw side"
+        )
+        return
+
+    from svf.srdb.definitions import HkWireType
+
+    for set_id in sorted(obsw_sets.keys() - svf_sets.keys()):
+        result.error(
+            f"[HK-SETS] openobsw defines set {set_id} ({obsw_sets[set_id][0]}) "
+            f"but hk_sets.yaml does not. Its reports would not be decoded."
+        )
+    for set_id in sorted(svf_sets.keys() - obsw_sets.keys()):
+        result.error(
+            f"[HK-SETS] hk_sets.yaml defines set {set_id} "
+            f"({svf_sets[set_id].name}) but openobsw does not."
+        )
+
+    for set_id in sorted(svf_sets.keys() & obsw_sets.keys()):
+        hk_set = svf_sets[set_id]
+        obsw_name, obsw_params = obsw_sets[set_id]
+        if hk_set.name != obsw_name:
+            result.error(
+                f"[HK-SETS] set {set_id} is '{hk_set.name}' in hk_sets.yaml "
+                f"and '{obsw_name}' in openobsw."
+            )
+        svf_params = [p.obsw_name for p in hk_set.parameters]
+        if svf_params != obsw_params:
+            result.error(
+                f"[HK-SETS] set {set_id} ({obsw_name}) parameters differ. "
+                f"openobsw: {obsw_params}; hk_sets.yaml: {svf_params}."
+            )
+            continue
+        obsw_sizes: list[int] = []
+        for param in hk_set.parameters:
+            obsw_type = obsw_types.get(param.obsw_name)
+            if obsw_type is None:
+                result.error(
+                    f"[HK-SETS] set {set_id} ({obsw_name}): openobsw "
+                    f"parameters.yaml has no parameter '{param.obsw_name}'."
+                )
+                continue
+            if obsw_type != param.wire_type.value:
+                result.error(
+                    f"[HK-SETS] set {set_id} ({obsw_name}): '{param.obsw_name}' "
+                    f"is {obsw_type} in openobsw and {param.wire_type.value} "
+                    f"in hk_sets.yaml."
+                )
+            try:
+                obsw_sizes.append(HkWireType(obsw_type).size)
+            except ValueError:
+                result.error(
+                    f"[HK-SETS] set {set_id} ({obsw_name}): openobsw type "
+                    f"'{obsw_type}' of '{param.obsw_name}' is not one "
+                    f"opensvf can decode."
+                )
+        if len(obsw_sizes) == len(hk_set.sizes) and tuple(obsw_sizes) != hk_set.sizes:
+            result.error(
+                f"[HK-SETS] set {set_id} ({obsw_name}): openobsw binds sizes "
+                f"{_fmt_sizes(obsw_sizes)} (SRDB_HK_{obsw_name.upper()}_SIZES), "
+                f"hk_sets.yaml gives {_fmt_sizes(hk_set.sizes)}."
+            )
+
+    result.note(
+        f"[HK-SETS] {len(svf_sets.keys() & obsw_sets.keys())} housekeeping sets "
+        f"compared with openobsw"
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Main
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -1279,38 +1452,42 @@ def main() -> int:
         print(f"openobsw {obsw_label}: {Path(args.obsw).resolve()}")
     print()
 
-    print("  [1/8] Struct sizes...")
+    print("  [1/9] Struct sizes...")
     check_struct_sizes(result)
 
-    print("  [2/8] Python-side wire protocol mapping vs. obc_emulator.py...")
+    print("  [2/9] Python-side wire protocol mapping vs. obc_emulator.py...")
     check_wire_protocol_python_side(svf_root, result)
 
     if args.obsw:
-        print("  [3/8] C struct field names vs. mapping table...")
+        print("  [3/9] C struct field names vs. mapping table...")
         check_wire_protocol_c_side(Path(args.obsw).resolve(), result)
     else:
-        print("  [3/8] C struct check skipped (pass --obsw <repo-or-txt> to enable)")
+        print("  [3/9] C struct check skipped (pass --obsw <repo-or-txt> to enable)")
         result.note(
             "[WIRE/C] Skipped. In single-workspace environments (Firebase IDX, "
             "Codespaces) pass a gitingest snapshot: "
             "--obsw path/to/lipofefeyt-openobsw-*.txt"
         )
 
-    print("  [4/8] Sensor producer/consumer symmetry...")
+    print("  [4/9] Sensor producer/consumer symmetry...")
     check_sensor_producer_consumer_symmetry(svf_root, result)
 
-    print("  [5/8] Requirement orphan detection...")
+    print("  [5/9] Requirement orphan detection...")
     check_requirement_orphans(svf_root, result)
 
-    print("  [6/8] Hardware profile symmetry...")
+    print("  [6/9] Hardware profile symmetry...")
     check_hardware_profile_symmetry(svf_root, result)
 
-    print("  [7/8] SRDB namespace linting...")
+    print("  [7/9] SRDB namespace linting...")
     check_srdb_namespace(svf_root, result)
 
-    print("  [8/8] S5 mode-event mapping...")
-    check_s5_mode_events(
-        svf_root, Path(args.obsw).resolve() if args.obsw else None, result)
+    obsw_root = Path(args.obsw).resolve() if args.obsw else None
+
+    print("  [8/9] S5 mode-event mapping...")
+    check_s5_mode_events(svf_root, obsw_root, result)
+
+    print("  [9/9] Housekeeping set layouts...")
+    check_hk_set_layouts(svf_root, obsw_root, result)
 
     print()
     result.print_report(verbose=args.verbose)

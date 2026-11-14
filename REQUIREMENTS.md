@@ -603,6 +603,9 @@ The platform shall provide `svf console <spacecraft.yaml>`: run the spacecraft i
 **SVF-DEV-216** `[DHS]` `IMPLEMENTED`
 `OBCEmulatorAdapter` shall take its S5 mode hint from the mode-transition events openobsw defines, whatever severity subtype carries them: 0x0002 `safe_mode_entry` (SAFE), 0x0004 `standby_entry` (STANDBY) and 0x0005 `nominal_entry` (NOMINAL). 0x0003 `safe_mode_exit`, which openobsw removed after v0.18 without ever emitting it, shall not change the mode. The hint shall update `dhs.obc.mode` only until the next TM(3,25) set 3 report, which remains the authoritative mode source (SVF-DEV-210) and overrides it; `obc_mode` and the `LinkHealth` mode timeline shall record HK reports only. `checkcons` shall compare the mapping with its own table and, given `--obsw`, with openobsw's `srdb/data/events.yaml`, reporting a removed, renamed or renumbered mode event as an error. Before this the adapter keyed NOMINAL on 0x0003 and ignored 0x0004 and 0x0005.
 
+**SVF-DEV-217** `[DHS]` `IMPLEMENTED`
+`OBCEmulatorAdapter` shall decode every TM(3,25) housekeeping report with a set layout from the SRDB instead of a hard-coded struct. `SrdbLoader.load_hk_sets()` shall load each set's ID, name and ordered parameters (ParameterStore key, openobsw name, raw type), and `load_bundled_hk_sets()` shall provide the openobsw sets shipped in `src/svf/data/srdb/hk_sets.yaml` (sets 1 to 7). Each parameter shall be decoded big-endian and written raw to the ParameterStore as `dhs.obc.<parameter>` (for example `dhs.obc.obc_temperature` from set 1), so procedures can assert on it. Set 3 shall remain the source of the mode, OBT and the other `dhs.obc.*` OUT ports (SVF-DEV-210) and keep its unqualified `obc_*` keys. A report of a defined set whose length differs from its layout shall not be decoded: it shall be counted in `LinkHealth` (`hk_undecoded`) and make the link unhealthy. A set without a layout shall be logged once. Given `--obsw`, `checkcons` shall compare the layouts with openobsw's `hk_sets.yaml` and `parameters.yaml` (set IDs, names, parameter order and types).
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -1163,6 +1166,7 @@ loads are connected and drop to 0 V when UVLO disconnects them.
 | SVF-DEV-214   | CAM  | IMPLEMENTED |  -  | test_pass_on_an_unhealthy_link_becomes_fail |
 | SVF-DEV-215   | CAM  | IMPLEMENTED |  -  | test_console_script_session_against_obsw_sim |
 | SVF-DEV-216   | DHS  | IMPLEMENTED |  -  | test_hk_set3_overrides_a_contradicting_event |
+| SVF-DEV-217   | DHS  | IMPLEMENTED |  -  | test_hk_set1_obc_temperature_follows_tc20_1 |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |

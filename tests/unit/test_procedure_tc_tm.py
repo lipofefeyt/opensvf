@@ -150,7 +150,7 @@ class TestProcedureTcTmSuite:
         assert entry.value >= 1.0
 
 
-def _make_obc() -> "OBCEmulatorAdapter":  # type: ignore[name-defined]
+def _make_obc(tm_pec: bool = False) -> "OBCEmulatorAdapter":  # type: ignore[name-defined]
     """Build a disconnected OBCEmulatorAdapter for unit testing."""
     from svf.models.dhs.obc_emulator import OBCEmulatorAdapter
 
@@ -163,6 +163,7 @@ def _make_obc() -> "OBCEmulatorAdapter":  # type: ignore[name-defined]
         sim_path=None,
         sync_protocol=_NoSync(),
         store=ParameterStore(),
+        tm_pec=tm_pec,
         command_store=CommandStore(),
         socket_addr=None,
     )
@@ -188,10 +189,12 @@ class OBCEmulatorAdapterSuite:
     @pytest.mark.requirement("SVF-DEV-160")
     def test_on_s3_25_updates_hk_ports(self) -> None:
         """TM(3,25) HK packet updates watchdog, memory, health, reset, cpu ports."""
-        from svf.models.dhs.obc_emulator import OBCEmulatorAdapter, _DHS_OBC_HK_FMT
+        from svf.models.dhs.obc_emulator import OBCEmulatorAdapter
 
-        obc = _make_obc()
-        hk = struct.pack(_DHS_OBC_HK_FMT, 1, 100, 0, 45, 0, 2, 75)
+        # PusTmBuilder appends a PEC, so the adapter must expect one: a
+        # report two bytes longer than its SRDB layout is not decoded.
+        obc = _make_obc(tm_pec=True)
+        hk = struct.pack(">BIBBBHB", 1, 100, 0, 45, 0, 2, 75)
         # mode=1, obt=100, watchdog=0, mem=45%, health=0, reset=2, cpu=75%
         app_data = bytes([3]) + hk  # SID=3 followed by HK fields
         pkt = PusTmBuilder().build(
