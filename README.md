@@ -295,7 +295,7 @@ pytest tests/system                   # L3 against that binary
 checkosvf                             # mypy strict type check
 svf validate spacecraft.yaml          # fast pre-flight config check (no DDS, no FMU)
 checkcov                              # requirement coverage + equipment fidelity report
-checkcons                             # SRDB consistency: 7 checks including namespace lint
+checkcons                             # SRDB consistency: 8 checks including namespace lint
 regen-xtce                            # regenerate YAMCS XTCE database from SRDB
 svf console <spacecraft.yaml>         # send TCs by hand, watch decoded TM and link health
 checksmp                              # SMP-aligned catalogue vs SRDB consistency

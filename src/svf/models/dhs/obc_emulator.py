@@ -65,6 +65,18 @@ _S8_MODE_FUNCTION: dict[int, int] = {
     MODE_SAFE:    _S8_FN_REQUEST_SAFE,
     MODE_STANDBY: _S8_FN_REQUEST_STANDBY,
 }
+
+# openobsw mode-transition events (srdb/data/events.yaml) and the obc_mode each
+# one announces. A hint between housekeeping reports only: HK set 3 carries the
+# mode the flight software is in and overrides it (SVF-DEV-210, SVF-DEV-216).
+# checkcons check [8/8] compares this table with openobsw's events.yaml.
+# 0x0003 was safe_mode_exit: no target ever emitted it and openobsw removed it;
+# leaving SAFE is announced by the entry event of the mode that follows.
+S5_MODE_EVENTS: dict[int, int] = {
+    0x0002: MODE_SAFE,       # safe_mode_entry
+    0x0004: MODE_STANDBY,    # standby_entry
+    0x0005: MODE_NOMINAL,    # nominal_entry
+}
 from svf.stores.parameter_store import ParameterStore
 from svf.pus.tc import PusTcBuilder, PusTcPacket
 from svf.pus.tm import PusTmPacket, PusTmParser
@@ -913,15 +925,24 @@ class OBCEmulatorAdapter(HilAdapter):
             f"[obc-emu] TM(1,{subsvc}) {labels.get(subsvc, '?')} t={t:.3f}")
 
     def _on_s5(self, subsvc: int, pkt: bytes, t: float) -> None:
-        if len(pkt) < 19:
+        """
+        Log a TM(5,x) event and take a mode hint from a mode-transition event.
+
+        The hint updates ``dhs.obc.mode`` until the next TM(3,25) set 3, which
+        is the authoritative mode source and always overrides it. A hint never
+        reaches ``obc_mode`` or the ``LinkHealth`` mode timeline; those record
+        what housekeeping reported.
+
+        Implements: SVF-DEV-216
+        """
+        if len(pkt) < _APP_DATA_OFFSET + 2:
             return
-        event_id = struct.unpack(">H", pkt[17:19])[0]
+        event_id = struct.unpack_from(">H", pkt, _APP_DATA_OFFSET)[0]
         logger.info(
             f"[obc-emu] TM(5,{subsvc}) event=0x{event_id:04X} t={t:.3f}")
-        if event_id == 0x0002:
-            self._mode = MODE_SAFE
-        elif event_id == 0x0003:
-            self._mode = MODE_NOMINAL
+        hinted_mode = S5_MODE_EVENTS.get(event_id)
+        if hinted_mode is not None:
+            self._mode = hinted_mode
 
     def _on_s3_25(self, pkt: bytes, t: float) -> None:
         """Parse TM(3,25) DHS OBC HK set_id=3 and update instance state."""

@@ -600,6 +600,9 @@ CI shall run the L3 suite (`tests/system`) on every push and pull request agains
 **SVF-DEV-215** `[CAM]` `IMPLEMENTED`
 The platform shall provide `svf console <spacecraft.yaml>`: run the spacecraft in real time (or `--fast`) and accept operator commands (ping, mode, OBT set, HK enable/disable, S20 get/set, raw TC, wait, expect, status, watch). Every decoded TM packet shall be printed as it arrives, with TC verification reports tied to the TC that caused them by sequence count and failure codes named; `status` shall show the OBC mode, OBT and link health. The same commands shall run from `-c` or `--script`, exiting non-zero when an `expect` is not met. `mission_mysat1/spacecraft_hil.yaml` shall use the pinned `bin/obsw_sim`.
 
+**SVF-DEV-216** `[DHS]` `IMPLEMENTED`
+`OBCEmulatorAdapter` shall take its S5 mode hint from the mode-transition events openobsw defines, whatever severity subtype carries them: 0x0002 `safe_mode_entry` (SAFE), 0x0004 `standby_entry` (STANDBY) and 0x0005 `nominal_entry` (NOMINAL). 0x0003 `safe_mode_exit`, which openobsw removed after v0.18 without ever emitting it, shall not change the mode. The hint shall update `dhs.obc.mode` only until the next TM(3,25) set 3 report, which remains the authoritative mode source (SVF-DEV-210) and overrides it; `obc_mode` and the `LinkHealth` mode timeline shall record HK reports only. `checkcons` shall compare the mapping with its own table and, given `--obsw`, with openobsw's `srdb/data/events.yaml`, reporting a removed, renamed or renumbered mode event as an error. Before this the adapter keyed NOMINAL on 0x0003 and ignored 0x0004 and 0x0005.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -1159,6 +1162,7 @@ loads are connected and drop to 0 V when UVLO disconnects them.
 | SVF-DEV-213   | CAM  | IMPLEMENTED |  -  | test_single_write_violation_is_caught |
 | SVF-DEV-214   | CAM  | IMPLEMENTED |  -  | test_pass_on_an_unhealthy_link_becomes_fail |
 | SVF-DEV-215   | CAM  | IMPLEMENTED |  -  | test_console_script_session_against_obsw_sim |
+| SVF-DEV-216   | DHS  | IMPLEMENTED |  -  | test_hk_set3_overrides_a_contradicting_event |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |

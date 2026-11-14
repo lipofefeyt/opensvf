@@ -305,6 +305,68 @@ def test_s19_event_dispatches_action_tc(obsw: ObswHarness) -> None:
     assert _pongs(packets) == 1, "S19 action TC(17,1) not dispatched"
 
 
+# ── S5 mode events are a hint, HK set 3 is the mode source (SVF-DEV-216) ────
+# obsw_sim v0.18 reports mode transitions in HK set 3 only; later builds also
+# emit the mode events themselves. To put a chosen mode-event ID in a TM(5,x)
+# built by either binary, an S12 definition raises it: openobsw then emits the
+# event without changing mode, since none of these IDs is a safe trigger. The
+# adapter must take the hint from the real packet and drop it again at the
+# next set 3 report, which still says NOMINAL.
+
+
+@pytest.mark.requirement("SVF-DEV-216", "SVF-DEV-210")
+@pytest.mark.parametrize("event_id, severity, hinted", [
+    (0x0002, 4, 1),    # safe_mode_entry, HIGH -> SAFE
+    (0x0004, 1, 0),    # standby_entry, INFO -> STANDBY (ignored before SVF-DEV-216)
+])
+def test_s5_mode_event_is_a_hint_until_hk_set3(
+    obsw: ObswHarness, event_id: int, severity: int, hinted: int,
+) -> None:
+    from svf.models.dhs.obc import MODE_NOMINAL
+    from svf.pus.services.s12_monitoring import PusService12
+    adapter = obsw.adapter
+    store = adapter._store
+    assert store is not None
+    _nominal_at_obt(obsw, 100)
+
+    # Start right after a set 3 report (every 10 ticks), so the event arrives
+    # between two reports and not in the same tick as one.
+    for _ in range(20):
+        obsw.run(1)
+        if ObswHarness.hk(obsw.take(), 3):
+            break
+    else:
+        pytest.fail("no set 3 report in 20 ticks")
+    assert adapter._mode == MODE_NOMINAL
+    timeline = list(adapter.link_health().mode_changes)
+
+    obsw.tc(12, 3, PusService12.build_add(BDOT_GAIN_PARAM, None, 5000.0,
+                                          0x7001, event_id, severity,
+                                          tc_apid=0x010).app_data)
+    for _ in range(5):
+        obsw.run(1)
+        packets = obsw.take()
+        raised = [p for p in packets
+                  if p.service == 5 and _events([p], event_id)]
+        if raised:
+            assert [p.subservice for p in raised] == [severity]
+            assert not ObswHarness.hk(packets, 3), "set 3 report in the event's tick"
+            break
+    else:
+        pytest.fail(f"obsw_sim never raised event 0x{event_id:04X}")
+
+    # The hint moves dhs.obc.mode; what HK reported is untouched.
+    assert adapter._mode == hinted
+    reported = store.read("obc_mode")
+    assert reported is not None and reported.value == float(MODE_NOMINAL)
+    assert adapter.link_health().mode_changes == timeline
+
+    obsw.run(10)
+    assert ObswHarness.hk(obsw.take(), 3), "no set 3 report after the event"
+    assert adapter._mode == MODE_NOMINAL, "HK set 3 did not override the S5 hint"
+    assert adapter.link_health().mode_changes == timeline
+
+
 # ── svf console against the flight software (SVF-DEV-215) ───────────────────
 
 @pytest.mark.requirement("SVF-DEV-215")

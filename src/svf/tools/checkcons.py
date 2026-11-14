@@ -2,7 +2,7 @@
 """
 srdb_consistency_check.py  -  Cross-repository SRDB consistency checker.
 
-Verifies three things:
+Verifies four things:
 
   1. WIRE PROTOCOL STRUCT ALIGNMENT
      obsw_sensor_frame_t fields (C, openobsw) vs SVF ParameterStore
@@ -24,6 +24,13 @@ Verifies three things:
      exist in srdb/hardware/ (bundled). Missing bundled profiles mean
      mission configs fail on a clean install.
 
+  4. S5 MODE-EVENT MAPPING
+     OBCEmulatorAdapter takes a mode hint from openobsw's mode-transition
+     events (S5_MODE_EVENTS). The event IDs are checked against the table
+     here and, with --obsw, against openobsw's srdb/data/events.yaml, so a
+     renumbered or removed event does not leave the adapter keyed on an ID
+     nothing emits.
+
 Usage:
     python tools/srdb_consistency_check.py [--obsw ../openobsw] [--verbose]
 
@@ -41,6 +48,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import struct
 import sys
@@ -1020,6 +1028,215 @@ def check_srdb_namespace(svf_root: Path, result: CheckResult) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Check 8: S5 mode-event mapping
+# Implements: SVF-DEV-216
+# ──────────────────────────────────────────────────────────────────────────────
+
+# openobsw mode-transition event name (srdb/data/events.yaml) -> (event ID,
+# obc_mode the event announces). OBCEmulatorAdapter keys its mode hint on these
+# IDs (S5_MODE_EVENTS in obc_emulator.py). An event that openobsw renumbers,
+# renames or removes leaves the adapter keyed on an ID nothing emits, with no
+# error anywhere: that was the state before SVF-DEV-216 (0x0003 mapped,
+# 0x0004 and 0x0005 ignored). 0x0003 safe_mode_exit is not listed: openobsw
+# removed it after v0.18, having never emitted it.
+S5_MODE_EVENT_TABLE: dict[str, tuple[int, str]] = {
+    "safe_mode_entry": (0x0002, "SAFE"),
+    "standby_entry":   (0x0004, "STANDBY"),
+    "nominal_entry":   (0x0005, "NOMINAL"),
+}
+
+# openobsw events named like this announce a mode transition. One that is not
+# in S5_MODE_EVENT_TABLE is reported as a warning: the name is a heuristic.
+_MODE_EVENT_NAME_RE = re.compile(r"_(entry|exit)$")
+
+_SNAPSHOT_EVENTS_RE = re.compile(
+    r"^={8,}\n(?:FILE|File):[ \t]*\S*srdb/data/events\.yaml[ \t]*\n={8,}\n"
+    r"(.*?)(?=^={8,}\n(?:FILE|File):|\Z)",
+    re.MULTILINE | re.DOTALL,
+)
+
+
+def _adapter_s5_mode_events(emulator_py: Path) -> dict[int, str] | None:
+    """
+    Read ``S5_MODE_EVENTS`` from obc_emulator.py as {event ID: mode name}.
+
+    Parsed from the source under the checked root, not imported, so the result
+    describes that checkout even when another opensvf is installed. Returns
+    None when the table is missing or is not a literal of the form
+    ``{0x0002: MODE_SAFE, ...}``.
+    """
+    tree = ast.parse(emulator_py.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.AnnAssign):
+            target, value = node.target, node.value
+        elif isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target, value = node.targets[0], node.value
+        else:
+            continue
+        if not (isinstance(target, ast.Name) and target.id == "S5_MODE_EVENTS"):
+            continue
+        if not isinstance(value, ast.Dict):
+            return None
+        table: dict[int, str] = {}
+        for key, val in zip(value.keys, value.values):
+            if not (isinstance(key, ast.Constant) and isinstance(key.value, int)
+                    and isinstance(val, ast.Name) and val.id.startswith("MODE_")):
+                return None
+            table[key.value] = val.id.removeprefix("MODE_")
+        return table
+    return None
+
+
+def _openobsw_events(obsw_root: Path, result: CheckResult) -> dict[str, int] | None:
+    """
+    Read openobsw's event definitions as {name: event ID}.
+
+    ``obsw_root`` is an openobsw checkout (srdb/data/events.yaml) or a
+    gitingest ``.txt`` snapshot containing that file. Returns None, with a
+    warning, when the definitions cannot be read.
+    """
+    import yaml
+
+    if obsw_root.is_file():
+        if obsw_root.suffix != ".txt":
+            result.warn(
+                f"[S5-MODE] --obsw points to a file that is not a .txt snapshot: "
+                f"{obsw_root}  -  skipping the openobsw side"
+            )
+            return None
+        m = _SNAPSHOT_EVENTS_RE.search(
+            obsw_root.read_text(encoding="utf-8", errors="replace"))
+        if m is None:
+            result.warn(
+                f"[S5-MODE] no srdb/data/events.yaml section in snapshot "
+                f"{obsw_root.name}  -  skipping the openobsw side"
+            )
+            return None
+        text, source = m.group(1), f"{obsw_root.name} (srdb/data/events.yaml)"
+    else:
+        events_yaml = obsw_root / "srdb" / "data" / "events.yaml"
+        if not events_yaml.exists():
+            result.warn(
+                f"[S5-MODE] {events_yaml} not found  -  skipping the openobsw side"
+            )
+            return None
+        text, source = events_yaml.read_text(encoding="utf-8"), str(events_yaml)
+
+    try:
+        raw = yaml.safe_load(text)
+        events = {str(e["name"]): int(e["id"]) for e in raw["events"]}
+    except Exception as e:
+        result.warn(
+            f"[S5-MODE] could not read event definitions from {source}: {e}  -  "
+            f"skipping the openobsw side"
+        )
+        return None
+    result.note(f"[S5-MODE] {len(events)} openobsw events read from {source}")
+    return events
+
+
+def check_s5_mode_events(
+    svf_root: Path,
+    obsw_root: Path | None,
+    result: CheckResult,
+) -> None:
+    """
+    Verify the S5 mode-event mapping the OBC adapter uses.
+
+    Python side (always): ``S5_MODE_EVENTS`` in obc_emulator.py maps exactly
+    the IDs in ``S5_MODE_EVENT_TABLE`` to the same modes. Changing one without
+    the other is an error, so the table here cannot go stale silently.
+
+    openobsw side (with --obsw): every event in ``S5_MODE_EVENT_TABLE`` exists
+    in openobsw's srdb/data/events.yaml under the same name and ID. A removed,
+    renamed or renumbered mode event is an error. An openobsw event named
+    ``*_entry`` or ``*_exit`` that the table does not list is a warning.
+
+    Implements: SVF-DEV-216
+    """
+    emulator_py = svf_root / "src" / "svf" / "models" / "dhs" / "obc_emulator.py"
+    if not emulator_py.exists():
+        result.warn(
+            f"[S5-MODE] {emulator_py.relative_to(svf_root)} not found  -  "
+            f"skipping S5 mode-event check"
+        )
+        return
+
+    adapter = _adapter_s5_mode_events(emulator_py)
+    if adapter is None:
+        result.error(
+            "[S5-MODE] S5_MODE_EVENTS not found in obc_emulator.py as a literal "
+            "{event ID: MODE_x} table. The adapter's S5 mode-event mapping "
+            "cannot be checked against openobsw."
+        )
+        return
+
+    expected = {eid: mode for eid, mode in S5_MODE_EVENT_TABLE.values()}
+    names = {eid: name for name, (eid, _) in S5_MODE_EVENT_TABLE.items()}
+    for eid in sorted(expected.keys() | adapter.keys()):
+        want, have = expected.get(eid), adapter.get(eid)
+        if want == have:
+            continue
+        if have is None:
+            result.error(
+                f"[S5-MODE] event 0x{eid:04X} ({names[eid]}) announces {want} "
+                f"but S5_MODE_EVENTS in obc_emulator.py does not map it."
+            )
+        elif want is None:
+            result.error(
+                f"[S5-MODE] obc_emulator.py maps event 0x{eid:04X} to {have} "
+                f"but S5_MODE_EVENT_TABLE has no such mode event. Add it here "
+                f"with its openobsw name so it is checked against events.yaml."
+            )
+        else:
+            result.error(
+                f"[S5-MODE] event 0x{eid:04X} ({names[eid]}): obc_emulator.py "
+                f"maps it to {have}, S5_MODE_EVENT_TABLE says {want}."
+            )
+
+    if obsw_root is None:
+        result.note(
+            "[S5-MODE] openobsw side skipped (pass --obsw to compare with "
+            "srdb/data/events.yaml)"
+        )
+        return
+
+    events = _openobsw_events(obsw_root, result)
+    if events is None:
+        return
+    by_id = {eid: name for name, eid in events.items()}
+
+    for name, (eid, mode) in S5_MODE_EVENT_TABLE.items():
+        if name not in events:
+            now = by_id.get(eid)
+            result.error(
+                f"[S5-MODE] openobsw no longer defines event '{name}', which "
+                f"the adapter maps as 0x{eid:04X} -> {mode}"
+                + (f"; 0x{eid:04X} is now '{now}'" if now else "")
+                + ". Update S5_MODE_EVENTS in obc_emulator.py and "
+                  "S5_MODE_EVENT_TABLE."
+            )
+        elif events[name] != eid:
+            result.error(
+                f"[S5-MODE] openobsw event '{name}' is 0x{events[name]:04X}, "
+                f"but the adapter maps 0x{eid:04X} -> {mode}. Renumbered in "
+                f"openobsw without updating SVF?"
+            )
+
+    for name, eid in sorted(events.items(), key=lambda kv: kv[1]):
+        if _MODE_EVENT_NAME_RE.search(name) and name not in S5_MODE_EVENT_TABLE:
+            result.warn(
+                f"[S5-MODE] openobsw event '{name}' (0x{eid:04X}) looks like a "
+                f"mode transition but is not in S5_MODE_EVENT_TABLE; the "
+                f"adapter takes no mode hint from it."
+            )
+
+    result.note(
+        f"[S5-MODE] {len(S5_MODE_EVENT_TABLE)} mode events compared with openobsw"
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Main
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -1062,34 +1279,38 @@ def main() -> int:
         print(f"openobsw {obsw_label}: {Path(args.obsw).resolve()}")
     print()
 
-    print("  [1/7] Struct sizes...")
+    print("  [1/8] Struct sizes...")
     check_struct_sizes(result)
 
-    print("  [2/7] Python-side wire protocol mapping vs. obc_emulator.py...")
+    print("  [2/8] Python-side wire protocol mapping vs. obc_emulator.py...")
     check_wire_protocol_python_side(svf_root, result)
 
     if args.obsw:
-        print("  [3/7] C struct field names vs. mapping table...")
+        print("  [3/8] C struct field names vs. mapping table...")
         check_wire_protocol_c_side(Path(args.obsw).resolve(), result)
     else:
-        print("  [3/7] C struct check skipped (pass --obsw <repo-or-txt> to enable)")
+        print("  [3/8] C struct check skipped (pass --obsw <repo-or-txt> to enable)")
         result.note(
             "[WIRE/C] Skipped. In single-workspace environments (Firebase IDX, "
             "Codespaces) pass a gitingest snapshot: "
             "--obsw path/to/lipofefeyt-openobsw-*.txt"
         )
 
-    print("  [4/7] Sensor producer/consumer symmetry...")
+    print("  [4/8] Sensor producer/consumer symmetry...")
     check_sensor_producer_consumer_symmetry(svf_root, result)
 
-    print("  [5/7] Requirement orphan detection...")
+    print("  [5/8] Requirement orphan detection...")
     check_requirement_orphans(svf_root, result)
 
-    print("  [6/7] Hardware profile symmetry...")
+    print("  [6/8] Hardware profile symmetry...")
     check_hardware_profile_symmetry(svf_root, result)
 
-    print("  [7/7] SRDB namespace linting...")
+    print("  [7/8] SRDB namespace linting...")
     check_srdb_namespace(svf_root, result)
+
+    print("  [8/8] S5 mode-event mapping...")
+    check_s5_mode_events(
+        svf_root, Path(args.obsw).resolve() if args.obsw else None, result)
 
     print()
     result.print_report(verbose=args.verbose)
