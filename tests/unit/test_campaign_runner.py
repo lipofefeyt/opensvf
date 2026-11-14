@@ -251,3 +251,96 @@ class TestCampaignReportUnit:
         runner = CampaignRunner.from_yaml(campaign_yaml)
         assert "MIS-AOCS-001" in runner._declared_requirements
         assert "MIS-POWER-001" in runner._declared_requirements
+
+
+# ── Step events in the campaign JSON (SVF-DEV-218) ────────────────────────────
+
+class EventfulProc(Procedure):
+    id = "TC-CAMP-004"
+    title = "Procedure that records events"
+    requirement = "REQ-004"
+    def run(self, ctx: ProcedureContext) -> None:
+        self.step("Inject and wait")
+        ctx.inject("eps.solar_array.illumination", 1.0)
+        ctx.wait(0.2)
+        self.step("Second step")
+
+
+def _report_with_events() -> CampaignReport:
+    from svf.campaign.procedure import EventType, SimEvent, StepResult
+    steps = [
+        StepResult("Bind the limit", Verdict.PASS, events=[
+            SimEvent(1.0, EventType.STEP, "Bind the limit"),
+            SimEvent(1.1, EventType.COMMAND, "Sent TC(12,3) to obc", details="1810c001"),
+            SimEvent(1.2, EventType.TELEMETRY, "Received TM(1,7)"),
+        ]),
+        StepResult("Drive the fault", Verdict.FAIL, detail="limit not crossed", events=[
+            SimEvent(2.0, EventType.INJECTION, "Set dhs.obc.temperature_raw = 1300.0"),
+            SimEvent(2.5, EventType.MONITOR, "Active invariant: dhs.obc.mode"),
+            SimEvent(3.0, EventType.INFO, "Waiting 1.0s (until t=4.0s)"),
+        ]),
+        StepResult("No events here", Verdict.PASS),
+    ]
+    result = ProcedureResult(procedure_id="TC-EV-001", title="Events", requirement="REQ-EV",
+                             verdict=Verdict.FAIL, duration_s=1.0, steps=steps)
+    return CampaignReport(campaign_name="Events", spacecraft="sc.yaml", n_procedures=1,
+                          n_pass=0, n_fail=1, n_error=0, duration_s=1.0, results=[result])
+
+
+class StepEventsJsonSuite:
+
+    @pytest.mark.requirement("SVF-DEV-218")
+    def test_to_dict_serialises_step_events_in_order(self) -> None:
+        steps = _report_with_events().to_dict()["results"][0]["steps"]  # type: ignore[index]
+        assert [s["name"] for s in steps] == ["Bind the limit", "Drive the fault", "No events here"]
+        assert steps[0]["events"] == [
+            {"t": 1.0, "type": "STEP", "description": "Bind the limit", "details": None},
+            {"t": 1.1, "type": "TC", "description": "Sent TC(12,3) to obc", "details": "1810c001"},
+            {"t": 1.2, "type": "TM", "description": "Received TM(1,7)", "details": None},
+        ]
+        assert [e["type"] for e in steps[1]["events"]] == ["INJECT", "MONITOR", "INFO"]
+        assert [e["t"] for e in steps[1]["events"]] == [2.0, 2.5, 3.0]
+
+    @pytest.mark.requirement("SVF-DEV-218")
+    def test_step_without_events_has_an_empty_list(self) -> None:
+        steps = _report_with_events().to_dict()["results"][0]["steps"]  # type: ignore[index]
+        assert steps[2] == {"name": "No events here", "verdict": "PASS", "detail": "",
+                            "events": []}
+
+    @pytest.mark.requirement("SVF-DEV-218")
+    def test_existing_step_fields_are_unchanged(self) -> None:
+        step = _report_with_events().to_dict()["results"][0]["steps"][1]  # type: ignore[index]
+        assert (step["name"], step["verdict"], step["detail"]) == (
+            "Drive the fault", "FAIL", "limit not crossed")
+
+    @pytest.mark.requirement("SVF-DEV-218")
+    def test_events_survive_a_json_round_trip(self) -> None:
+        """What the CLI writes with json.dumps reads back identical: plain types only."""
+        import json
+        d = _report_with_events().to_dict()
+        assert json.loads(json.dumps(d)) == d
+
+    @pytest.mark.requirement("SVF-DEV-218", "SVF-DEV-121")
+    def test_events_of_a_real_run_reach_the_json(self) -> None:
+        """Events a procedure records through ProcedureContext, not hand-built ones."""
+        import json
+        report = CampaignRunner(
+            campaign_name="Events",
+            spacecraft_cfg=EXAMPLES / "spacecraft.yaml",
+            procedures=[EventfulProc],
+        ).run()
+        assert report.results[0].verdict == Verdict.PASS, report.results[0].error
+        steps = json.loads(json.dumps(report.to_dict()))["results"][0]["steps"]
+        assert [s["name"] for s in steps] == ["Inject and wait", "Second step"]
+        first = steps[0]["events"]
+        assert [e["type"] for e in first][:2] == ["STEP", "INJECT"]
+        assert first[1]["description"] == "Set eps.solar_array.illumination = 1.0"
+        assert any(e["type"] == "INFO" and e["description"].startswith("Waiting 0.2s")
+                   for e in first)
+        assert all(isinstance(e["t"], float) for e in first)
+        assert [e["t"] for e in first] == sorted(e["t"] for e in first)
+        assert steps[1]["events"][0]["type"] == "STEP"
+        # The serialised timeline is the one the HTML report renders.
+        recorded = report.results[0].steps[0].events
+        assert [(e["t"], e["type"], e["description"]) for e in first] == [
+            (e.t, e.event_type.value, e.description) for e in recorded]

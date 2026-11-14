@@ -131,6 +131,19 @@ class CampaignReport:
                             "name": s.step_name,
                             "verdict": s.verdict.value,
                             "detail": s.detail,
+                            # The step timeline the HTML report shows
+                            # (SVF-DEV-218): sim time, TC/TM/INJECT/
+                            # MONITOR/STEP/INFO, text, optional details
+                            # such as the TC bytes in hex.
+                            "events": [
+                                {
+                                    "t": e.t,
+                                    "type": e.event_type.value,
+                                    "description": e.description,
+                                    "details": e.details,
+                                }
+                                for e in s.events
+                            ],
                         }
                         for s in r.steps
                     ],

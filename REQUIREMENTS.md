@@ -606,6 +606,9 @@ The platform shall provide `svf console <spacecraft.yaml>`: run the spacecraft i
 **SVF-DEV-217** `[DHS]` `IMPLEMENTED`
 `OBCEmulatorAdapter` shall decode every TM(3,25) housekeeping report with a set layout from the SRDB instead of a hard-coded struct. `SrdbLoader.load_hk_sets()` shall load each set's ID, name and ordered parameters (ParameterStore key, openobsw name, raw type), and `load_bundled_hk_sets()` shall provide the openobsw sets shipped in `src/svf/data/srdb/hk_sets.yaml` (sets 1 to 7). Each parameter shall be decoded big-endian and written raw to the ParameterStore as `dhs.obc.<parameter>` (for example `dhs.obc.obc_temperature` from set 1), so procedures can assert on it. Set 3 shall remain the source of the mode, OBT and the other `dhs.obc.*` OUT ports (SVF-DEV-210) and keep its unqualified `obc_*` keys. A report of a defined set whose length differs from its layout shall not be decoded: it shall be counted in `LinkHealth` (`hk_undecoded`) and make the link unhealthy. A set without a layout shall be logged once. Given `--obsw`, `checkcons` shall compare the layouts with openobsw's `hk_sets.yaml` and `parameters.yaml` (set IDs, names, parameter order and types).
 
+**SVF-DEV-218** `[CAM]` `IMPLEMENTED`
+`CampaignReport.to_dict()` shall serialise the events of every procedure step: each step shall carry an `events` list, in the order recorded, of `t` (simulation time), `type` (`TC`, `TM`, `INJECT`, `MONITOR`, `STEP` or `INFO`), `description` and `details` (for example the TC bytes in hex, or null). A step without events shall carry an empty list. The campaign JSON then holds the timeline that until now only the HTML report showed, so an evidence bundle can be built from it without parsing HTML.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -1167,6 +1170,7 @@ loads are connected and drop to 0 V when UVLO disconnects them.
 | SVF-DEV-215   | CAM  | IMPLEMENTED |  -  | test_console_script_session_against_obsw_sim |
 | SVF-DEV-216   | DHS  | IMPLEMENTED |  -  | test_hk_set3_overrides_a_contradicting_event |
 | SVF-DEV-217   | DHS  | IMPLEMENTED |  -  | test_hk_set1_obc_temperature_follows_tc20_1 |
+| SVF-DEV-218   | CAM  | IMPLEMENTED |  -  | test_to_dict_serialises_step_events_in_order |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
