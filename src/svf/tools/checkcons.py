@@ -72,7 +72,7 @@ from typing import Any
 # ──────────────────────────────────────────────────────────────────────────────
 
 # obsw_sensor_frame_t field → ParameterStore key read in _send_sensor_frame()
-# Format: "<3fB4fB3fBf"  (47 bytes, little-endian packed)
+# Format: "<3fB4fB3fBfhB"  (wire protocol v4, 50 bytes, little-endian packed)
 SENSOR_FRAME_FIELD_TO_SVF_PORT: dict[str, str] = {
     "mag_x":     "aocs.mag.field_x",
     "mag_y":     "aocs.mag.field_y",
@@ -88,6 +88,8 @@ SENSOR_FRAME_FIELD_TO_SVF_PORT: dict[str, str] = {
     "gyro_z":    "aocs.gyro.rate_z",
     "gyro_valid":"aocs.gyro.status",          # > 0.5 → valid=1
     "sim_time":  "<sim_time_arg>",            # passed as t argument, not from store
+    "obc_temperature_raw": "dhs.obc_thermal.temperature_raw",  # int16 raw counts
+    "thermal_valid":       "dhs.obc_thermal.status",           # > 0.5 → valid=1
 }
 
 # obsw_actuator_frame_t field → CommandStore key injected in _parse_actuator()
@@ -104,10 +106,12 @@ ACTUATOR_FRAME_FIELD_TO_CMDSTORE_KEY: dict[str, str] = {
 }
 
 # Expected struct sizes
-_SENSOR_FMT            = "<3fB4fB3fBf"
+# Sizes are fixed by openobsw sim/sensor_inject.h (_Static_assert there);
+# deriving them from the format strings would make the check vacuous.
+_SENSOR_FMT            = "<3fB4fB3fBfhB"
 _ACTUATOR_FMT          = "<6fBf"
-EXPECTED_SENSOR_SIZE   = struct.calcsize(_SENSOR_FMT)    # 47
-EXPECTED_ACTUATOR_SIZE = struct.calcsize(_ACTUATOR_FMT)  # 29
+EXPECTED_SENSOR_SIZE   = 50  # wire protocol v4 (openobsw v0.19)
+EXPECTED_ACTUATOR_SIZE = 29
 
 # Sensor model output ports  -  what each model declares as OUT ports.
 # Verified against the actual PortDefinition() calls in each model file.
@@ -125,6 +129,9 @@ SENSOR_MODEL_OUTPUT_PORTS: dict[str, list[str]] = {
         "aocs.str1.quaternion_y", "aocs.str1.quaternion_z",
         "aocs.str1.validity",     "aocs.str1.mode",
         "aocs.str1.temperature",  "aocs.str1.acquisition_progress",
+    ],
+    "obc_thermal": [
+        "dhs.obc_thermal.temperature_raw", "dhs.obc_thermal.status",
     ],
 }
 
@@ -205,7 +212,7 @@ def check_struct_sizes(result: CheckResult) -> None:
     """
     Verify Python struct format strings produce the correct sizes.
 
-    obsw_sensor_frame_t layout (47 bytes, #pragma pack(push,1)):
+    obsw_sensor_frame_t layout (wire protocol v4, 50 bytes, #pragma pack(push,1)):
       float mag_x, mag_y, mag_z       → 12
       uint8_t mag_valid               →  1
       float st_q_w, st_q_x, st_q_y, st_q_z → 16
@@ -213,7 +220,9 @@ def check_struct_sizes(result: CheckResult) -> None:
       float gyro_x, gyro_y, gyro_z   → 12
       uint8_t gyro_valid              →  1
       float sim_time                  →  4
-      Total                           → 47
+      int16_t obc_temperature_raw     →  2
+      uint8_t thermal_valid           →  1
+      Total                           → 50
 
     obsw_actuator_frame_t layout (29 bytes):
       float mtq_dipole_x/y/z          → 12
@@ -326,7 +335,7 @@ def check_wire_protocol_python_side(
 # ──────────────────────────────────────────────────────────────────────────────
 
 _C_FIELD_RE = re.compile(
-    r"""^\s+(?:float|uint8_t|uint16_t|uint32_t)\s+(\w+)\s*;""",
+    r"""^\s+(?:float|u?int(?:8|16|32)_t)\s+(\w+)\s*;""",
     re.MULTILINE,
 )
 
@@ -565,13 +574,13 @@ def check_sensor_producer_consumer_symmetry(
         )
 
     # Also verify by reading the actual model source (if available)
-    models_dir = svf_root / "src" / "svf" / "models" / "aocs"
-    if models_dir.exists():
-        _verify_ports_in_source(models_dir, all_producer_ports, result)
+    models_dirs = [svf_root / "src" / "svf" / "models" / d for d in ("aocs", "dhs")]
+    if all(d.exists() for d in models_dirs):
+        _verify_ports_in_source(models_dirs, all_producer_ports, result)
 
 
 def _verify_ports_in_source(
-    aocs_dir: Path,
+    model_dirs: list[Path],
     expected_ports: set[str],
     result: CheckResult,
 ) -> None:
@@ -581,23 +590,29 @@ def _verify_ports_in_source(
     Catches the table being stale relative to the code.
     """
     port_def_re = re.compile(
-        r'PortDefinition\("([^"]+)",\s*PortDirection\.OUT'
+        r'PortDefinition\(\s*(?:"([^"]+)"|([A-Z_]+_PORT)),\s*PortDirection\.OUT'
     )
+    const_re = re.compile(r'^([A-Z_]+_PORT)\s*=\s*"([^"]+)"', re.MULTILINE)
     declared_out_ports: set[str] = set()
-    for py_file in aocs_dir.glob("*.py"):
-        text = py_file.read_text(encoding="utf-8")
-        declared_out_ports |= set(port_def_re.findall(text))
+    for model_dir in model_dirs:
+        for py_file in model_dir.glob("*.py"):
+            text = py_file.read_text(encoding="utf-8")
+            consts = dict(const_re.findall(text))
+            for literal, const in port_def_re.findall(text):
+                port = literal or consts.get(const, "")
+                if port:
+                    declared_out_ports.add(port)
 
     for port in expected_ports:
         if port not in declared_out_ports:
             result.warn(
                 f"[SEN] '{port}' is in SENSOR_MODEL_OUTPUT_PORTS table "
-                f"but NOT found as PortDirection.OUT in any AOCS model source. "
+                f"but NOT found as PortDirection.OUT in any AOCS or DHS model source. "
                 f"Update SENSOR_MODEL_OUTPUT_PORTS if the model was refactored."
             )
 
     result.note(
-        f"[SEN] AOCS model source declares {len(declared_out_ports)} OUT ports"
+        f"[SEN] AOCS and DHS model sources declare {len(declared_out_ports)} OUT ports"
     )
 
 
@@ -895,6 +910,7 @@ _NAMESPACE_CHECK_MODELS: dict[str, tuple[str, str]] = {
     "bdot_controller": ("svf.models.aocs.bdot_controller", "make_bdot_controller"),
     "dynamics":        ("svf.models.dynamics.kde_equipment", "make_kde_equipment"),
     "thermal":         ("svf.models.thermal.thermal",      "make_thermal"),
+    "obc_thermal":     ("svf.models.dhs.obc_thermal",      "make_obc_thermal"),
     "pcdu":            ("svf.models.eps.pcdu",              "make_pcdu"),
     "battery":         ("svf.models.eps.battery",           "make_battery"),
     "solar_array":     ("svf.models.eps.solar_array",       "make_solar_array"),

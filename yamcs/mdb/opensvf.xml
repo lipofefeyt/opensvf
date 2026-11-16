@@ -204,6 +204,12 @@
       <Parameter name="dhs_obc_watchdog_status" parameterTypeRef="int32">
         <LongDescription>Watchdog status (0=nominal, 1=timeout_warning, 2=reset)</LongDescription>
       </Parameter>
+      <Parameter name="dhs_obc_thermal_status" parameterTypeRef="int32">
+        <LongDescription>OBC thermal input validity sent as thermal_valid - internal sim port (0=invalid, OBSW keeps its last obc_temperature; 1=valid)</LongDescription>
+      </Parameter>
+      <Parameter name="dhs_obc_thermal_temperature_raw" parameterTypeRef="int32">
+        <LongDescription>OBC temperature sent to the OBSW in the sensor frame - internal sim port, openobsw raw counts (degC = 0.1 * raw - 40)</LongDescription>
+      </Parameter>
       <Parameter name="eps_battery_charge_current" parameterTypeRef="float32">
         <LongDescription>Battery charge current. Positive = charging, negative = discharging.</LongDescription>
       </Parameter>

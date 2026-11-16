@@ -609,6 +609,9 @@ The platform shall provide `svf console <spacecraft.yaml>`: run the spacecraft i
 **SVF-DEV-218** `[CAM]` `IMPLEMENTED`
 `CampaignReport.to_dict()` shall serialise the events of every procedure step: each step shall carry an `events` list, in the order recorded, of `t` (simulation time), `type` (`TC`, `TM`, `INJECT`, `MONITOR`, `STEP` or `INFO`), `description` and `details` (for example the TC bytes in hex, or null). A step without events shall carry an empty list. The campaign JSON then holds the timeline that until now only the HTML report showed, so an evidence bundle can be built from it without parsing HTML.
 
+**SVF-DEV-219** `[DHS]` `IMPLEMENTED`
+`OBCEmulatorAdapter` shall speak wire protocol v4 (openobsw v0.19 and later): the type-0x02 sensor frame shall be the 50-byte `obsw_sensor_frame_t` that ends with `int16_t obc_temperature_raw` and `uint8_t thermal_valid` after `sim_time`. The adapter shall fill them from the simulator-owned OBC thermal input, `dhs.obc_thermal.temperature_raw` (openobsw raw counts, degC = 0.1 * raw - 40, rounded and clamped to int16) and `dhs.obc_thermal.status` (valid above 0.5). Without a thermal input in the ParameterStore `thermal_valid` shall be 0, so openobsw keeps its own `obc_temperature` and TC(20,1) still sets it. The `obc_thermal` equipment model shall produce both ports, a constant nominal value (raw 650, 25 degC) with status 1, so a procedure can raise and clear the value through the equipment fault engine in any OBSW mode without a TC. In pipe mode the adapter shall refuse to start an `obsw_sim` whose start-up banner names another wire protocol (openobsw v0.18 prints `type-frame protocol v2`) and shall log a warning when there is no banner. `checkcons` shall check the 50-byte frame size and, given `--obsw`, the new C fields against its mapping table.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -1171,6 +1174,7 @@ loads are connected and drop to 0 V when UVLO disconnects them.
 | SVF-DEV-216   | DHS  | IMPLEMENTED |  -  | test_hk_set3_overrides_a_contradicting_event |
 | SVF-DEV-217   | DHS  | IMPLEMENTED |  -  | test_hk_set1_obc_temperature_follows_tc20_1 |
 | SVF-DEV-218   | CAM  | IMPLEMENTED |  -  | test_to_dict_serialises_step_events_in_order |
+| SVF-DEV-219   | DHS  | IMPLEMENTED |  -  | test_thermal_fault_commands_safe_and_clearance_is_observable_in_safe |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |

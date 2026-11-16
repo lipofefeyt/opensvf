@@ -36,7 +36,7 @@ Every simulation tick SVF sends two frames in order:
 [0x02] [uint16 BE length] [obsw_sensor_frame_t]
 ```
 
-`obsw_sensor_frame_t` is a 47-byte packed little-endian struct:
+`obsw_sensor_frame_t` is a 50-byte packed little-endian struct (wire protocol v4):
 
 ```c
 typedef struct __attribute__((packed)) {
@@ -48,6 +48,8 @@ typedef struct __attribute__((packed)) {
     float gyro_x, gyro_y, gyro_z;   // angular rate (rad/s)
     uint8_t gyro_valid;
     float sim_time;                  // simulation clock (seconds)
+    int16_t obc_temperature_raw;     // OBC temperature, degC = 0.1 * raw - 40
+    uint8_t thermal_valid;
 } obsw_sensor_frame_t;
 ```
 
@@ -110,7 +112,7 @@ int main(void) {
         if (type == FRAME_SENSOR) {
             // Parse obsw_sensor_frame_t from buf  -  float fields, little-endian
             float sim_time;
-            memcpy(&sim_time, buf + 43, 4);   // last field
+            memcpy(&sim_time, buf + 43, 4);   // before the thermal fields
             // ... your OBSW logic here ...
 
             // Send a TC(1,0) acceptance success as a heartbeat TM response

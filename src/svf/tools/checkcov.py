@@ -78,6 +78,7 @@ EQUIPMENT_FIDELITY: dict[str, tuple[str, str, str]] = {
     "dynamics": ("F3", "KDE Dynamics (FMI)", "Add flex modes from modal test data for F4"),
     # Functional stubs
     "obc_stub": ("F1", "OBC Stub",         "Use OBCEmulatorAdapter for F4"),
+    "obc_thermal": ("F1", "OBC Thermal Input", "Drive from the thermal model's cavity temperature (F2)"),
     "obc_emulator": ("F4", "OBC Emulator", "Already F4  -  real OBSW binary in the loop"),
 }
 

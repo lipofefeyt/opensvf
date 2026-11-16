@@ -1,5 +1,5 @@
 """
-L3 alignment tests against the real openobsw obsw_sim (v0.18 or later).
+L3 alignment tests against the real openobsw obsw_sim (v0.19 or later).
 
 Each test drives OBCEmulatorAdapter directly and inspects the parsed TM
 queue, so it exercises the same decoding path campaigns and the TTC model
@@ -14,6 +14,8 @@ use. Covers:
 - S5 mode events are a hint that HK set 3 overrides (SVF-DEV-216)
 - Every HK set is decoded into named parameters from its SRDB layout
   (SVF-DEV-217)
+- Wire protocol v4: a simulator-driven thermal fault commands SAFE, and
+  its clearance (or persistence) is observable in SAFE (SVF-DEV-219)
 
 Run:
     pytest tests/system/test_obsw_alignment.py -v
@@ -432,6 +434,171 @@ def test_every_reported_hk_set_is_decoded_by_name(obsw: ObswHarness) -> None:
     gain = store.read("dhs.obc.bdot_gain")
     assert gain is not None and gain.value == pytest.approx(1.0e4)
     assert obsw.adapter.link_health().hk_undecoded == 0
+
+
+# ── Simulator-owned thermal input, wire protocol v4 (SVF-DEV-219) ───────────
+# The recovery-evidence anomaly: an S12 high limit on obc_temperature raises
+# 0x0051 temperature_hard_limit (HIGH, safe trigger) and the OBSW commands
+# SAFE. The value is driven from the simulator side through the sensor frame
+# and the equipment fault engine, never by TC(20,1), which SAFE rejects. A:
+# the fault is cleared and the cleared value is observable while the OBSW
+# stays in SAFE. B: the fault stays and so does the out-of-limit value.
+
+HARD_LIMIT_RAW = 1250.0          # 85 degC
+FAULT_RAW = 1300.0               # 90 degC
+TEMPERATURE_SOFT_LIMIT = 0x0050
+TEMPERATURE_HARD_LIMIT = 0x0051
+SAFE_MODE_ENTRY = 0x0002
+NOMINAL_ENTRY = 0x0005
+SEVERITY_HIGH = 4
+
+
+class ThermalHarness(ObswHarness):
+    """ObswHarness with the obc_thermal model ticking before the adapter."""
+
+    def __init__(self) -> None:
+        from svf.core.equipment_fault import EquipmentFaultEngine
+        from svf.models.dhs.obc_thermal import make_obc_thermal
+        super().__init__()
+        store = self.adapter._store
+        assert store is not None
+        self.thermal = make_obc_thermal(MagicMock(), store)
+        self.faults = EquipmentFaultEngine("obc_thermal")
+        self.thermal.attach_fault_engine(self.faults)
+
+    def run(self, ticks: int) -> None:
+        for _ in range(ticks):
+            self.thermal.on_tick(self.t, DT)
+            self.adapter.do_step(t=self.t, dt=DT)
+            self.t = round(self.t + DT, 6)
+        self.tm.extend(self.adapter.get_tm_queue())
+
+    def stick(self, raw: float) -> None:
+        from svf.core.equipment_fault import EquipmentFault, FaultMode
+        from svf.models.dhs.obc_thermal import TEMPERATURE_RAW_PORT
+        self.faults.inject(EquipmentFault(
+            TEMPERATURE_RAW_PORT, FaultMode.STUCK, raw, 0.0, self.t))
+
+
+@pytest.fixture
+def obsw_thermal() -> Iterator[ThermalHarness]:
+    h = ThermalHarness()
+    h.adapter.initialise()
+    try:
+        yield h
+    finally:
+        h.adapter.teardown()
+    health = h.adapter.link_health()
+    assert health.healthy, "OBSW link unhealthy: " + "; ".join(health.problems())
+
+
+def _set1_temperatures(packets: list[PusTmPacket]) -> list[int]:
+    """obc_temperature (int16, first parameter) from every nominal_hk report."""
+    return [struct.unpack_from(">h", d, 1)[0] for d in ObswHarness.hk(packets, 1)]
+
+
+def _set3_modes(packets: list[PusTmPacket]) -> list[int]:
+    return [d[1] for d in ObswHarness.hk(packets, 3)]
+
+
+def _thermal_fault_into_safe(obsw: ThermalHarness) -> None:
+    """NOMINAL, hard limit on obc_temperature, stuck fault above it, SAFE."""
+    from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE
+    from svf.models.dhs.obc_thermal import NOMINAL_RAW
+    from svf.pus.services.s12_monitoring import PusService12
+    _nominal_at_obt(obsw, 100)
+    obsw.tc(12, 3, PusService12.build_add(
+        OBC_TEMPERATURE_PARAM, None, HARD_LIMIT_RAW,
+        TEMPERATURE_SOFT_LIMIT, TEMPERATURE_HARD_LIMIT, SEVERITY_HIGH,
+        tc_apid=0x010).app_data)
+    obsw.run(20)
+    packets = obsw.take()
+    assert _s1_failures(packets) == [], "TC(12,3) rejected in NOMINAL"
+    assert _events(packets, TEMPERATURE_HARD_LIMIT) == [], "limit event at nominal"
+    assert set(_set1_temperatures(packets)) == {int(NOMINAL_RAW)}, \
+        "obc_temperature does not follow the simulator's thermal input"
+    assert set(_set3_modes(packets)) == {MODE_NOMINAL}
+
+    obsw.stick(FAULT_RAW)
+    obsw.run(15)
+    packets = obsw.take()
+    events = _events(packets, TEMPERATURE_HARD_LIMIT)
+    assert len(events) == 1, f"expected one 0x0051, got {len(events)}"
+    assert struct.unpack_from(">f", events[0], 2)[0] == pytest.approx(FAULT_RAW)
+    assert len(_events(packets, SAFE_MODE_ENTRY)) == 1, "no safe_mode_entry event"
+    assert _set3_modes(packets)[-1] == MODE_SAFE, "0x0051 did not command SAFE"
+    assert _set1_temperatures(packets)[-1] == int(FAULT_RAW)
+    assert obsw.adapter._mode == MODE_SAFE
+
+
+@pytest.mark.requirement("SVF-DEV-219")
+def test_thermal_fault_commands_safe_and_clearance_is_observable_in_safe(
+    obsw_thermal: ThermalHarness,
+) -> None:
+    """Outcome A: the cleared value is reported while the OBSW stays in SAFE."""
+    from svf.models.dhs.obc import MODE_SAFE
+    from svf.models.dhs.obc_thermal import NOMINAL_RAW
+    store = obsw_thermal.adapter._store
+    assert store is not None
+    _thermal_fault_into_safe(obsw_thermal)
+
+    obsw_thermal.faults.clear()
+    obsw_thermal.run(50)                      # 5 s in SAFE after clearance
+    packets = obsw_thermal.take()
+    temperatures = _set1_temperatures(packets)
+    assert len(temperatures) >= 4, "too few nominal_hk reports in SAFE"
+    assert set(temperatures) == {int(NOMINAL_RAW)}, \
+        f"cleared value not observable in SAFE: {temperatures}"
+    entry = store.read("dhs.obc.obc_temperature")
+    assert entry is not None and entry.value == NOMINAL_RAW
+    assert set(_set3_modes(packets)) == {MODE_SAFE}, "OBSW left SAFE on its own"
+    assert _events(packets, NOMINAL_ENTRY) == [], "automatic recovery to NOMINAL"
+    assert _events(packets, TEMPERATURE_HARD_LIMIT) == []
+
+
+@pytest.mark.requirement("SVF-DEV-219")
+def test_thermal_fault_left_in_place_persists_in_safe(
+    obsw_thermal: ThermalHarness,
+) -> None:
+    """Outcome B: the out-of-limit value keeps being reported, still SAFE."""
+    from svf.models.dhs.obc import MODE_SAFE
+    _thermal_fault_into_safe(obsw_thermal)
+
+    obsw_thermal.run(50)
+    packets = obsw_thermal.take()
+    temperatures = _set1_temperatures(packets)
+    assert len(temperatures) >= 4, "too few nominal_hk reports in SAFE"
+    assert set(temperatures) == {int(FAULT_RAW)}, f"fault not persistent: {temperatures}"
+    assert set(_set3_modes(packets)) == {MODE_SAFE}
+    assert _events(packets, NOMINAL_ENTRY) == []
+
+
+@pytest.mark.requirement("SVF-DEV-219")
+def test_obc_temperature_still_follows_tc20_1_without_thermal_input(
+    obsw: ObswHarness,
+) -> None:
+    """No obc_thermal model: thermal_valid is 0 and TC(20,1) keeps control."""
+    _nominal_at_obt(obsw, 100)
+    obsw.tc(20, 1, struct.pack(">Hi", OBC_TEMPERATURE_PARAM, 1100))
+    obsw.run(15)
+    temperatures = _set1_temperatures(obsw.take())
+    assert temperatures and temperatures[-1] == 1100
+
+
+@pytest.mark.requirement("SVF-DEV-219")
+def test_adapter_refuses_a_sim_on_another_wire_protocol(tmp_path: Path) -> None:
+    """A binary with a pre-v4 banner is stopped before the first frame."""
+    fake = tmp_path / "obsw_sim_v018"
+    fake.write_text(
+        "#!/bin/sh\n"
+        "echo '[OBSW] Host sim started (type-frame protocol v2).' >&2\n"
+        "exec cat >/dev/null\n")
+    fake.chmod(0o755)
+    adapter = OBCEmulatorAdapter(sim_path=fake, sync_protocol=MagicMock(),
+                                 store=ParameterStore())
+    with pytest.raises(RuntimeError, match="older wire protocol"):
+        adapter.initialise()
+    assert adapter._proc is None, "refused sim left running"
 
 
 # ── svf console against the flight software (SVF-DEV-215) ───────────────────

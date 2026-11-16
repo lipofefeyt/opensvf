@@ -120,7 +120,7 @@ obsw:
   binary: ./bin/obsw_sim        # x86_64 or aarch64 via QEMU
 ```
 
-The real flight software binary runs as a subprocess. SVF feeds it sensor frames over stdin/stdout using wire protocol v3. This is the primary SIL validation mode and runs in CI with no special hardware.
+The real flight software binary runs as a subprocess. SVF feeds it sensor frames over stdin/stdout using wire protocol v4. This is the primary SIL validation mode and runs in CI with no special hardware.
 
 ### 3. Socket mode (Renode ZynqMP emulation)
 
