@@ -6,22 +6,26 @@ Extended pipe protocol with type-prefixed frames:
   Type 0x01  -  TC uplink:       [0x01][uint16 BE length][TC frame bytes]
   Type 0x02  -  Sensor injection: [0x02][uint16 BE length][obsw_sensor_frame_t]
 
-obsw_sensor_frame_t (packed, little-endian floats):
+obsw_sensor_frame_t (wire protocol v4, packed, little-endian):
   float mag_x, mag_y, mag_z; uint8_t mag_valid;
   float st_q_w, st_q_x, st_q_y, st_q_z; uint8_t st_valid;
   float gyro_x, gyro_y, gyro_z; uint8_t gyro_valid;
   float sim_time;
+  int16_t obc_temperature_raw; uint8_t thermal_valid;
 
 obsw_sim stdout (unchanged):
   [uint16 BE length][TM packet bytes] ... [0xFF sync]
 
-Implements: SVF-DEV-029, SVF-DEV-034, SVF-DEV-037, SVF-DEV-169, SVF-DEV-217
+Implements: SVF-DEV-029, SVF-DEV-034, SVF-DEV-037, SVF-DEV-169, SVF-DEV-217,
+            SVF-DEV-219
 """
 
 from __future__ import annotations
 
 import logging
+import math
 import queue
+import re
 import socket
 import struct
 import subprocess
@@ -150,12 +154,17 @@ FRAME_SENSOR = 0x02
 FRAME_ACTUATOR = 0x03
 FRAME_TM = 0x04
 
-# obsw_sensor_frame_t: 3f+B + 4f+B + 3f+B + f = 47 bytes (little-endian, packed)
+# Wire protocol version this adapter speaks (openobsw v0.19 and later).
+WIRE_PROTOCOL_VERSION = 4
+_BANNER_RE = re.compile(r"wire protocol v(\d+)")
+
+# obsw_sensor_frame_t: 3f+B + 4f+B + 3f+B + f + h+B = 50 bytes (little-endian, packed)
 # obsw_actuator_frame_t: 3f + 3f + B + f = 29 bytes (little-endian, packed)
-_SENSOR_FMT = "<3fB4fB3fBf"
+_SENSOR_FMT = "<3fB4fB3fBfhB"
 _SENSOR_LEN = struct.calcsize(_SENSOR_FMT)
 _ACTUATOR_FMT = "<6fBf"
 _ACTUATOR_LEN = struct.calcsize(_ACTUATOR_FMT)
+_INT16_MIN, _INT16_MAX = -32768, 32767
 
 
 class OBCEmulatorAdapter(HilAdapter):
@@ -163,7 +172,7 @@ class OBCEmulatorAdapter(HilAdapter):
     Drop-in replacement for ``ObcStub`` using a real openobsw binary.
 
     Connects to ``obsw_sim`` (or a Renode ZynqMP emulation) and drives it
-    through the SVF wire protocol v3. Each simulation tick:
+    through the SVF wire protocol v4. Each simulation tick:
 
     1. Packs sensor values from ``ParameterStore`` into ``obsw_sensor_frame_t``
        and sends it as a type-0x02 frame.
@@ -186,7 +195,8 @@ class OBCEmulatorAdapter(HilAdapter):
     so parsing defaults to ``tm_pec=False``. Pass ``tm_pec=True`` for a
     flight software that appends a CRC-16 to every TM packet.
 
-    Implements: SVF-DEV-029, SVF-DEV-034, SVF-DEV-037, SVF-DEV-205, SVF-DEV-208
+    Implements: SVF-DEV-029, SVF-DEV-034, SVF-DEV-037, SVF-DEV-205, SVF-DEV-208,
+                SVF-DEV-219
     """
 
     def __init__(
@@ -504,6 +514,7 @@ class OBCEmulatorAdapter(HilAdapter):
         _time.sleep(0.1)
         import select as _select
         import os as _os
+        startup = b""
         if self._proc.stderr:
             for _ in range(5):
                 ready = _select.select([self._proc.stderr], [], [], 0.2)
@@ -512,11 +523,45 @@ class OBCEmulatorAdapter(HilAdapter):
                 raw = _os.read(self._proc.stderr.fileno(), 256)
                 if not raw:
                     break
-                for line in raw.decode(errors="replace").splitlines():
-                    logger.debug(f"[obsw] {line}")
-                    if "SRDB version:" in line:
-                        srdb_version = line.split("SRDB version:")[-1].strip()
-                        self._check_srdb_version(srdb_version)
+                startup += raw
+        lines = startup.decode(errors="replace").splitlines()
+        for line in lines:
+            logger.debug(f"[obsw] {line}")
+            if "SRDB version:" in line:
+                srdb_version = line.split("SRDB version:")[-1].strip()
+                self._check_srdb_version(srdb_version)
+        try:
+            self._check_wire_protocol(lines)
+        except RuntimeError:
+            self.teardown()
+            raise
+
+    def _check_wire_protocol(self, banner: list[str]) -> None:
+        """
+        Refuse an obsw_sim that does not speak wire protocol v4.
+
+        openobsw v0.19 and later print ``Host sim started (wire protocol v4).``
+        Older binaries print another protocol (v0.18: ``type-frame protocol
+        v2``) and expect a 47-byte sensor frame. Without a start-up banner
+        the version cannot be checked and a warning is logged.
+
+        Implements: SVF-DEV-219
+        """
+        for line in banner:
+            if "Host sim started" not in line:
+                continue
+            m = _BANNER_RE.search(line)
+            version = int(m.group(1)) if m else None
+            if version != WIRE_PROTOCOL_VERSION:
+                spoken = (f"wire protocol v{version}" if version is not None
+                          else "an older wire protocol")
+                raise RuntimeError(
+                    f"obsw_sim speaks {spoken} ({line.strip()!r}); opensvf sends "
+                    f"v{WIRE_PROTOCOL_VERSION} frames (openobsw v0.19 or later)")
+            return
+        logger.warning(
+            "[obc-emu] no obsw_sim start-up banner: wire protocol version "
+            f"not checked, v{WIRE_PROTOCOL_VERSION} assumed")
 
     def teardown(self) -> None:
         self._alive = False
@@ -601,16 +646,25 @@ class OBCEmulatorAdapter(HilAdapter):
         """
         Pack ``obsw_sensor_frame_t`` from ``ParameterStore`` and send to OBSW.
 
-        Reads MAG, ST, and GYRO values from ``ParameterStore``. Status ports
-        are thresholded at 0.5 to produce the ``uint8_t valid`` flags in the
-        C struct. The packed frame is sent as a type-0x02 typed frame.
+        Reads MAG, ST, GYRO and the OBC thermal input from ``ParameterStore``.
+        Status ports are thresholded at 0.5 to produce the ``uint8_t valid``
+        flags in the C struct. The packed frame is sent as a type-0x02 typed
+        frame.
 
-        Frame layout (47 bytes, little-endian, ``#pragma pack(1)``)::
+        The thermal input (``dhs.obc_thermal.temperature_raw``, openobsw raw
+        counts) is rounded and clamped to int16. Without a thermal input in
+        the store ``thermal_valid`` is 0 and openobsw keeps its own
+        ``obc_temperature``, which TC(20,1) still sets.
+
+        Frame layout (50 bytes, little-endian, ``#pragma pack(1)``)::
 
             float mag_x, mag_y, mag_z;   uint8_t mag_valid;
             float st_q_w, x, y, z;       uint8_t st_valid;
             float gyro_x, y, z;          uint8_t gyro_valid;
             float sim_time;
+            int16_t obc_temperature_raw; uint8_t thermal_valid;
+
+        Implements: SVF-DEV-219
         """
         def _read(key: str, default: float = 0.0) -> float:
             e = self._store.read(key)
@@ -635,12 +689,22 @@ class OBCEmulatorAdapter(HilAdapter):
         gyro_status = self._store.read("aocs.gyro.status")
         gyro_valid = 1 if gyro_status is not None and gyro_status.value > 0.5 else 0
 
+        thermal = self._store.read("dhs.obc_thermal.temperature_raw")
+        thermal_status = self._store.read("dhs.obc_thermal.status")
+        thermal_raw = 0
+        thermal_valid = 0
+        if thermal is not None and math.isfinite(thermal.value):
+            thermal_raw = max(_INT16_MIN, min(_INT16_MAX, round(thermal.value)))
+            thermal_valid = (1 if thermal_status is not None
+                             and thermal_status.value > 0.5 else 0)
+
         frame = struct.pack(
             _SENSOR_FMT,
             mag_x, mag_y, mag_z, mag_valid,
             st_w, st_x, st_y, st_z, st_valid,
             gyro_x, gyro_y, gyro_z, gyro_valid,
             float(t),
+            thermal_raw, thermal_valid,
         )
         self._write_typed_frame(FRAME_SENSOR, frame)
 

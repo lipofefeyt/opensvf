@@ -119,7 +119,7 @@ simulation:
 │  SOCKET: Renode ZynqMP uart0 TCP:3456                    │
 │  STUB:   ObcStub rule engine                             │
 └──────────────────────┬───────────────────────────────────┘
-                       │ wire protocol v3
+                       │ wire protocol v4
 ┌──────────────────────▼───────────────────────────────────┐
 │  openobsw C11 OBSW                                       │
 │  b-dot → MTQ dipoles | ADCS PD → RW torques             │
@@ -149,7 +149,7 @@ simulation:
 
 ---
 
-## 5. Wire Protocol v3
+## 5. Wire Protocol v4
 
 ```
 SVF → OBSW (stdin or TCP):

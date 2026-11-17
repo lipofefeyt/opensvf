@@ -145,3 +145,25 @@ parameters:
       service: 3
       subservice: 25
       parameter_id: 0x400A
+
+  # ── OBC thermal input (simulator-owned, wire protocol v4) ────────────────
+  # What the simulator sends to openobsw in the sensor frame. What the OBSW
+  # reports back is a different value: dhs.obc.obc_temperature in HK set 1.
+
+  dhs.obc_thermal.temperature_raw:
+    description: OBC temperature sent to the OBSW in the sensor frame - internal sim port, openobsw raw counts (degC = 0.1 * raw - 40)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: OBDH
+    model_id: obc_thermal
+    valid_range: [-32768.0, 32767.0]
+
+  dhs.obc_thermal.status:
+    description: OBC thermal input validity sent as thermal_valid - internal sim port (0=invalid, OBSW keeps its last obc_temperature; 1=valid)
+    unit: ""
+    dtype: int
+    classification: TM
+    domain: OBDH
+    model_id: obc_thermal
+    valid_range: [0.0, 1.0]

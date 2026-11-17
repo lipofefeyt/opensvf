@@ -116,7 +116,7 @@ Every frame  -  upstream and downstream  -  uses the same envelope:
 | Type | Hex | Direction | Body content |
 |---|---|---|---|
 | TC Uplink | `0x01` | SVF → OBSW | Raw PUS-C TC packet bytes |
-| Sensor Injection | `0x02` | SVF → OBSW | `obsw_sensor_frame_t` (47 bytes) |
+| Sensor Injection | `0x02` | SVF → OBSW | `obsw_sensor_frame_t` (50 bytes, wire protocol v4) |
 | Actuator Output | `0x03` | OBSW → SVF | `obsw_actuator_frame_t` (29 bytes) |
 | TM Downlink | `0x04` | OBSW → SVF | Raw PUS-C TM packet bytes |
 
@@ -160,9 +160,14 @@ a TC(17,1) heartbeat ping is sent automatically.
 
 ## Sensor Frame  -  `obsw_sensor_frame_t`
 
-**Size:** 47 bytes  
+**Size:** 50 bytes (wire protocol v4, openobsw v0.19 and later)  
 **Byte order:** Little-endian  
-**Python struct format:** `<3fB4fB3fBf`
+**Python struct format:** `<3fB4fB3fBfhB`
+
+Wire protocol v3 (openobsw v0.18 and earlier) ended after `sim_time`, at 47
+bytes. A v4 `obsw_sim` stops with exit status 2 on a frame of any other
+length, and `OBCEmulatorAdapter` refuses to start an `obsw_sim` whose start-up
+banner names another protocol than `wire protocol v4`.
 
 ```c
 /* obsw_sensor_frame_t  -  #pragma pack(1), little-endian */
@@ -175,7 +180,9 @@ typedef struct {
     float    gyro_x, gyro_y, gyro_z;  /* [rad/s]   angular rate           */
     uint8_t  gyro_valid;               /* 1=valid, 0=invalid               */
     float    sim_time;                 /* [s]       simulation epoch time  */
-} obsw_sensor_frame_t;                /* Total: 47 bytes                  */
+    int16_t  obc_temperature_raw;      /* raw, degC = 0.1 * raw - 40       */
+    uint8_t  thermal_valid;            /* 1=valid, 0=invalid               */
+} obsw_sensor_frame_t;                /* Total: 50 bytes                  */
 ```
 
 *Table 2  -  Sensor frame field layout*
@@ -196,6 +203,8 @@ typedef struct {
 | 38 | 4 | `gyro_z` | rad/s | Gyroscope Z angular rate |
 | 42 | 1 | `gyro_valid` |  -  | 1 if gyroscope output is valid |
 | 43 | 4 | `sim_time` | s | Simulation epoch time |
+| 47 | 2 | `obc_temperature_raw` | raw | OBC temperature, openobsw SRDB raw counts (degC = 0.1 * raw - 40) |
+| 49 | 1 | `thermal_valid` |  -  | 1: openobsw writes the value into `obc_temperature` (S20 0x0001) before S12 monitoring and HK; 0: it keeps its last value |
 
 **Source mapping:** `OBCEmulatorAdapter._send_sensor_frame()` reads the sensor
 fields from `ParameterStore` using the SRDB canonical names listed below.
@@ -210,6 +219,8 @@ The `*_valid` flags are set from status ports thresholded at 0.5.
 | `gyro_x/y/z` | `aocs.gyro.rate_x/y/z` | Noisy measurement from gyroscope model |
 | `gyro_valid` | `aocs.gyro.status` | Thresholded: > 0.5 → valid |
 | `sim_time` |  -  | Simulation time `t` passed to `do_step()` |
+| `obc_temperature_raw` | `dhs.obc_thermal.temperature_raw` | From the `obc_thermal` model; rounded and clamped to int16 |
+| `thermal_valid` | `dhs.obc_thermal.status` | Thresholded: > 0.5 → valid; 0 when there is no `obc_thermal` model |
 
 ## Actuator Frame  -  `obsw_actuator_frame_t`
 
