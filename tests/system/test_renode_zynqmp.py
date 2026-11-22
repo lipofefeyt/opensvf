@@ -11,8 +11,8 @@ Requires:
 
 Usage:
   renode renode/zynqmp_obsw.resc &
-  sleep 5
-  pytest tests/hardware/test_renode_zynqmp.py -v
+  # wait until port 3456 listens (about 20 s in the devcontainer)
+  pytest tests/system/test_renode_zynqmp.py -v
 
 Implements: SVF-DEV-101 (Renode ZynqMP socket SIL)
 """
@@ -30,6 +30,7 @@ from svf.ground.dds_sync import DdsSyncProtocol
 from svf.stores.parameter_store import ParameterStore
 from svf.stores.command_store import CommandStore
 from svf.models.dhs.obc_emulator import OBCEmulatorAdapter
+from svf.pus.tc import PusTcBuilder, PusTcPacket
 
 RENODE_HOST = "localhost"
 RENODE_PORT = 3456
@@ -109,8 +110,12 @@ class TestRenodeZynqmpSuite:
         if not _renode_running():
             pytest.skip(f"Renode not running on {RENODE_HOST}:{RENODE_PORT}")
 
-        # TC(17,1) are-you-alive  -  APID 0x010, PUS-C
-        raw = _send_tc_recv("1810c0000003201101" + "00", wait=1.0)
+        # TC(17,1) are-you-alive, APID 0x010, built the way OBCEmulatorAdapter
+        # builds its TCs (PUS-C 5-byte secondary header, PEC). The hand-built
+        # 4-byte-header packet used before is no longer a valid openobsw TC.
+        tc = PusTcBuilder().build(PusTcPacket(
+            apid=0x010, sequence_count=0, service=17, subservice=1))
+        raw = _send_tc_recv(tc.hex(), wait=1.0)
 
         packets = _parse_tm_packets(raw)
         assert any(svc == 17 and subsvc == 2 for svc, subsvc in packets), (

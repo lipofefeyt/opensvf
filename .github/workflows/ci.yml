@@ -85,42 +85,48 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The binary comes from the newest openobsw push to main whose run
+      # carries the artifact. Without branch/event/check_artifacts the action
+      # took the newest successful run of any kind, usually a pull_request run,
+      # which never builds the ZynqMP binary, and the job then passed without
+      # testing anything. A missing binary now fails the job.
+      # Note: this is openobsw main, not the release pinned in .openobsw-version.
       - name: Download ZynqMP binary from openobsw
+        id: download
         uses: dawidd6/action-download-artifact@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           repo: lipofefeyt/openobsw
           workflow: ci.yml
+          branch: main
+          event: push
+          workflow_conclusion: success
+          check_artifacts: true
           name: obsw_zynqmp_bin
           path: bin/
-          if_no_artifact_found: warn
+          if_no_artifact_found: fail
 
-      - name: Check binary availability
-        id: bin
+      - name: Check binary
         run: |
-          if [ -f bin/obsw_zynqmp.bin ]; then
-            ls -lh bin/obsw_zynqmp.bin
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning title=Renode system test skipped::No obsw_zynqmp_bin artifact in openobsw CI (artifacts expire after 30 days). Re-run openobsw CI on main to restore this test."
-            echo "available=false" >> "$GITHUB_OUTPUT"
-          fi
+          test -f bin/obsw_zynqmp.bin || {
+            echo "::error title=No ZynqMP binary::obsw_zynqmp_bin downloaded but bin/obsw_zynqmp.bin is missing"
+            exit 1
+          }
+          ls -lh bin/obsw_zynqmp.bin
+          echo '${{ steps.download.outputs.artifacts }}' | python3 -c "import json,sys; a=json.load(sys.stdin); print('openobsw run:', a[0].get('workflow_run', {}).get('id'), a[0].get('workflow_run', {}).get('head_sha'))" || true
 
       - name: Set up Python
-        if: steps.bin.outputs.available == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
 
       - name: Install dependencies
-        if: steps.bin.outputs.available == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
       - name: Install Renode
-        if: steps.bin.outputs.available == 'true'
         run: |
           wget -q https://github.com/renode/renode/releases/download/v1.15.3/renode-1.15.3.linux-portable.tar.gz
           mkdir -p /opt/renode
@@ -129,26 +135,51 @@ jobs:
           renode --version
 
       - name: Start Renode in background
-        if: steps.bin.outputs.available == 'true'
         run: |
-          renode renode/zynqmp_obsw.resc &
+          renode --disable-xwt --plain renode/zynqmp_obsw.resc < <(sleep 600) > renode.log 2>&1 &
           echo "RENODE_PID=$!" >> $GITHUB_ENV
-          sleep 8   # wait for ZynqMP boot banner
+          # Wait for the UART terminal on 3456 (about 20 s locally) instead of
+          # a fixed sleep. Connect and close only: never send bytes as a probe.
+          for i in $(seq 1 90); do
+            python3 -c "import socket; socket.create_connection(('localhost', 3456), 1).close()" 2>/dev/null \
+              && { echo "Renode listening after ${i} s"; exit 0; }
+            sleep 1
+          done
+          echo "::error title=Renode did not start::port 3456 not listening after 90 s"
+          tail -20 renode.log
+          exit 1
 
       - name: Run Renode system tests
-        if: steps.bin.outputs.available == 'true'
         run: |
           pytest tests/system/test_renode_zynqmp.py -v \
             --timeout=60 \
             --junitxml=results/renode_junit.xml
 
+      # The tests skip when Renode is not listening; in CI that means the
+      # emulator did not come up, so a skip is a failure here.
+      - name: Fail if no Renode test ran
+        run: |
+          python3 - <<'EOF'
+          import sys
+          import xml.etree.ElementTree as ET
+          root = ET.parse("results/renode_junit.xml").getroot()
+          suites = [root] if root.tag == "testsuite" else list(root)
+          tests = sum(int(s.get("tests", 0)) for s in suites)
+          skipped = sum(int(s.get("skipped", 0)) for s in suites)
+          print(f"Renode tests: {tests} run, {skipped} skipped")
+          if tests == 0 or skipped:
+              print("::error title=Renode test did not run::"
+                    f"{tests} tests, {skipped} skipped")
+              sys.exit(1)
+          EOF
+
       - name: Stop Renode
-        if: always() && steps.bin.outputs.available == 'true'
+        if: always()
         run: |
           kill $RENODE_PID 2>/dev/null || true
 
       - name: Upload test results
-        if: always() && steps.bin.outputs.available == 'true'
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: renode-test-results
