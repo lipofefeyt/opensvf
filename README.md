@@ -43,7 +43,7 @@ opensvf-kde (C++/Eigen3)        openobsw (C11)
 | Package | Version | Notes |
 |---|---|---|
 | opensvf | v1.2.1 | Python 3.12 |
-| openobsw | v0.18 (pinned in `.openobsw-version`) | C11 |
+| openobsw | v0.20 (pinned in `.openobsw-version`) | C11, wire protocol v4 |
 | opensvf-kde | v0.1.0+ (SGP4 + RK4 build, Aug 2026) | C++ / Eigen3 |
 | YAMCS | 5.12.6 | Java 21+ |
 
@@ -380,6 +380,7 @@ scripts/            start-yamcs.sh, stop-yamcs.sh, activate.sh
 | M63 | SMP lifecycle aligned with ECSS-E-ST-40-07C; SMP claims corrected |
 | v1.2 | Aligned with openobsw v0.18; L3 in CI against a pinned release |
 | M76-M77 | `svf console`; OBSW communication health in every campaign result |
+| v1.3 | Recovery evidence with openobsw v0.19/v0.20: wire protocol v4 sensor frame with an OBC thermal input, SRDB-driven HK decoding, real S5 mode events, step events in the campaign JSON, `duration_s` faults that expire, sim exit and stderr reported on link loss |
 
 ### Planned
 
@@ -388,10 +389,12 @@ Grouped into release trains. M53-M62 come from a 2026-07 gap analysis against a 
 | Release | Theme | Milestones |
 |---|---|---|
 | v1.1 (Oct 2026) | Ship what is built | M50-M52, M63 (released) |
-| v1.2 (Nov 2026) | Align with openobsw v0.18 | SRDB mode encoding, TM without PEC, valid adapter TCs, thread-safe TC queue, HIL procedures re-validated, S11/S12/S19 against the flight software, L3 in CI against pinned openobsw (SVF-DEV-205 to 212) |
-| v1.3 (Q1 2027) | Second reference mission | M65 QUBIK (LSF PocketQube) feasibility spike; M66 QUBIK mission pack; M67 SatNOGS telemetry replay + model-vs-flight report; M56 post-hoc analysis tools; M72 SimLogger structured logging; M69 published Docker image |
-| v1.4 (Q2 2027) | Operations preparation | M70 SCOS-2000 MIB import/export (revives SVF-DEV-098); M64 PLUTO (ECSS-E-ST-70-32C) procedure subset; M58 live YAMCS dashboards; M71 pre-built YAMCS display pages; M53 PUS S2 + S14 |
-| v1.5 (Q3 2027) | Verification depth | M57 FDIR supervisor; M73 FaultPlan fault scheduler; M74 FDIR validation campaign; M55 soak + worst-case harness; M54 bus utilisation + WCET; M61 wire protocol fault injection; M62 DiscreteLine hard-line model |
+| v1.2 (Nov 2026) | Align with openobsw v0.18 | SRDB mode encoding, TM without PEC, valid adapter TCs, thread-safe TC queue, HIL procedures re-validated, S11/S12/S19 against the flight software, L3 in CI against pinned openobsw (SVF-DEV-205 to 212) (released) |
+| v1.3 (Nov 2026) | Recovery evidence | Wire protocol v4 and OBC thermal input, HK decoding from the SRDB, S5 mode events, campaign step events, fault expiry, sim exit reporting (SVF-DEV-216 to 220), with openobsw v0.19/v0.20 |
+| v1.4 (Q1 2027) | Documentation site | M78: versioned Read the Docs site with openobsw v0.20, generated reference pages, cross-repo sync checks, known limits, data pack PDFs built in CI |
+| v1.5 (Q2 2027) | Second reference mission | M65 QUBIK (LSF PocketQube) feasibility spike; M66 QUBIK mission pack; M67 SatNOGS telemetry replay + model-vs-flight report; M56 post-hoc analysis tools; M72 SimLogger structured logging; M69 published Docker image |
+| v1.6 (Q3 2027) | Operations preparation | M70 SCOS-2000 MIB import/export (revives SVF-DEV-098); M64 PLUTO (ECSS-E-ST-70-32C) procedure subset; M58 live YAMCS dashboards; M71 pre-built YAMCS display pages; M53 PUS S2 + S14 |
+| v1.7 (Q4 2027) | Verification depth | M57 FDIR supervisor; M73 FaultPlan fault scheduler; M74 FDIR validation campaign; M55 soak + worst-case harness; M54 bus utilisation + WCET; M61 wire protocol fault injection; M62 DiscreteLine hard-line model |
 | v2.0 (2028) | Interoperability | M68 real SMP runtime bridge; M75 FMU export of SimulationMaster; M60 orbital environment into opensvf-kde; M59 multi-spacecraft |
 
 ---
