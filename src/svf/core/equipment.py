@@ -176,6 +176,11 @@ class Equipment(ModelAdapter):
                             f"= {entry.value} from {entry.source_id}"
                         )
 
+        # Fault time follows the tick, so duration_s faults expire.
+        self._fault_t = t
+        if self._fault_engine is not None:
+            self._fault_engine.expire(t)
+
         self.do_step(t, dt)
 
         stepped_t = round(t + dt, 9)
