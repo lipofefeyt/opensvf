@@ -7,11 +7,13 @@ use. Covers:
 
 - TM without Packet Error Control is parsed (SVF-DEV-205)
 - HK TM(3,25) byte order: OBT in seconds, TC(9,128) sets it, AOCS floats
-  match their S20 values (SVF-DEV-206, opensvf#192)
+  match their S20 values; every TM header carries OBT (SVF-DEV-206,
+  opensvf#192)
 - SAFE TC gate: rejection code 0x0007, accepted once NOMINAL (SVF-DEV-209)
 - S11, S12, S19 built with opensvf's codecs behave as openobsw specifies
   (SVF-DEV-211)
-- S5 mode events are a hint that HK set 3 overrides (SVF-DEV-216)
+- Each commanded transition emits one real mode event; S5 mode events are
+  a hint that HK set 3 overrides (SVF-DEV-216)
 - Every HK set is decoded into named parameters from its SRDB layout
   (SVF-DEV-217)
 - Wire protocol v4: a simulator-driven thermal fault commands SAFE, and
@@ -143,6 +145,44 @@ def test_hk_obt_follows_tc9_128(obsw: ObswHarness) -> None:
     elapsed = obsw.t - t_set
     assert all(1000 <= v <= 1000 + elapsed + 1 for v in obts), \
         f"OBT {obts} not within [1000, {1000 + elapsed + 1:.0f}]"
+
+
+@pytest.mark.requirement("SVF-DEV-206")
+def test_tm_timestamp_follows_obt(obsw: ObswHarness) -> None:
+    """
+    Every TM header carries OBT whole seconds (OBSW-SRS-153): set 3 reports
+    carry their own obc_obt, the time follows TC(9,128), and the S1 reports
+    of that TC still carry the old time.
+    """
+    obsw.run(25)
+    before = obsw.take()
+    assert before and all(p.timestamp <= obsw.t + 1 for p in before), \
+        f"TM time ahead of {obsw.t} s: {sorted({p.timestamp for p in before})}"
+
+    seq = obsw.tc(9, 128, struct.pack(">I", 1000))
+    obsw.run(30)
+    after = obsw.take()
+
+    def _for_seq(p: PusTmPacket) -> bool:
+        return (p.service == 1 and len(p.app_data) >= 4
+                and struct.unpack_from(">H", p.app_data, 2)[0] & 0x3FFF == seq)
+    s1 = [p for p in after if _for_seq(p)]
+    assert s1, "no S1 report of TC(9,128)"
+    assert all(p.timestamp < 1000 for p in s1), \
+        f"S1 of TC(9,128) carries the new time: {[p.timestamp for p in s1]}"
+
+    rest = [p for p in after if not _for_seq(p)]
+    set3 = [p for p in rest if (p.service, p.subservice) == (3, 25)
+            and p.app_data[0] == 3]
+    assert set3, "no set 3 report after TC(9,128)"
+    for p in set3:
+        assert p.timestamp == struct.unpack_from(">I", p.app_data, 2)[0], \
+            "set 3 header time differs from its obc_obt"
+    times = [p.timestamp for p in rest]
+    assert times == sorted(times), f"TM time not monotonic: {times}"
+    elapsed = obsw.t
+    assert all(1000 <= v <= 1000 + elapsed for v in times), \
+        f"TM time {sorted(set(times))} does not follow TC(9,128)"
 
 
 @pytest.mark.requirement("SVF-DEV-206")
@@ -311,12 +351,12 @@ def test_s19_event_dispatches_action_tc(obsw: ObswHarness) -> None:
 
 
 # ── S5 mode events are a hint, HK set 3 is the mode source (SVF-DEV-216) ────
-# obsw_sim v0.18 reports mode transitions in HK set 3 only; later builds also
-# emit the mode events themselves. To put a chosen mode-event ID in a TM(5,x)
-# built by either binary, an S12 definition raises it: openobsw then emits the
-# event without changing mode, since none of these IDs is a safe trigger. The
-# adapter must take the hint from the real packet and drop it again at the
-# next set 3 report, which still says NOMINAL.
+# obsw_sim v0.19 and later emit the mode events on every transition, and HK
+# set 3 then agrees with them (test_commanded_transitions_emit_one_real_mode_
+# event). To test the override, an event must disagree with HK: an S12
+# definition raises a mode-event ID without a mode change, since none of
+# these IDs is a safe trigger. The adapter must take the hint from the real
+# packet and drop it again at the next set 3 report, which still says NOMINAL.
 
 
 @pytest.mark.requirement("SVF-DEV-216", "SVF-DEV-210")
@@ -370,6 +410,57 @@ def test_s5_mode_event_is_a_hint_until_hk_set3(
     assert ObswHarness.hk(obsw.take(), 3), "no set 3 report after the event"
     assert adapter._mode == MODE_NOMINAL, "HK set 3 did not override the S5 hint"
     assert adapter.link_health().mode_changes == timeline
+
+
+@pytest.mark.requirement("SVF-DEV-216", "SVF-DEV-210")
+def test_commanded_transitions_emit_one_real_mode_event(obsw: ObswHarness) -> None:
+    """
+    obsw_sim v0.19 and later report each mode transition itself
+    (OBSW-SRS-190): one event without aux, in the tick of the TC that changed
+    the mode, and none for the boot mode. The adapter's hint and HK set 3
+    then agree on the new mode.
+    """
+    from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE, MODE_STANDBY
+    mode_events = {SAFE_MODE_ENTRY_ID: 4, STANDBY_ENTRY_ID: 1, NOMINAL_ENTRY_ID: 1}
+
+    def mode_event_ids(packets: list[PusTmPacket]) -> list[int]:
+        return [struct.unpack_from(">H", p.app_data, 0)[0] for p in packets
+                if p.service == 5
+                and struct.unpack_from(">H", p.app_data, 0)[0] in mode_events]
+
+    adapter = obsw.adapter
+    obsw.run(15)
+    assert mode_event_ids(obsw.take()) == [], "boot mode reported as an event"
+
+    for mode, event_id in [(MODE_NOMINAL, NOMINAL_ENTRY_ID),
+                           (MODE_STANDBY, STANDBY_ENTRY_ID),
+                           (MODE_SAFE, SAFE_MODE_ENTRY_ID)]:
+        adapter.receive("dhs.obc.mode_cmd", float(mode))
+        obsw.run(1)
+        packets = obsw.take()
+        events = [p for p in packets if p.service == 5
+                  and struct.unpack_from(">H", p.app_data, 0)[0] == event_id]
+        assert len(events) == 1, \
+            f"mode {mode}: expected one 0x{event_id:04X} in the TC's tick"
+        assert events[0].subservice == mode_events[event_id]
+        assert len(events[0].app_data) == 2, \
+            f"0x{event_id:04X} carries aux data: {events[0].app_data.hex()}"
+        assert mode_event_ids(packets) == [event_id]
+        assert adapter._mode == mode, "S5 hint did not follow the real event"
+
+        obsw.run(10)
+        packets = obsw.take()
+        assert mode_event_ids(packets) == [], "extra mode event after the transition"
+        modes = _set3_modes(packets)
+        assert modes and set(modes) == {mode}, \
+            f"HK set 3 does not report mode {mode}: {modes}"
+        assert adapter._mode == mode
+        assert adapter.link_health().mode_changes[-1][1] == mode
+
+
+SAFE_MODE_ENTRY_ID = 0x0002
+STANDBY_ENTRY_ID = 0x0004
+NOMINAL_ENTRY_ID = 0x0005
 
 
 # ── SRDB-driven HK decoding against the flight software (SVF-DEV-217) ───────
