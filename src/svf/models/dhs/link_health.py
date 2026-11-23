@@ -33,6 +33,10 @@ class LinkHealth:
     # TM(3,25) reports of a set the SRDB defines whose length is not the SRDB's
     hk_undecoded: int = 0
     last_hk_problem: Optional[str] = None
+    # Pipe mode: exit status of an obsw_sim that died during the run, and the
+    # last lines it wrote to stderr (kept whether or not it exited)
+    obsw_exit_status: Optional[int] = None
+    obsw_stderr_tail: list[str] = field(default_factory=list)
 
     @property
     def n_rejected(self) -> int:
@@ -40,12 +44,18 @@ class LinkHealth:
 
     @property
     def healthy(self) -> bool:
-        """No TM was lost or left undecoded and the link never lost sync."""
-        return self.tm_dropped == 0 and self.desyncs == 0 and self.hk_undecoded == 0
+        """No TM was lost or left undecoded, the link never lost sync and the
+        OBSW did not exit."""
+        return (self.tm_dropped == 0 and self.desyncs == 0
+                and self.hk_undecoded == 0 and self.obsw_exit_status is None)
 
     def problems(self) -> list[str]:
         """Human-readable reasons why the link is not healthy."""
         out: list[str] = []
+        if self.obsw_exit_status is not None:
+            last = self.obsw_stderr_tail[-1] if self.obsw_stderr_tail else "no stderr"
+            out.append(f"obsw_sim exited with status {self.obsw_exit_status}"
+                       f" (last stderr: {last!r})")
         if self.tm_dropped:
             out.append(f"{self.tm_dropped} of {self.tm_received} TM packets dropped"
                        f" ({self.last_drop_reason})")
@@ -82,5 +92,7 @@ class LinkHealth:
             "desyncs": self.desyncs,
             "hk_undecoded": self.hk_undecoded,
             "last_hk_problem": self.last_hk_problem,
+            "obsw_exit_status": self.obsw_exit_status,
+            "obsw_stderr_tail": list(self.obsw_stderr_tail),
             "healthy": self.healthy,
         }
