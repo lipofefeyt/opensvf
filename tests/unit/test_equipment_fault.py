@@ -12,7 +12,7 @@ from svf.models.aocs.magnetometer import make_magnetometer
 
 class _NoSync(SyncProtocol):
     def reset(self) -> None: pass
-    def publish_ready(self, m: str, t: float) -> None: pass
+    def publish_ready(self, model_id: str, t: float) -> None: pass
     def wait_for_ready(self, e: list[str], t: float) -> bool: return True
 
 
@@ -165,3 +165,44 @@ class TestEquipmentFaultEngineSuite:
         eq._port_values["aocs.mag.field_x"] = 0.001
         result = eq.read_port("aocs.mag.field_x")
         assert result == pytest.approx(42.0)
+
+    @pytest.mark.requirement("SVF-DEV-132")
+    def test_duration_fault_expires_on_equipment_tick(self) -> None:
+        """A duration_s fault on an attached engine expires as ticks advance."""
+        eq, store, _ = make_mag()
+        engine = EquipmentFaultEngine("mag1")
+        engine.inject(EquipmentFault(
+            port="aocs.mag.field_x",
+            fault_type=FaultMode.STUCK,
+            value=42.0,
+            duration_s=1.0,
+            injected_at=0.0,
+        ))
+        eq.attach_fault_engine(engine)
+        # Unpowered magnetometer writes 0.0 to field_x every tick.
+        eq.on_tick(0.0, 0.5)
+        assert store.read("aocs.mag.field_x").value == pytest.approx(42.0)
+        eq.on_tick(0.5, 0.5)
+        assert store.read("aocs.mag.field_x").value == pytest.approx(42.0)
+        eq.on_tick(1.0, 0.5)
+        assert store.read("aocs.mag.field_x").value == pytest.approx(0.0)
+        assert engine.active_faults(1.0) == []
+
+    @pytest.mark.requirement("SVF-DEV-132")
+    def test_read_fault_uses_tick_time(self) -> None:
+        """read_port inside a tick sees fault time equal to the tick time."""
+        eq, _, _ = make_mag()
+        engine = EquipmentFaultEngine("mag1")
+        engine.inject(EquipmentFault(
+            port="aocs.mag.power_enable",
+            fault_type=FaultMode.STUCK,
+            value=0.0,
+            duration_s=2.0,
+            injected_at=10.0,
+        ))
+        eq.attach_fault_engine(engine)
+        eq._port_values["aocs.mag.power_enable"] = 1.0
+        eq.on_tick(11.0, 0.5)
+        assert eq.read_port("aocs.mag.power_enable") == pytest.approx(0.0)
+        eq.on_tick(12.0, 0.5)
+        assert eq.read_port("aocs.mag.power_enable") == pytest.approx(1.0)
