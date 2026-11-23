@@ -32,6 +32,7 @@ import subprocess
 import importlib.metadata
 import threading
 import time
+from collections import deque
 from pathlib import Path
 from typing import Any, Mapping, Optional, Union
 
@@ -102,6 +103,8 @@ _DHS_OBC_HK_STATE = (
     "obc_health", "obc_reset_count", "obc_cpu_load",
 )
 MAX_DESYNC = 3
+# obsw_sim stderr lines kept for the report when the sim exits
+STDERR_TAIL_LINES = 20
 
 # openobsw FreeRTOS TMTC task queue depth (obsw/task/tmtc.h, capacity 4).
 # Exceeding this per-tick causes the OBSW to drop excess TCs silently.
@@ -271,6 +274,9 @@ class OBCEmulatorAdapter(HilAdapter):
 
         self._proc:   Optional[subprocess.Popen[bytes]] = None
         self._reader: Optional[threading.Thread] = None
+        # Pipe mode: last obsw_sim stderr lines, reported when the sim exits
+        self._stderr_tail: deque[str] = deque(maxlen=STDERR_TAIL_LINES)
+        self._stderr_thread: Optional[threading.Thread] = None
         self._rx_q:   queue.Queue[Optional[bytes]] = queue.Queue()
         self._alive = False
 
@@ -331,20 +337,55 @@ class OBCEmulatorAdapter(HilAdapter):
             )
 
     def _stderr_reader(self) -> None:
-        """Read obsw_sim stderr, parse SRDB version and FreeRTOS diagnostics."""
+        """
+        Read obsw_sim stderr for the whole run (pipe mode).
+
+        Keeps the last ``STDERR_TAIL_LINES`` lines for the exit report, logs
+        ``FATAL`` lines at ERROR and the rest at DEBUG, and parses the SRDB
+        version and FreeRTOS diagnostics. Reading also keeps the pipe from
+        filling and blocking the sim.
+
+        Implements: SVF-DEV-220
+        """
         proc = self._proc
         if proc is None or proc.stderr is None:
             return
         while True:
-            raw = proc.stderr.readline()
+            try:
+                raw = proc.stderr.readline()
+            except (OSError, ValueError):
+                break
             if not raw:
                 break
             line = raw.decode(errors="replace").rstrip()
+            self._on_stderr_line(line)
+
+    def _on_stderr_line(self, line: str) -> None:
+        self._stderr_tail.append(line)
+        if "FATAL" in line:
+            logger.error(f"[obsw] {line}")
+        else:
             logger.debug(f"[obsw] {line}")
-            if "SRDB version:" in line:
-                srdb_version = line.split("SRDB version:")[-1].strip()
-                self._check_srdb_version(srdb_version)
-            self._on_obsw_freertos_diagnostic(line)
+        if "SRDB version:" in line:
+            srdb_version = line.split("SRDB version:")[-1].strip()
+            self._check_srdb_version(srdb_version)
+        self._on_obsw_freertos_diagnostic(line)
+
+    def _obsw_exited(self) -> Optional[int]:
+        """Exit status of obsw_sim if it has exited (pipe mode), else None."""
+        if self._proc is None:
+            return None
+        return self._proc.poll()
+
+    def _stderr_report(self) -> str:
+        """Last stderr lines, for an exception message."""
+        if self._stderr_thread is not None and self._obsw_exited() is not None:
+            # Let the reader take what the sim wrote before it exited.
+            self._stderr_thread.join(timeout=0.5)
+        self._link.obsw_stderr_tail = list(self._stderr_tail)
+        if not self._stderr_tail:
+            return "no stderr output"
+        return "last stderr:\n  " + "\n  ".join(self._stderr_tail)
 
     def _on_obsw_freertos_diagnostic(self, line: str) -> None:
         """
@@ -526,15 +567,19 @@ class OBCEmulatorAdapter(HilAdapter):
                 startup += raw
         lines = startup.decode(errors="replace").splitlines()
         for line in lines:
-            logger.debug(f"[obsw] {line}")
-            if "SRDB version:" in line:
-                srdb_version = line.split("SRDB version:")[-1].strip()
-                self._check_srdb_version(srdb_version)
+            self._on_stderr_line(line)
         try:
             self._check_wire_protocol(lines)
         except RuntimeError:
             self.teardown()
             raise
+        # The rest of stderr is read for the whole run (SVF-DEV-220).
+        self._stderr_thread = threading.Thread(
+            target=self._stderr_reader,
+            name="obc-emulator-stderr",
+            daemon=True,
+        )
+        self._stderr_thread.start()
 
     def _check_wire_protocol(self, banner: list[str]) -> None:
         """
@@ -593,6 +638,9 @@ class OBCEmulatorAdapter(HilAdapter):
         if self._reader is not None:
             self._reader.join(timeout=2.0)
             self._reader = None
+        if self._stderr_thread is not None:
+            self._stderr_thread.join(timeout=2.0)
+            self._stderr_thread = None
         logger.info("[obc-emu] Terminated")
 
     def do_step(self, t: float, dt: float) -> None:
@@ -606,6 +654,17 @@ class OBCEmulatorAdapter(HilAdapter):
         # then drain one sync per TC frame so the buffer never accumulates.
         tm_packets, synced = self._collect_until_sync(self._sync_timeout)
         if not synced:
+            # A sim that exited is not a link problem: say so at once,
+            # with its exit status and stderr (SVF-DEV-220).
+            status = self._obsw_exited()
+            if status is not None:
+                self._link.obsw_exit_status = status
+                report = self._stderr_report()
+                logger.error(
+                    f"[obc-emu] obsw_sim exited with status {status} "
+                    f"at t={t:.3f}; {report}")
+                raise RuntimeError(
+                    f"obsw_sim exited with status {status} at t={t:.3f}; {report}")
             self._consecutive_desync += 1
             self._link.desyncs += 1
             logger.warning(
@@ -613,9 +672,11 @@ class OBCEmulatorAdapter(HilAdapter):
                 f"(missed={self._consecutive_desync})"
             )
             if self._consecutive_desync >= MAX_DESYNC:
+                report = (f"; {self._stderr_report()}"
+                          if self._proc is not None else "")
                 raise RuntimeError(
                     f"Lost sync: {self._consecutive_desync} consecutive "
-                    "ticks without 0xFF"
+                    f"ticks without 0xFF{report}"
                 )
         else:
             self._consecutive_desync = 0
@@ -759,6 +820,7 @@ class OBCEmulatorAdapter(HilAdapter):
 
     def link_health(self) -> LinkHealth:
         """Communication counters since this adapter was created (SVF-DEV-214)."""
+        self._link.obsw_stderr_tail = list(self._stderr_tail)
         return self._link
 
     def _build_s9_set_obt(self, obt_seconds: float) -> bytes:
