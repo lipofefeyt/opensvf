@@ -1,8 +1,10 @@
 site_name: OpenSVF
 site_description: Open-source spacecraft software validation facility
-site_url: https://opensvf.readthedocs.io
+# Read the Docs sets the canonical URL per version; the fallback is for local builds.
+site_url: !ENV [READTHEDOCS_CANONICAL_URL, "https://opensvf.readthedocs.io/"]
 repo_url: https://github.com/lipofefeyt/opensvf
 repo_name: lipofefeyt/opensvf
+edit_uri: edit/main/docs/
 
 theme:
   name: material
@@ -23,25 +25,29 @@ theme:
     - navigation.tabs
     - navigation.sections
     - navigation.top
+    - navigation.indexes
     - search.highlight
     - content.code.copy
 
-nav:
-  - Home: index.md
-  - Getting Started:
-    - MySat-1 Quickstart: quickstart-mysat1.md
-    - Plug In Your Own Binary: quickstart-own-binary.md
-  - Concepts:
-    - Architecture: architecture.md
-    - Design Philosophy: design-philosophy.md
-    - Abstraction Layer: abstraction-layer.md
-  - Reference:
-    - Equipment Library: equipment-library.md
-    - pytest Plugin: plugin.md
-    - SIL Attitude Validation: sil-attitude-validation-guide.md
+# Not published: the docs toolchain pins, and the data pack sources until
+# their pages are corrected (the ICD still describes wire protocol v3). The
+# data pack joins the nav with those fixes (#201, #203).
+exclude_docs: |
+  requirements.txt
+  datapack/
+
+# Every warning fails `mkdocs build --strict`. A page that is neither in the
+# nav nor excluded above is a warning too, so no page is published by accident.
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
 
 markdown_extensions:
   - admonition
+  - attr_list
+  - tables
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.superfences
@@ -49,3 +55,23 @@ markdown_extensions:
       alternate_style: true
   - toc:
       permalink: true
+
+plugins:
+  - search
+
+# Same top-level sections as the openobsw site.
+nav:
+  - Getting started:
+      - Overview: index.md
+      - MySat-1 quickstart: quickstart-mysat1.md
+      - Plug in your own binary: quickstart-own-binary.md
+  - Concepts:
+      - Architecture: architecture.md
+      - Design philosophy: design-philosophy.md
+      - Abstraction layer: abstraction-layer.md
+  - Reference:
+      - Equipment library: equipment-library.md
+      - pytest plugin: plugin.md
+      - SIL attitude validation: sil-attitude-validation-guide.md
+  - Known limits: known-limits.md
+  - Releases: releases.md

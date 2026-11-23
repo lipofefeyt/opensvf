@@ -396,7 +396,7 @@ repos cannot coexist on the same filesystem.
 
 ## 14. Milestones
 
-The milestone table is maintained in one place only  -  see [README.md](../README.md#roadmap)
+The milestone table is maintained in one place only  -  see [README.md](https://github.com/lipofefeyt/opensvf/blob/main/README.md#roadmap)
 for the canonical, up-to-date roadmap (done milestones and backlog). Keeping
 a second copy here caused this section to drift out of sync with the real
 status in the past; don't reintroduce a duplicate table.

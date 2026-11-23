@@ -6,6 +6,8 @@ OpenSVF is a Python-based platform for validating spacecraft flight software aga
 
 The core idea: your flight software binary runs inside the SVF. The SVF feeds it sensor data from a physics simulation, receives its actuator commands, closes the loop, and records everything. You write test procedures in Python that send telecommands and assert on telemetry. At the end you get an HTML campaign report with a requirement traceability matrix.
 
+Documentation: [opensvf.readthedocs.io](https://opensvf.readthedocs.io/). Flight software side: [openobsw.readthedocs.io](https://openobsw.readthedocs.io/).
+
 ---
 
 ## What it looks like
