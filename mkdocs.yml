@@ -29,11 +29,14 @@ theme:
     - search.highlight
     - content.code.copy
 
-# Not published: the docs toolchain pins, and the data pack sources until
-# their pages are corrected (the ICD still describes wire protocol v3). The
-# data pack joins the nav with those fixes (#201, #203).
+# Not published: the docs toolchain pins, the sources of generated tables
+# (docs/_gen/ from tools/gen_docs.py, included by snippets), and the data
+# pack sources until their pages are corrected (the ICD still describes wire
+# protocol v3). The data pack joins the nav with those fixes (#201, #203).
 exclude_docs: |
   requirements.txt
+  compatibility.yaml
+  _gen/
   datapack/
 
 # Every warning fails `mkdocs build --strict`. A page that is neither in the
@@ -55,6 +58,9 @@ markdown_extensions:
       alternate_style: true
   - toc:
       permalink: true
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
 
 plugins:
   - search
@@ -70,7 +76,10 @@ nav:
       - Design philosophy: design-philosophy.md
       - Abstraction layer: abstraction-layer.md
   - Reference:
+      - Compatibility: compatibility.md
+      - Equipment: equipment.md
       - Equipment library: equipment-library.md
+      - YAMCS mission database: yamcs-mdb.md
       - pytest plugin: plugin.md
       - SIL attitude validation: sil-attitude-validation-guide.md
   - Known limits: known-limits.md

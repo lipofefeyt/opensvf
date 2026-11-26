@@ -43,3 +43,4 @@ CLAUDE.md
 
 # openobsw builds for the L3 suite (scripts/build_obsw_sim.sh)
 build/
+docs/_gen/

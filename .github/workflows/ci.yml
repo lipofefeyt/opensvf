@@ -44,7 +44,14 @@ jobs:
           cache: "pip"
 
       - name: Install docs toolchain
-        run: pip install -r docs/requirements.txt
+        run: |
+          pip install -r docs/requirements.txt
+          pip install -e ".[orbital]"
+
+      # Fails when the YAMCS MDB, docs/compatibility.yaml or the fidelity
+      # table disagrees with its source; then writes the generated tables
+      - name: Check sources and generate reference tables
+        run: python tools/gen_docs.py
 
       - name: Build (strict)
         env:

@@ -11,7 +11,10 @@ Implements: SVF-DEV-155
 
 import re
 import sys
+from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 # Requirements that are BASELINED but not yet implemented.
 # Each entry must have a justification and target milestone.
@@ -112,6 +115,61 @@ def parse_covered_requirements(matrix_file: Path) -> set[str]:
 
 # ── Fidelity report ───────────────────────────────────────────────────────────
 
+@dataclass(frozen=True)
+class FidelityRow:
+    """One model of the fidelity coverage table (checkcov and the docs)."""
+    model_id: str
+    level: str
+    display: str
+    tm_params: int
+    calibrated: int
+    upgrade: str
+    error: Optional[str]
+
+
+def fidelity_rows(srdb_dir: Path) -> list[FidelityRow]:
+    """
+    Fidelity table rows: every model in ``EQUIPMENT_FIDELITY`` plus any SRDB
+    ``model_id`` with TM parameters, with its TM parameter and calibration
+    counts. ``error`` is set when calibration curves exist on an F1 or F2
+    model. Raises ``ImportError`` if the SVF SRDB cannot be imported.
+
+    Implements: SVF-DEV-155
+    """
+    svf_src = srdb_dir.parents[1] / "src"
+    if str(svf_src) not in sys.path:
+        sys.path.insert(0, str(svf_src))
+
+    from svf.srdb.loader import SrdbLoader
+    from svf.srdb.definitions import Classification
+
+    loader = SrdbLoader()
+    for f in sorted(srdb_dir.glob("*.yaml")):
+        loader.load_baseline(f)
+    srdb = loader.build()
+
+    tm_by_model: dict[str, list[str]] = defaultdict(list)
+    for name, defn in srdb._parameters.items():
+        if defn.classification == Classification.TM:
+            tm_by_model[defn.model_id].append(name)
+
+    rows: list[FidelityRow] = []
+    for model_id in sorted(set(EQUIPMENT_FIDELITY) | set(tm_by_model)):
+        level, display, upgrade = EQUIPMENT_FIDELITY.get(
+            model_id, ("?", model_id, "Not in EQUIPMENT_FIDELITY table")
+        )
+        params = tm_by_model.get(model_id, [])
+        n_cal = sum(
+            1 for p in params if srdb._parameters[p].calibration is not None
+        )
+        error = None
+        if n_cal > 0 and level in ("F1", "F2"):
+            error = f"INCONSISTENCY: {n_cal} calibrated params but level={level}"
+        rows.append(FidelityRow(model_id, level, display, len(params), n_cal,
+                                upgrade, error))
+    return rows
+
+
 def fidelity_report(srdb_dir: Path) -> bool:
     """
     Print fidelity coverage section.
@@ -126,30 +184,11 @@ def fidelity_report(srdb_dir: Path) -> bool:
     if not srdb_dir.exists():
         print("\n[fidelity] srdb/baseline/ not found  -  skipping fidelity report")
         return True
-
-    # Load SRDB
-    svf_src = srdb_dir.parents[1] / "src"
-    if str(svf_src) not in sys.path:
-        sys.path.insert(0, str(svf_src))
-
     try:
-        from svf.srdb.loader import SrdbLoader
-        from svf.srdb.definitions import Classification
+        rows = fidelity_rows(srdb_dir)
     except ImportError as e:
         print(f"\n[fidelity] Cannot import SVF SRDB  -  skipping: {e}")
         return True
-
-    loader = SrdbLoader()
-    for f in sorted(srdb_dir.glob("*.yaml")):
-        loader.load_baseline(f)
-    srdb = loader.build()
-
-    # Group TM params by model_id
-    from collections import defaultdict
-    tm_by_model: dict[str, list[str]] = defaultdict(list)
-    for name, defn in srdb._parameters.items():
-        if defn.classification == Classification.TM:
-            tm_by_model[defn.model_id].append(name)
 
     # ── Per-model table ────────────────────────────────────────────────────
     col = 20
@@ -160,37 +199,23 @@ def fidelity_report(srdb_dir: Path) -> bool:
     print(f"  {'─'*col} {'─'*5} {'─'*9} {'─'*10}")
 
     errors_found = False
-    f2_uncalibrated_total = 0
     f2_uncalibrated_models: list[str] = []
 
-    # Include every model from fidelity table; also any SRDB model_id not in table
-    all_model_ids = set(EQUIPMENT_FIDELITY) | set(tm_by_model)
-
-    for model_id in sorted(all_model_ids):
-        level, display, upgrade = EQUIPMENT_FIDELITY.get(
-            model_id, ("?", model_id, "Not in EQUIPMENT_FIDELITY table")
-        )
-        params = tm_by_model.get(model_id, [])
-        n_total = len(params)
-        n_cal = sum(
-            1 for p in params if srdb._parameters[p].calibration is not None
-        )
-
-        # Inconsistency: calibration curves exist but model is F1 or F2
-        if n_cal > 0 and level in ("F1", "F2"):
-            note = f"INCONSISTENCY: {n_cal} calibrated params but level={level}"
-            print(f"  {'[ERR] ' + display:<{col}} {level:<6} {n_total:>9} {n_cal:>10}  {note}")
+    for r in rows:
+        if r.error is not None:
+            print(f"  {'[ERR] ' + r.display:<{col}} {r.level:<6} {r.tm_params:>9} "
+                  f"{r.calibrated:>10}  {r.error}")
             errors_found = True
             continue
-
         # F2 model with no calibration → upgrade candidate
-        if level == "F2" and n_total > 0 and n_cal == 0:
-            f2_uncalibrated_total += n_total
-            f2_uncalibrated_models.append(display)
-            print(f"  {display:<{col}} {level:<6} {n_total:>9} {n_cal:>10}  → F3: {upgrade}")
+        if r.level == "F2" and r.tm_params > 0 and r.calibrated == 0:
+            f2_uncalibrated_models.append(r.display)
+            print(f"  {r.display:<{col}} {r.level:<6} {r.tm_params:>9} "
+                  f"{r.calibrated:>10}  → F3: {r.upgrade}")
         else:
-            note = upgrade if level in ("F3", "F4") else ""
-            print(f"  {display:<{col}} {level:<6} {n_total:>9} {n_cal:>10}  {note}")
+            note = r.upgrade if r.level in ("F3", "F4") else ""
+            print(f"  {r.display:<{col}} {r.level:<6} {r.tm_params:>9} "
+                  f"{r.calibrated:>10}  {note}")
 
     print("─" * 72)
 
@@ -200,12 +225,8 @@ def fidelity_report(srdb_dir: Path) -> bool:
     print(f"\n  F2 models: {n_f2}   F3+: {n_f3_plus}")
 
     if f2_uncalibrated_models:
-        tm_total = sum(len(v) for v in tm_by_model.values())
-        cal_total = sum(
-            1 for defn in srdb._parameters.values()
-            if defn.calibration is not None
-            and defn.classification == Classification.TM
-        )
+        tm_total = sum(r.tm_params for r in rows)
+        cal_total = sum(r.calibrated for r in rows)
         print(
             f"  F2→F3 upgrade candidates: {len(f2_uncalibrated_models)} model(s), "
             f"{cal_total}/{tm_total} TM params calibrated"
