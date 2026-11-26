@@ -25,45 +25,8 @@ All SVF equipment models declare a fidelity level. The level determines what the
 | **F3** | High-fidelity | Detailed physical modelling  -  nonlinear effects, thermal coupling, dynamic power budgets. Appropriate for mission performance analysis. | Flight heritage data or simulation benchmark |
 | **F4** | Validated | Parameters derived from acceptance test measurements or hardware-in-the-loop runs. Suitable for qualification evidence. | Hardware test data |
 
-All reference models currently ship at **F2**. F3/F4 models are supplied by the mission team or via HIL adapters.
-
----
-
-## Equipment Contract Summary
-
-| Equipment | Factory / Class | Subsystem | Bus Interface | Fidelity | Milestone |
-|---|---|---|---|---|---|
-| OBC | `ObcEquipment` | DHS | 1553 BC | F2 | M7/M8 |
-| OBC Stub | `ObcStub` | DHS |  -  | F1 | M10 |
-| OBC Emulator | `OBCEmulatorAdapter` | DHS | binary pipe | F4 | M11 |
-| TTC | `TtcEquipment` | TTC | software | F2 | M7 |
-| YAMCS Bridge | `YamcsBridge` | GND | TCP | F2 | M12 |
-| KDE Dynamics | `make_kde_equipment()` | Dynamics | FMI 2.0 | F3 | M11.5 |
-| Magnetometer | `make_magnetometer()` | AOCS |  -  | F2 | M11.5 |
-| Magnetorquer | `make_magnetorquer()` | AOCS |  -  | F2 | M11.5 |
-| Gyroscope | `make_gyroscope()` | AOCS |  -  | F2 | M11.5 |
-| CSS | `make_css()` | AOCS |  -  | F2 | M11.5 |
-| B-dot Controller | `make_bdot_controller()` | AOCS |  -  | F2 | M11.5 |
-| Reaction Wheel | `make_reaction_wheel()` | AOCS | 1553 RT | F2 | M6/M8 |
-| Star Tracker | `make_star_tracker()` | AOCS | SpW/1553 | F2 | M8 |
-| Thruster | `make_thruster()` | AOCS/Prop | discrete | F2 | M17 |
-| GPS Receiver | `make_gps()` | NAV | UART/SPI | F2 | M17 |
-| Thermal Model | `make_thermal()` | THM |  -  | F2 | M17 |
-| Solar Array | `make_solar_array()` | EPS |  -  | F2 | M26 |
-| Battery | `make_battery()` | EPS |  -  | F2 | M26 |
-| PCDU | `make_pcdu()` | EPS | 1553/CAN | F2 | M9 |
-
-> **EPS FMU** (`FmuEquipment(EpsFmu)`) was removed in M26. EPS is now fully covered by `make_solar_array()`, `make_battery()`, and `make_pcdu()`.
-
-### F3/F4 upgrade paths
-
-| Equipment | What F3 needs | What F4 needs |
-|---|---|---|
-| KDE Dynamics | Already F3 via FMI (6-DOF rigid body) | IMU mounting misalignment + flex modes from modal test |
-| Reaction Wheel | Speed-dependent friction model | Measured friction curve from bearing test |
-| Battery | Electro-chemical (e.g. SPKF) model | Discharge curves from acceptance test |
-| Thermal Model | Multi-node radiative coupling (Gebhart) | MLI effective emittance from thermal vacuum test |
-| GPS Receiver | Ionospheric/tropospheric delay model | Measured position noise from sky test |
+The level of each reference model, its ports and its next fidelity step are
+listed in the generated [equipment reference](equipment.md).
 
 ### Promoting a model from F2 to F3 with CalibrationCurve (M31)
 

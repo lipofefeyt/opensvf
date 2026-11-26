@@ -38,9 +38,6 @@ dev = [
     "types-PyYAML>=6.0",
     "pyserial>=3.5",
 ]
-docs = [
-    "mkdocs-material>=9.5",
-]
 
 [project.scripts]
 svf       = "svf.campaign.cli:main"

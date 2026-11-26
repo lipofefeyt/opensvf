@@ -27,6 +27,62 @@ jobs:
         run: pytest tests/ --junitxml=results/junit.xml -v
 
   # ------------------------------------------------------------------ #
+  # Documentation: strict build with the pinned toolchain (the same    #
+  # one Read the Docs uses), then a link check on the built site.      #
+  # ------------------------------------------------------------------ #
+  docs:
+    name: Docs (strict build + link check)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install docs toolchain
+        run: |
+          pip install -r docs/requirements.txt
+          pip install -e ".[orbital]"
+
+      # Fails when the YAMCS MDB, docs/compatibility.yaml or the fidelity
+      # table disagrees with its source; then writes the generated tables
+      - name: Check sources and generate reference tables
+        run: python tools/gen_docs.py
+
+      - name: Build (strict)
+        env:
+          NO_MKDOCS_2_WARNING: "1"
+        run: mkdocs build --strict -d site
+
+      # Internal links and anchors are checked by the strict build; this
+      # checks the external ones. Links to files of this repo on main are
+      # checked against the checkout, so a PR can link a file it adds.
+      # Skipped: GitHub edit links (login only), Google Fonts, and this
+      # site's own canonical URLs (new pages exist there only after merge).
+      # Also skipped for now: opensvf-kde, a private repository (404 to
+      # readers and to this check).
+      - name: Link check
+        uses: lycheeverse/lychee-action@v2.9.0
+        with:
+          lycheeVersion: v0.24.2
+          fail: true
+          args: >-
+            --no-progress
+            --root-dir ${{ github.workspace }}/site
+            --max-retries 2
+            --accept '200..=299,429'
+            --remap '^https://github\.com/lipofefeyt/opensvf/(blob|tree)/main/(.*)$ file://${{ github.workspace }}/$2'
+            --exclude '^https://github\.com/lipofefeyt/opensvf/edit/'
+            --exclude '^https://github\.com/lipofefeyt/opensvf-kde'
+            --exclude '^https://fonts\.'
+            --exclude '^https://opensvf\.readthedocs\.io'
+            'site/**/*.html'
+
+  # ------------------------------------------------------------------ #
   # L3 system tests against the openobsw release pinned in             #
   # .openobsw-version: obsw_sim is built from that tag, then the whole #
   # tests/system suite runs against it (wire protocol, TM/TC, modes,   #

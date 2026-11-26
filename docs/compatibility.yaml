@@ -1,0 +1,22 @@
+# Which openobsw each opensvf release is tested against. Newest first.
+# tools/gen_docs.py renders it on the compatibility page and fails the docs
+# build when the row for the version in pyproject.toml disagrees with
+# .openobsw-version or the adapter's wire protocol constants, so a release
+# PR must add its row here.
+releases:
+  - opensvf: "1.3.0"
+    openobsw: v0.20
+    wire_protocol: 4
+    sensor_frame_bytes: 50
+    notes: "L3 tested against v0.19 and v0.20 (same wire protocol and SRDB content)"
+  - opensvf: "1.2.1"
+    openobsw: v0.18
+    wire_protocol: 3
+    sensor_frame_bytes: 47
+  - opensvf: "1.2.0"
+    openobsw: v0.18
+    wire_protocol: 3
+    sensor_frame_bytes: 47
+    notes: "First release with L3 in CI against a pinned openobsw"
+  - opensvf: "1.1.0 and earlier"
+    notes: "No pinned openobsw release"
