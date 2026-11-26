@@ -246,10 +246,73 @@ def gen_yamcs() -> dict[str, str]:
     }
 
 
+# ── ICD: what the OBC adapter sends and decodes ──────────────────────────────
+
+OPENOBSW_DOCS = "https://openobsw.readthedocs.io/en/{pin}/"
+
+
+def gen_icd() -> dict[str, str]:
+    from svf.models.dhs import obc_emulator as emu
+    from svf.models.dhs.obc import MODE_NOMINAL, MODE_SAFE, MODE_STANDBY
+    from svf.srdb.loader import load_bundled_hk_sets
+    from svf.stores.parameter_store import ParameterStore
+
+    pin = (REPO / ".openobsw-version").read_text().strip()
+    base = OPENOBSW_DOCS.format(pin=pin)
+    links = (
+        f"openobsw `{pin}` (the pinned release) owns the frame definitions: "
+        f"[wire protocol ICD]({base}icd/), "
+        f"[SRDB parameters]({base}srdb/parameters/), "
+        f"[events]({base}srdb/events/), "
+        f"[telecommands]({base}srdb/telecommands/) and "
+        f"[housekeeping sets]({base}srdb/hk-sets/).\n")
+
+    names = {MODE_STANDBY: "STANDBY", MODE_SAFE: "SAFE", MODE_NOMINAL: "NOMINAL"}
+    adapter = emu.OBCEmulatorAdapter(sim_path=None, sync_protocol=MagicMock(),
+                                     store=ParameterStore())
+    tcs = []
+    for mode, fid in sorted(emu._S8_MODE_FUNCTION.items()):
+        adapter._tc_seq = 0
+        tcs.append([f"`dhs.obc.mode_cmd` = {mode} ({names[mode]})",
+                    f"TC(8,1), function ID {fid}",
+                    f"`{adapter._build_s8_perform(fid).hex()}`"])
+    adapter._tc_seq = 0
+    tcs.append(["`dhs.obc.watchdog_kick` > 0.5", "TC(17,1)",
+                f"`{adapter._build_s17_ping().hex()}`"])
+    tcs.append(["`dhs.obc.time_sync_cmd` = 1000 (any value >= 0)",
+                "TC(9,128), OBT in seconds",
+                f"`{adapter._build_s9_set_obt(1000.0).hex()}`"])
+
+    events = [[f"`0x{eid:04X}`", f"{mode} ({names[mode]})"]
+              for eid, mode in sorted(emu.S5_MODE_EVENTS.items())]
+    codes = [[f"`0x{c:04X}`", n] for c, n in sorted(emu.S1_FAILURE_CODES.items())]
+
+    sets = []
+    for sid, hk in sorted(load_bundled_hk_sets().items()):
+        sets.append([sid, f"`{hk.name}`",
+                     ", ".join(f"`{p.obsw_name}` {p.wire_type.value}"
+                               for p in hk.parameters)])
+
+    checks = re.findall(r'print\("  \[(\d)/9\] (.+?)(?:\.\.\.|")',
+                        (REPO / "src" / "svf" / "tools" / "checkcons.py").read_text())
+    seen: dict[str, str] = {}
+    for n, title in checks:
+        seen.setdefault(n, title.strip())
+    return {
+        "openobsw-links.md": links,
+        "icd-adapter-tcs.md": _table(
+            ["Set by a procedure", "TC sent", "Example bytes"], tcs),
+        "icd-s5-mode-events.md": _table(["Event ID", "Mode hint (`obc_mode`)"], events),
+        "icd-s1-codes.md": _table(["Failure code", "Meaning"], codes),
+        "icd-hk-sets.md": _table(["Set", "Name", "Parameters in report order"], sets),
+        "icd-checkcons.md": "\n".join(f"{n}. {t}" for n, t in sorted(seen.items())) + "\n",
+    }
+
+
 def main() -> int:
     try:
         pages: dict[str, str] = {}
-        for gen in (gen_compatibility, gen_equipment, gen_fidelity, gen_yamcs):
+        for gen in (gen_compatibility, gen_equipment, gen_fidelity, gen_yamcs, gen_icd):
             pages.update(gen())
     except CheckError as e:
         print(f"gen_docs: {e}", file=sys.stderr)

@@ -30,9 +30,9 @@ theme:
     - content.code.copy
 
 # Not published: the docs toolchain pins, the sources of generated tables
-# (docs/_gen/ from tools/gen_docs.py, included by snippets), and the data
-# pack sources until their pages are corrected (the ICD still describes wire
-# protocol v3). The data pack joins the nav with those fixes (#201, #203).
+# (docs/_gen/ from tools/gen_docs.py, included by snippets), and the ADD and
+# SVS data pack sources until their pages are corrected (#203). The ICD is
+# the site page icd.md.
 exclude_docs: |
   requirements.txt
   compatibility.yaml
@@ -77,6 +77,7 @@ nav:
       - Abstraction layer: abstraction-layer.md
   - Reference:
       - Compatibility: compatibility.md
+      - Interfaces (ICD): icd.md
       - Equipment: equipment.md
       - Equipment library: equipment-library.md
       - YAMCS mission database: yamcs-mdb.md

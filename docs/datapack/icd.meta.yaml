@@ -1,0 +1,27 @@
+# Pandoc metadata for the ICD PDF of the data pack (SVF-ICD-001). The text
+# is the site page docs/icd.md; the data pack build (docs phase, #203) adds
+# this metadata when it renders the PDF.
+title: "OpenSVF  -  Interface Control Document"
+subtitle: "SVF-ICD-001 | Issue 1.0"
+author: "Gonçalo Graças"
+date: "2026-05-23"
+subject: "Interface Control Document"
+keywords: [spacecraft, PUS-C, FMI, YAMCS, SRDB, wire protocol, XTCE]
+lang: en
+titlepage: true
+titlepage-color: "1a1a2e"
+titlepage-text-color: "EEEEEE"
+titlepage-rule-color: "4a90d9"
+titlepage-rule-height: 4
+toc: true
+toc-own-page: true
+numbersections: true
+colorlinks: true
+linkcolor: "4a90d9"
+fontsize: 11pt
+geometry: "margin=2.5cm"
+header-left: "SVF-ICD-001"
+header-right: "OpenSVF Interface Control Document"
+footer-left: "Issue 1.0  -  2026-05-23"
+footer-right: "Page \\thepage"
+classoption: oneside
