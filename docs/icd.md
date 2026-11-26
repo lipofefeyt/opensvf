@@ -38,7 +38,7 @@ length, no body) after the frames that frame produced.
 | | Pipe | Socket | Serial |
 |---|---|---|---|
 | OBSW | `obsw_sim` as a subprocess (stdin/stdout) | Renode UART terminal over TCP | Hardware UART |
-| `spacecraft.yaml` | `obsw.type: pipe`, `obsw.binary` | `obsw.type: socket`, `obsw.host`, `obsw.port` (default 3456) | Python API only: `OBCEmulatorAdapter(serial_port=..., baud_rate=...)`, needs `opensvf[uart]` |
+| `spacecraft.yaml` | `obsw.type: pipe`, `obsw.binary` | `obsw.type: socket`, `obsw.host` (default `localhost`), `obsw.port` (required; Renode uses 3456) | Python API only: `OBCEmulatorAdapter(serial_port=..., baud_rate=...)`, needs `opensvf[uart]` |
 | Sync timeout | 10 s from YAML, 5 s by default in the API | 10 s from YAML | 5 s by default |
 | Start-up check | The banner must name wire protocol v4, else the adapter refuses to start; no banner gives a warning | none | none |
 | aarch64 | `obsw_sim` for aarch64 runs under QEMU, detected with `file(1)` | n/a | n/a |

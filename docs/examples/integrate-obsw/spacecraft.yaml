@@ -1,0 +1,28 @@
+version: 1
+spacecraft: MyMission
+
+obsw:
+  type: pipe
+  binary: bin/my_obsw     # relative to this file; aarch64 runs under QEMU
+
+equipment:                # the models that fill the sensor frame
+  - id: mag1
+    model: magnetometer
+    hardware_profile: mag_default
+  - id: gyro1
+    model: gyroscope
+    hardware_profile: gyro_default
+  - id: str1
+    model: star_tracker
+    hardware_profile: str_default
+  - id: mtq1              # takes the actuator frame dipoles
+    model: magnetorquer
+    hardware_profile: mtq_default
+
+wiring:
+  auto: true
+
+simulation:
+  dt: 0.1
+  stop_time: 60.0
+  realtime: false

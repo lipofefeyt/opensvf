@@ -256,6 +256,17 @@ def gen_icd() -> dict[str, str]:
         f"[events]({base}srdb/events/), "
         f"[telecommands]({base}srdb/telecommands/) and "
         f"[housekeeping sets]({base}srdb/hk-sets/).\n")
+    tree = f"https://github.com/lipofefeyt/openobsw/tree/{pin}/"
+    contrib = (
+        f"openobsw `{pin}` ships a drop-in implementation of the wire protocol "
+        f"for other flight software, "
+        f"[`contrib/svf_protocol/`]({tree}contrib/svf_protocol): "
+        f"`obsw_svf_protocol.h` and `.c`, with platform glue for Linux stdio "
+        f"and the ZynqMP UART. Its "
+        f"[integration guide]({base}integration-guide/#adding-the-wire-protocol-to-another-obsw) "
+        f"shows the main loop.\n")
+    banner = ("```text\n[OBSW] Host sim started "
+              f"(wire protocol v{emu.WIRE_PROTOCOL_VERSION}).\n```\n")
 
     names = {MODE_STANDBY: "STANDBY", MODE_SAFE: "SAFE", MODE_NOMINAL: "NOMINAL"}
     adapter = emu.OBCEmulatorAdapter(sim_path=None, sync_protocol=MagicMock(),
@@ -290,6 +301,8 @@ def gen_icd() -> dict[str, str]:
         seen.setdefault(int(n), title.strip())
     return {
         "openobsw-links.md": links,
+        "openobsw-contrib.md": contrib,
+        "obsw-banner.md": banner,
         "icd-adapter-tcs.md": _table(
             ["Set by a procedure", "TC sent", "Example bytes"], tcs),
         "icd-s5-mode-events.md": _table(["Event ID", "Mode hint (`obc_mode`)"], events),

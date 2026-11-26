@@ -30,7 +30,8 @@ theme:
     - content.code.copy
 
 # Not published: the docs toolchain pins, the sources of generated tables
-# (docs/_gen/ from tools/gen_docs.py, included by snippets), and the ADD and
+# (docs/_gen/ from tools/gen_docs.py, included by snippets), the example
+# files included by integrate-obsw.md (docs/examples/), and the ADD and
 # SVS data pack sources until their pages are corrected (#203). The ICD is
 # the site page icd.md.
 exclude_docs: |
@@ -38,6 +39,7 @@ exclude_docs: |
   compatibility.yaml
   _gen/
   datapack/
+  examples/
 
 # Every warning fails `mkdocs build --strict`. A page that is neither in the
 # nav nor excluded above is a warning too, so no page is published by accident.
@@ -70,7 +72,7 @@ nav:
   - Getting started:
       - Overview: index.md
       - MySat-1 quickstart: quickstart-mysat1.md
-      - Plug in your own binary: quickstart-own-binary.md
+      - Integrate your flight software: integrate-obsw.md
   - Concepts:
       - Architecture: architecture.md
       - Design philosophy: design-philosophy.md

@@ -1,0 +1,6 @@
+campaign: MyMission first contact
+spacecraft: spacecraft.yaml
+requirements:
+  - INT-001
+procedures:
+  - procedures/first_contact.py
