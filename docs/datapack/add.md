@@ -395,23 +395,24 @@ after every `testosvf` run by collecting `@pytest.mark.requirement` markers.
 
 ## `checkcons`  -  Cross-Repository Consistency
 
-`checkcons` (`tools/srdb_consistency_check.py`) runs nine automated checks
+`checkcons` (`tools/srdb_consistency_check.py`) runs ten automated checks
 to detect divergence between the opensvf Python layer and the openobsw C layer:
 
 | Check | What it detects |
 |---|---|
-| [1/9] Struct sizes | `_SENSOR_FMT` / `_ACTUATOR_FMT` drift from C struct byte count |
-| [2/9] Python-side mapping | `obc_emulator.py` store keys diverging from parameter mapping table |
-| [3/9] C struct fields | Field renames in openobsw not propagated to SVF packer |
-| [4/9] Producer/consumer | Sensor model port renames producing silent zeros in the OBSW |
-| [5/9] Requirement orphans | `@pytest.mark.requirement` IDs absent from `REQUIREMENTS.md` |
-| [6/9] Profile symmetry | Mission hardware profiles missing from bundled directory |
-| [7/9] SRDB namespace | Equipment OUT ports declared but absent from SRDB baseline |
-| [8/9] S5 mode events | Adapter mode-event IDs diverging from openobsw `events.yaml` |
-| [9/9] HK set layouts | TM(3,25) set layouts diverging from openobsw `hk_sets.yaml` / `parameters.yaml` |
+| [1/10] Struct sizes | `_SENSOR_FMT` / `_ACTUATOR_FMT` drift from C struct byte count |
+| [2/10] Python-side mapping | `obc_emulator.py` store keys diverging from parameter mapping table |
+| [3/10] C struct fields | Field renames in openobsw not propagated to SVF packer |
+| [4/10] Producer/consumer | Sensor model port renames producing silent zeros in the OBSW |
+| [5/10] Requirement orphans | `@pytest.mark.requirement` IDs absent from `REQUIREMENTS.md` |
+| [6/10] Profile symmetry | Mission hardware profiles missing from bundled directory |
+| [7/10] SRDB namespace | Equipment OUT ports declared but absent from SRDB baseline |
+| [8/10] S5 mode events | Adapter mode-event IDs diverging from openobsw `events.yaml` |
+| [9/10] HK set layouts | TM(3,25) set layouts diverging from openobsw `hk_sets.yaml` / `parameters.yaml` |
+| [10/10] Compatibility pin | Compatibility page or README disagreeing with `.openobsw-version` |
 
-The C struct check ([3/9]) and the openobsw side of the S5 mode-event and
-HK set layout checks ([8/9], [9/9]) accept either a real openobsw checkout or a
+The C struct check ([3/10]) and the openobsw side of the S5 mode-event and
+HK set layout checks ([8/10], [9/10]) accept either a real openobsw checkout or a
 gitingest snapshot file  -  the correct approach in single-workspace environments
 where both repositories cannot coexist.
 
@@ -486,7 +487,7 @@ simulation infrastructure is instantiated. It catches:
 Every inter-component parameter has one canonical name defined in the SRDB. The
 OBSW, SVF, and YAMCS all use the same names. A parameter rename in the SRDB
 breaks the build  -  intentionally. This property is enforced by `checkcons` checks
-[2/9] and [4/9].
+[2/10] and [4/10].
 
 ## Equipment as the Universal Abstraction
 
@@ -526,6 +527,6 @@ platform where non-reproducible test failures are unacceptable.
 | M30 | CAN 2.0B full validation, SpaceWire RMAP completion | Done |
 | M31 | Equipment fidelity levels, SRDB calibration curves | Done |
 | M32 | SpacecraftValidator pre-flight config check | Done |
-| M33 | SRDB namespace linting (`checkcons` [7/9]) | Done |
+| M33 | SRDB namespace linting (`checkcons` [7/10]) | Done |
 | M34 | Equipment fidelity coverage in `checkcov` | Done |
 | M35 | `EquipmentTickError` and `on_tick_error` callback | Done |
