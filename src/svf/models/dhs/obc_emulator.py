@@ -681,9 +681,17 @@ class OBCEmulatorAdapter(HilAdapter):
         else:
             self._consecutive_desync = 0
 
-        for _ in range(n_tcs):
-            extra, _ = self._collect_until_sync(timeout=1.0)
+        # A TC frame whose 0xFF does not come is a sync loss too: the OBSW did
+        # not finish with it, and a late 0xFF would be taken as the next
+        # frame's. It makes the link unhealthy (SVF-DEV-225).
+        for i in range(n_tcs):
+            extra, tc_synced = self._collect_until_sync(timeout=1.0)
             tm_packets.extend(extra)
+            if not tc_synced:
+                self._link.tc_syncs_missed += 1
+                logger.warning(
+                    f"[obc-emu] No sync for TC frame {i + 1} of {n_tcs} "
+                    f"at t={t:.3f}")
 
         for pkt in tm_packets:
             self._parse_tm(pkt, t)

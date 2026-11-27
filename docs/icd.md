@@ -70,6 +70,8 @@ Three in a row raise `RuntimeError("Lost sync ...")` with the last lines the
 sim wrote to stderr. If the sim has exited, the adapter raises at once with
 its exit status and those lines instead, and records the status in the link
 health (`obsw_exit_status`), so a crash is not reported as telemetry loss.
+A TC frame whose `0xFF` does not come within its 1 s is counted separately
+(`tc_syncs_missed`); either makes the link unhealthy.
 
 ### Sensor frame sources
 

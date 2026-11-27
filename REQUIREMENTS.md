@@ -624,6 +624,9 @@ The documentation shall give a first campaign for integrating a flight software 
 **SVF-DEV-223** `[SYS]` `IMPLEMENTED`
 Every `from svf... import` and `import svf...` line in a documentation page (`docs/`, generated tables excluded) shall import: `tools/gen_docs.py` shall execute each one and fail, naming page and line, when one does not, and CI shall run it on every pull request. Code examples longer than an import list shall be files under `docs/examples/` or sections of mission files, included into the pages by snippets rather than copied, and the unit suite shall run the abstraction-layer examples: the composition root shall complete a simulation, and the `NativeEquipment` factory shall give two instances distinct ports.
 
+**SVF-DEV-225** `[DHS]` `IMPLEMENTED`
+`OBCEmulatorAdapter` shall count a TC frame whose `0xFF` sync byte does not arrive within its 1 s wait in `LinkHealth` (`tc_syncs_missed`), separately from `desyncs` (ticks without the sensor frame's sync byte), and log it. A missed TC sync shall make the link unhealthy and appear in `problems()`, the summary line, `to_dict()` and the campaign HTML report, so zero desyncs no longer reads as every frame synced when TCs were sent. Before this, the TC frame's sync result was discarded.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -1191,6 +1194,7 @@ loads are connected and drop to 0 V when UVLO disconnects them.
 | SVF-DEV-221   | SYS  | IMPLEMENTED |  -  | test_compatibility_row_disagreeing_with_pin_is_an_error |
 | SVF-DEV-222   | SYS  | IMPLEMENTED |  -  | test_integrate_obsw_example_campaign_passes |
 | SVF-DEV-223   | SYS  | IMPLEMENTED |  -  | test_abstraction_layer_composition_root_runs |
+| SVF-DEV-225   | DHS  | IMPLEMENTED |  -  | test_missed_tc_sync_makes_the_link_unhealthy |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
