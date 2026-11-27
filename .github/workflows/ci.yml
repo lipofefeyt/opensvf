@@ -83,6 +83,49 @@ jobs:
             'site/**/*.html'
 
   # ------------------------------------------------------------------ #
+  # Data pack: ADD, SVS and ICD as PDFs from the site pages. The       #
+  # Markdown is built with the package (snippets need gen_docs); pandoc #
+  # and the eisvogel template come from a pinned pandoc/extra image.    #
+  # The release workflow builds the same and attaches the PDFs.         #
+  # ------------------------------------------------------------------ #
+  datapack:
+    name: Data pack PDFs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install the package
+        run: pip install -e ".[orbital]"
+
+      - name: Build the data pack Markdown
+        run: python tools/build_datapack.py --md-only --site-version latest
+
+      - name: Render the PDFs
+        run: |
+          docker run --rm -v "$PWD:/data" -w /data --entrypoint /bin/sh \
+            pandoc/extra:3.11.0.0-debian -c '
+              set -e
+              mkdir -p docs/datapack/out
+              for d in add svs icd; do
+                pandoc "build/datapack/$d.md" -o "docs/datapack/out/$d.pdf" \
+                  --template=eisvogel --pdf-engine=xelatex
+              done'
+          ls -l docs/datapack/out
+
+      - name: Upload the PDFs
+        uses: actions/upload-artifact@v4
+        with:
+          name: datapack
+          path: docs/datapack/out/*.pdf
+
+  # ------------------------------------------------------------------ #
   # L3 system tests against the openobsw release pinned in             #
   # .openobsw-version: obsw_sim is built from that tag, then the whole #
   # tests/system suite runs against it (wire protocol, TM/TC, modes,   #

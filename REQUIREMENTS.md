@@ -630,6 +630,9 @@ Every `from svf... import` and `import svf...` line in a documentation page (`do
 **SVF-DEV-225** `[DHS]` `IMPLEMENTED`
 `OBCEmulatorAdapter` shall count a TC frame whose `0xFF` sync byte does not arrive within its 1 s wait in `LinkHealth` (`tc_syncs_missed`), separately from `desyncs` (ticks without the sensor frame's sync byte), and log it. A missed TC sync shall make the link unhealthy and appear in `problems()`, the summary line, `to_dict()` and the campaign HTML report, so zero desyncs no longer reads as every frame synced when TCs were sent. Before this, the TC frame's sync result was discarded.
 
+**SVF-DEV-226** `[SYS]` `IMPLEMENTED`
+The data pack (Architecture Description, Software Validation Specification, Interface Control Document) shall be built from the documentation site pages, not from separate copies: `tools/build_datapack.py` shall concatenate each document's pages (ADD: architecture, abstraction layer, OBC modes; SVS: validation, system tests; ICD: interfaces), expand their snippets including the generated tables, turn admonitions into block quotes, point links between pages at the site of the same version, and fill the version and date into the document metadata (`docs/datapack/<doc>.meta.yaml`); a missing snippet or section shall stop the build. CI shall render the three PDFs with pandoc on every pull request, and the release workflow shall attach them to the GitHub release, with the release version on the title pages and links to that version's site.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -1199,6 +1202,7 @@ loads are connected and drop to 0 V when UVLO disconnects them.
 | SVF-DEV-223   | SYS  | IMPLEMENTED |  -  | test_abstraction_layer_composition_root_runs |
 | SVF-DEV-224   | SYS  | IMPLEMENTED |  -  | test_validation_tables_count_tests_and_requirements |
 | SVF-DEV-225   | DHS  | IMPLEMENTED |  -  | test_missed_tc_sync_makes_the_link_unhealthy |
+| SVF-DEV-226   | SYS  | IMPLEMENTED |  -  | test_snippets_expand_files_and_sections_with_indentation |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
