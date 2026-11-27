@@ -10,6 +10,8 @@ Verifies five things:
      obsw_actuator_frame_t fields (C) vs CommandStore keys injected in
      OBCEmulatorAdapter._parse_actuator().
      A field rename on either side silently produces zeros on the other.
+     With --obsw the C structs are read from sim/sensor_inject.h only,
+     the header openobsw generates its ICD from.
 
   2. REQUIREMENT ORPHAN DETECTION  (complements check_coverage.py)
      check_coverage.py checks REQUIREMENTS.md → traceability.txt.
@@ -37,6 +39,12 @@ Verifies five things:
      and types are checked against openobsw's hk_sets.yaml and
      parameters.yaml, so a parameter added to or retyped in a set does not
      shift every value after it unnoticed.
+
+  6. COMPATIBILITY PIN
+     docs/compatibility.yaml (the source of the compatibility page) and the
+     README compatibility table must name the openobsw release pinned in
+     .openobsw-version and the wire protocol of the adapter. With --obsw on
+     a git checkout, a checkout that is not at the pinned tag is a warning.
 
 Usage:
     python tools/srdb_consistency_check.py [--obsw ../openobsw] [--verbose]
@@ -380,52 +388,33 @@ def _extract_c_struct_fields_from_text(c_text: str, struct_name: str) -> set[str
     return set(_C_FIELD_RE.findall(struct_body))
 
 
+# The frame structs are read from this file only. openobsw keeps other copies
+# (contrib/svf_protocol/obsw_svf_protocol.h, renode/proto.py, sim/wire_proto.py)
+# and checks them against this one in its own CI; it generates its ICD from it.
+CANONICAL_FRAME_HEADER = Path("sim") / "sensor_inject.h"
+
+
 def _find_struct_in_headers(
     obsw_root: Path,
     struct_name: str,
     result: CheckResult,
 ) -> tuple[set[str], str]:
     """
-    Search each source file individually for struct_name.
+    Read struct_name from openobsw's canonical frame header.
 
-    Returns (fields, source_file_name). Per-file search avoids false
-    negatives from cross-file DOTALL matching when files are concatenated.
-
-    Searches .h, .c, and .txt files. .txt covers gitingest snapshots
-    where a single concatenated file represents the whole repository.
+    Returns (fields, header path relative to obsw_root), or (set(), "")
+    when the header is missing or does not define the struct.
     """
-    h_files = (
-        list(obsw_root.rglob("*.h"))
-        + list(obsw_root.rglob("*.c"))
-        + list(obsw_root.rglob("*.txt"))  # gitingest snapshots
-    )
-    n = len(h_files)
-    result.note(f"[WIRE/C] Scanning {n} files for {struct_name}")
-
-    if n == 0:
-        # Emit a diagnostic to help understand why rglob found nothing
-        try:
-            top_level = [p.name for p in sorted(obsw_root.iterdir())]
-        except Exception as e:
-            top_level = [f"(could not list: {e})"]
+    header = obsw_root / CANONICAL_FRAME_HEADER
+    if not header.is_file():
         result.warn(
-            f"[WIRE/C] No .h, .c, or .txt files found under {obsw_root}. "
-            f"Top-level contents: {top_level}. "
-            f"If openobsw is a Codespace or uses a non-standard layout, "
-            f"point --obsw directly at the directory containing sim/ and include/."
+            f"[WIRE/C] {CANONICAL_FRAME_HEADER} not found under {obsw_root}. "
+            f"Point --obsw at the openobsw repository root."
         )
         return set(), ""
-
-    for h_file in h_files:
-        try:
-            file_text = h_file.read_text(encoding="utf-8", errors="replace")
-        except Exception:
-            continue
-        fields = _extract_c_struct_fields_from_text(file_text, struct_name)
-        if fields:
-            return fields, h_file.name
-
-    return set(), ""
+    fields = _extract_c_struct_fields_from_text(
+        header.read_text(encoding="utf-8", errors="replace"), struct_name)
+    return (fields, str(CANONICAL_FRAME_HEADER)) if fields else (set(), "")
 
 
 def check_wire_protocol_c_side(
@@ -484,9 +473,8 @@ def check_wire_protocol_c_side(
 
     if not sensor_fields:
         result.warn(
-            "[WIRE/C] Could not parse obsw_sensor_frame_t from any .h/.c file. "
-            "Expected in sim/sensor_inject.h. "
-            "Run with --verbose to see how many files were scanned."
+            f"[WIRE/C] Could not parse obsw_sensor_frame_t from "
+            f"{CANONICAL_FRAME_HEADER}."
         )
     else:
         result.note(
@@ -510,8 +498,8 @@ def check_wire_protocol_c_side(
 
     if not actuator_fields:
         result.warn(
-            "[WIRE/C] Could not parse obsw_actuator_frame_t from any .h/.c file. "
-            "Expected in sim/sensor_inject.h."
+            f"[WIRE/C] Could not parse obsw_actuator_frame_t from "
+            f"{CANONICAL_FRAME_HEADER}."
         )
     else:
         result.note(
@@ -1429,6 +1417,122 @@ def check_hk_set_layouts(
 # Main
 # ──────────────────────────────────────────────────────────────────────────────
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Check 10: Compatibility pin
+# ──────────────────────────────────────────────────────────────────────────────
+
+_PIN_RE = re.compile(r"^v\d+\.\d+(\.\d+)?$")
+
+
+def current_compatibility(svf_root: Path) -> dict[str, Any]:
+    """
+    What this checkout is compatible with, read from the sources: the
+    pyproject version, the openobsw pin, and the wire protocol version and
+    sensor frame size of OBCEmulatorAdapter. tools/gen_docs.py builds the
+    compatibility page from the same values.
+    """
+    import sys as _sys
+
+    svf_src = svf_root / "src"
+    if str(svf_src) not in _sys.path:
+        _sys.path.insert(0, str(svf_src))
+    from svf.models.dhs import obc_emulator
+
+    version = re.search(r'^version\s*=\s*"([^"]+)"',
+                        (svf_root / "pyproject.toml").read_text(), re.M)
+    return {
+        "opensvf": version.group(1) if version else "",
+        "openobsw": (svf_root / ".openobsw-version").read_text().strip(),
+        "wire_protocol": obc_emulator.WIRE_PROTOCOL_VERSION,
+        "sensor_frame_bytes": obc_emulator._SENSOR_LEN,
+    }
+
+
+def compatibility_mismatches(svf_root: Path, cur: dict[str, Any]) -> list[str]:
+    """
+    Where docs/compatibility.yaml and the README compatibility table
+    disagree with ``cur`` (from current_compatibility). Empty when they agree.
+    """
+    import yaml
+
+    out: list[str] = []
+    if not cur["opensvf"]:
+        out.append("pyproject.toml has no version")
+    if not _PIN_RE.match(cur["openobsw"]):
+        out.append(f".openobsw-version is {cur['openobsw']!r}, not a release tag "
+                   f"like v0.20")
+
+    hist = svf_root / "docs" / "compatibility.yaml"
+    releases = (yaml.safe_load(hist.read_text()) or {}).get("releases", []) \
+        if hist.exists() else []
+    rows = [r for r in releases if str(r.get("opensvf")) == cur["opensvf"]]
+    if not rows:
+        out.append(f"docs/compatibility.yaml has no row for opensvf {cur['opensvf']}")
+    else:
+        for key in ("openobsw", "wire_protocol", "sensor_frame_bytes"):
+            if rows[0].get(key) != cur[key]:
+                out.append(
+                    f"docs/compatibility.yaml opensvf {cur['opensvf']}: {key} is "
+                    f"{rows[0].get(key)!r}, the code says {cur[key]!r}")
+
+    readme = (svf_root / "README.md").read_text(encoding="utf-8")
+    m = re.search(r"^\| openobsw \| (\S+) .*wire protocol v(\d+)", readme, re.M)
+    if m is None:
+        out.append("README.md compatibility table has no openobsw row")
+    else:
+        if m.group(1) != cur["openobsw"]:
+            out.append(f"README.md compatibility table names openobsw "
+                       f"{m.group(1)}, .openobsw-version is {cur['openobsw']}")
+        if int(m.group(2)) != cur["wire_protocol"]:
+            out.append(f"README.md compatibility table names wire protocol "
+                       f"v{m.group(2)}, the adapter speaks v{cur['wire_protocol']}")
+    m = re.search(r"^\| opensvf \| v?(\S+) ", readme, re.M)
+    if m is None or m.group(1) != cur["opensvf"]:
+        found = m.group(1) if m else "no row"
+        out.append(f"README.md compatibility table names opensvf {found}, "
+                   f"pyproject.toml says {cur['opensvf']}")
+    return out
+
+
+def _obsw_tag(obsw_root: Path) -> str | None:
+    """The release tag checked out at obsw_root, or None (not a tag or not git)."""
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(obsw_root), "describe", "--tags", "--exact-match"],
+            capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout.strip() if out.returncode == 0 else None
+
+
+def check_compatibility_pin(
+    svf_root: Path,
+    obsw_root: Path | None,
+    result: CheckResult,
+) -> None:
+    """
+    Verify that the compatibility page source (docs/compatibility.yaml) and
+    the README compatibility table agree with the openobsw pin, the version
+    and the wire protocol in the code. With --obsw on a git checkout, warn
+    when it is not at the pinned tag: checks 3, 8 and 9 then compare against
+    another openobsw than the one this version is tested with.
+
+    Implements: SVF-DEV-221
+    """
+    cur = current_compatibility(svf_root)
+    for msg in compatibility_mismatches(svf_root, cur):
+        result.error(f"[COMPAT] {msg}")
+    if obsw_root is not None and obsw_root.is_dir():
+        tag = _obsw_tag(obsw_root)
+        if tag != cur["openobsw"]:
+            at = f"tag {tag}" if tag else "no release tag"
+            result.warn(
+                f"[COMPAT] --obsw is at {at}, the pin is {cur['openobsw']}: "
+                f"checks 3, 8 and 9 compared against that checkout.")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="SRDB cross-repository consistency checker for opensvf"
@@ -1468,42 +1572,45 @@ def main() -> int:
         print(f"openobsw {obsw_label}: {Path(args.obsw).resolve()}")
     print()
 
-    print("  [1/9] Struct sizes...")
+    print("  [1/10] Struct sizes...")
     check_struct_sizes(result)
 
-    print("  [2/9] Python-side wire protocol mapping vs. obc_emulator.py...")
+    print("  [2/10] Python-side wire protocol mapping vs. obc_emulator.py...")
     check_wire_protocol_python_side(svf_root, result)
 
     if args.obsw:
-        print("  [3/9] C struct field names vs. mapping table...")
+        print("  [3/10] C struct field names vs. mapping table...")
         check_wire_protocol_c_side(Path(args.obsw).resolve(), result)
     else:
-        print("  [3/9] C struct check skipped (pass --obsw <repo-or-txt> to enable)")
+        print("  [3/10] C struct check skipped (pass --obsw <repo-or-txt> to enable)")
         result.note(
             "[WIRE/C] Skipped. In single-workspace environments (Firebase IDX, "
             "Codespaces) pass a gitingest snapshot: "
             "--obsw path/to/lipofefeyt-openobsw-*.txt"
         )
 
-    print("  [4/9] Sensor producer/consumer symmetry...")
+    print("  [4/10] Sensor producer/consumer symmetry...")
     check_sensor_producer_consumer_symmetry(svf_root, result)
 
-    print("  [5/9] Requirement orphan detection...")
+    print("  [5/10] Requirement orphan detection...")
     check_requirement_orphans(svf_root, result)
 
-    print("  [6/9] Hardware profile symmetry...")
+    print("  [6/10] Hardware profile symmetry...")
     check_hardware_profile_symmetry(svf_root, result)
 
-    print("  [7/9] SRDB namespace linting...")
+    print("  [7/10] SRDB namespace linting...")
     check_srdb_namespace(svf_root, result)
 
     obsw_root = Path(args.obsw).resolve() if args.obsw else None
 
-    print("  [8/9] S5 mode-event mapping...")
+    print("  [8/10] S5 mode-event mapping...")
     check_s5_mode_events(svf_root, obsw_root, result)
 
-    print("  [9/9] Housekeeping set layouts...")
+    print("  [9/10] Housekeeping set layouts...")
     check_hk_set_layouts(svf_root, obsw_root, result)
+
+    print("  [10/10] Compatibility pin and docs...")
+    check_compatibility_pin(svf_root, obsw_root, result)
 
     print()
     result.print_report(verbose=args.verbose)

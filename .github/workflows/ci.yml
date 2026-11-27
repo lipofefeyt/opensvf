@@ -113,6 +113,11 @@ jobs:
           bash scripts/build_obsw_sim.sh
           echo "Pinned openobsw: \`$(cat .openobsw-version)\`" >> "$GITHUB_STEP_SUMMARY"
 
+      # The build step cloned the pinned tag: check the C frame structs,
+      # S5 mode events and HK set layouts against it, and the pin itself
+      - name: checkcons against the pinned openobsw
+        run: python -m svf.tools.checkcons --obsw "build/openobsw-$(cat .openobsw-version)/src"
+
       - name: Run L3 system tests
         run: pytest tests/system -v --junitxml=results/system_junit.xml
 

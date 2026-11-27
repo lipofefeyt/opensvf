@@ -70,19 +70,15 @@ def _table(header: list[str], rows: list[list[Any]]) -> str:
 # ── Compatibility ────────────────────────────────────────────────────────────
 
 def _current() -> dict[str, Any]:
-    from svf.models.dhs import obc_emulator
+    from svf.tools.checkcons import current_compatibility
     pyproject = (REPO / "pyproject.toml").read_text()
-    version = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, re.M)
     python = re.search(r'^requires-python\s*=\s*"([^"]+)"', pyproject, re.M)
     ci = re.findall(r'python-version:\s*"([^"]+)"',
                     (REPO / ".github" / "workflows" / "ci.yml").read_text())
-    if not (version and python and ci):
-        raise CheckError("version, requires-python or CI python-version not found")
+    if not (python and ci):
+        raise CheckError("requires-python or CI python-version not found")
     return {
-        "opensvf": version.group(1),
-        "openobsw": (REPO / ".openobsw-version").read_text().strip(),
-        "wire_protocol": obc_emulator.WIRE_PROTOCOL_VERSION,
-        "sensor_frame_bytes": obc_emulator._SENSOR_LEN,
+        **current_compatibility(REPO),
         "python": python.group(1),
         "python_ci": ", ".join(sorted(set(ci))),
     }
@@ -98,18 +94,12 @@ def gen_compatibility() -> dict[str, str]:
          ["Sensor frame (type `0x02`)", f"{cur['sensor_frame_bytes']} bytes"],
          ["Python", f"`{cur['python']}`; CI runs {cur['python_ci']}"]])
 
-    history = yaml.safe_load((REPO / "docs" / "compatibility.yaml").read_text())
-    releases = history["releases"]
-    mine = [r for r in releases if str(r["opensvf"]) == cur["opensvf"]]
-    if not mine:
-        raise CheckError(
-            f"docs/compatibility.yaml has no row for opensvf {cur['opensvf']}")
-    row = mine[0]
-    for key in ("openobsw", "wire_protocol", "sensor_frame_bytes"):
-        if row[key] != cur[key]:
-            raise CheckError(
-                f"docs/compatibility.yaml opensvf {cur['opensvf']}: {key} is "
-                f"{row[key]!r}, the code says {cur[key]!r}")
+    from svf.tools.checkcons import compatibility_mismatches
+    problems = compatibility_mismatches(REPO, cur)
+    if problems:
+        raise CheckError("; ".join(problems))
+    releases = yaml.safe_load(
+        (REPO / "docs" / "compatibility.yaml").read_text())["releases"]
     rows = [[r["opensvf"],
              f"`{r['openobsw']}`" if r.get("openobsw") else "not pinned",
              f"v{r['wire_protocol']}" if r.get("wire_protocol") else "",
@@ -293,11 +283,11 @@ def gen_icd() -> dict[str, str]:
                      ", ".join(f"`{p.obsw_name}` {p.wire_type.value}"
                                for p in hk.parameters)])
 
-    checks = re.findall(r'print\("  \[(\d)/9\] (.+?)(?:\.\.\.|")',
+    checks = re.findall(r'print\("  \[(\d+)/\d+\] (.+?)(?:\.\.\.|")',
                         (REPO / "src" / "svf" / "tools" / "checkcons.py").read_text())
-    seen: dict[str, str] = {}
+    seen: dict[int, str] = {}
     for n, title in checks:
-        seen.setdefault(n, title.strip())
+        seen.setdefault(int(n), title.strip())
     return {
         "openobsw-links.md": links,
         "icd-adapter-tcs.md": _table(

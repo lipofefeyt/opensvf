@@ -615,6 +615,9 @@ The platform shall provide `svf console <spacecraft.yaml>`: run the spacecraft i
 **SVF-DEV-220** `[DHS]` `IMPLEMENTED`
 In pipe mode `OBCEmulatorAdapter` shall read the `obsw_sim` stderr for the whole run and keep its last 20 lines. Lines containing `FATAL` shall be logged at ERROR, the rest at DEBUG. When a tick ends without the sync byte and the sim has exited, the adapter shall raise at once, without waiting for further ticks, with the exit status and the last stderr lines, and shall record the status in `LinkHealth` (`obsw_exit_status`), which makes the link unhealthy. A sync loss with the sim still running shall carry the last stderr lines in its exception. `LinkHealth.to_dict()` shall include `obsw_exit_status` and `obsw_stderr_tail`, so a sim crash is told apart from telemetry loss in the campaign JSON.
 
+**SVF-DEV-221** `[SYS]` `IMPLEMENTED`
+`checkcons` shall read `obsw_sensor_frame_t` and `obsw_actuator_frame_t` from openobsw's `sim/sensor_inject.h` only, the header openobsw generates its ICD from, and shall warn when `--obsw` has no such file, instead of taking the first of openobsw's frame copies found on the filesystem. `checkcons` shall check that `docs/compatibility.yaml` has a row for the `pyproject.toml` version naming the openobsw release in `.openobsw-version`, the adapter's wire protocol version and its sensor frame size, that `.openobsw-version` is a release tag, and that the README compatibility table names the same opensvf version, openobsw release and wire protocol; any difference shall be an error. Given `--obsw` on a git checkout that is not at the pinned tag, it shall warn. `tools/gen_docs.py` shall build the compatibility page from the same values and fail on the same differences.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -1179,6 +1182,7 @@ loads are connected and drop to 0 V when UVLO disconnects them.
 | SVF-DEV-218   | CAM  | IMPLEMENTED |  -  | test_to_dict_serialises_step_events_in_order |
 | SVF-DEV-219   | DHS  | IMPLEMENTED |  -  | test_thermal_fault_commands_safe_and_clearance_is_observable_in_safe |
 | SVF-DEV-220   | DHS  | IMPLEMENTED |  -  | test_sim_exit_raises_with_status_and_stderr |
+| SVF-DEV-221   | SYS  | IMPLEMENTED |  -  | test_compatibility_row_disagreeing_with_pin_is_an_error |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |
