@@ -3,7 +3,7 @@ OBC Emulator Adapter
 Drop-in replacement for ObcStub using the openobsw host sim (obsw_sim).
 
 Extended pipe protocol with type-prefixed frames:
-  Type 0x01  -  TC uplink:       [0x01][uint16 BE length][TC frame bytes]
+  Type 0x01  -  TC uplink:       [0x01][uint16 BE length][PUS-C TC space packet]
   Type 0x02  -  Sensor injection: [0x02][uint16 BE length][obsw_sensor_frame_t]
 
 obsw_sensor_frame_t (wire protocol v4, packed, little-endian):
@@ -179,7 +179,7 @@ class OBCEmulatorAdapter(HilAdapter):
 
     1. Packs sensor values from ``ParameterStore`` into ``obsw_sensor_frame_t``
        and sends it as a type-0x02 frame.
-    2. Sends any queued TC frames (type-0x01)  -  at minimum a TC(17,1) heartbeat.
+    2. Sends the queued TCs as type-0x01 frames; none when nothing is queued.
     3. Reads response frames until the 0xFF sync byte, parsing TM packets and
        actuator commands.
     4. Injects actuator values into ``CommandStore`` for downstream equipment.

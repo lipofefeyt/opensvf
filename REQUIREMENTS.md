@@ -621,6 +621,9 @@ In pipe mode `OBCEmulatorAdapter` shall read the `obsw_sim` stderr for the whole
 **SVF-DEV-222** `[SYS]` `IMPLEMENTED`
 The documentation shall give a first campaign for integrating a flight software binary in pipe mode (`docs/integrate-obsw.md`), whose `spacecraft.yaml`, campaign YAML and procedure are included from `docs/examples/integrate-obsw/` rather than copied into the page. The L3 suite shall run those files unchanged, with `obsw_sim` from the pinned openobsw release as `bin/my_obsw`, through `CampaignRunner`, and shall require a PASS with every declared requirement covered and no TM dropped, so the example cannot drift from the code.
 
+**SVF-DEV-223** `[SYS]` `IMPLEMENTED`
+Every `from svf... import` and `import svf...` line in a documentation page (`docs/`, generated tables excluded) shall import: `tools/gen_docs.py` shall execute each one and fail, naming page and line, when one does not, and CI shall run it on every pull request. Code examples longer than an import list shall be files under `docs/examples/` or sections of mission files, included into the pages by snippets rather than copied, and the unit suite shall run the abstraction-layer examples: the composition root shall complete a simulation, and the `NativeEquipment` factory shall give two instances distinct ports.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -1187,6 +1190,7 @@ loads are connected and drop to 0 V when UVLO disconnects them.
 | SVF-DEV-220   | DHS  | IMPLEMENTED |  -  | test_sim_exit_raises_with_status_and_stderr |
 | SVF-DEV-221   | SYS  | IMPLEMENTED |  -  | test_compatibility_row_disagreeing_with_pin_is_an_error |
 | SVF-DEV-222   | SYS  | IMPLEMENTED |  -  | test_integrate_obsw_example_campaign_passes |
+| SVF-DEV-223   | SYS  | IMPLEMENTED |  -  | test_abstraction_layer_composition_root_runs |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |

@@ -1,10 +1,4 @@
-# OpenSVF Design Philosophy
-
-> **Status:** v1.0
-> **Last updated:** 2026-04
-> **Author:** lipofefeyt
-
----
+# Design philosophy
 
 ## What OpenSVF is
 
@@ -40,11 +34,14 @@ OpenSVF targets teams that **hand-code their AOCS algorithms in C**  -  which is
 
 ```
 Hand-coded C algorithm (openobsw)
-  ↓ validated against physics (opensvf-kde plant model)
-  ↓ validated against reference oracle (Python reference controller)
-  ↓ validated on hardware (MSP430 LaunchPad)
+  ↓ closed loop against physics (opensvf-kde plant model), on the host
+  ↓ the target builds under Renode: TCs and housekeeping (closed loop not yet, see known limits)
   ↓ ground station integration (YAMCS)
 ```
+
+Under Renode, closed-loop AOCS is not supported yet; see
+[known limits](known-limits.md).
+--8<-- "docs/_gen/openobsw-targets.md"
 
 The question OpenSVF answers is different from Simulink Monte Carlo:
 
@@ -74,20 +71,22 @@ The C11 OBSW contains the actual flight algorithms:
 - B-dot detumbling controller (`src/aocs/bdot.c`)
 - ADCS PD attitude controller (`src/aocs/adcs.c`)
 - FDIR state machine (`src/fdir/fsm.c`)
-- PUS service stack (S1, S3, S5, S8, S17, S20)
+- PUS service stack (see the targets page above)
 
-These are hand-coded, not generated. They run on MSP430 hardware and in `obsw_sim` for SIL.
+These are hand-coded, not generated. opensvf runs them in `obsw_sim` (SIL)
+and under Renode.
 
-### opensvf Python reference controllers  -  validation oracles
+### opensvf Python b-dot controller  -  reference model
 
-The Python b-dot and ADCS implementations in opensvf are **reference oracles**, not flight code. They exist to validate the C implementations:
+The `bdot_controller` model in opensvf is a **reference model**, not flight
+code. It closes the detumbling loop without flight software, so the
+dynamics, sensor and actuator models can be tested on their own
+(`tests/integration/test_closed_loop_detumbling.py`).
 
-```python
-# This is NOT flight code  -  it is a validation oracle
-controller = make_bdot_controller(sync, store, cmd_store)
-```
-
-A model comparison test asserts that for identical inputs, the C implementation and the Python oracle agree within numerical tolerance. This is the SIL equivalent of a MIL vs SIL comparison.
+The intent is also to use it as an oracle: for identical inputs, the C
+controller and the Python one should agree within numerical tolerance, the
+SIL counterpart of a MIL-versus-SIL comparison. No test does this
+comparison yet.
 
 ### YAMCS  -  ground station validation
 
@@ -101,20 +100,12 @@ Monte Carlo in OpenSVF answers: *given a distribution of initial conditions and 
 
 The correct architecture:
 
-```python
-# Fix the algorithm (C code in obsw_sim)
-# Vary the environment (initial tumble, noise seeds)
-
-results = []
-for seed in range(100):
-    master = SimulationMaster(..., seed=seed)
-    master.run()
-    results.append(store.read("aocs.truth.rate_x").value)
-
-# Report: mean, std, 99th percentile of detumbling convergence time
-```
-
-This is supported by the existing infrastructure: `SeedManager`, `SimulationMaster(seed=N)`, `pytest -n 8` for parallel runs.
+Fix the algorithm (the C code in `obsw_sim`) and vary the environment
+(initial tumble, noise seeds). `MonteCarloRunner` (`svf.monte_carlo`) runs a
+function `run_one(seed) -> dict` of metrics for N seeds in parallel processes
+and reports the mean, standard deviation, percentiles and pass rate of each
+metric. Each run is reproducible from its seed: `SimulationMaster(seed=N)`
+derives every model's seed from it.
 
 ---
 
@@ -125,17 +116,17 @@ This is supported by the existing infrastructure: `SeedManager`, `SimulationMast
 | An AOCS design tool | Gain tuning and algorithm design happen elsewhere |
 | A Simulink replacement | No code generation, no visual block diagrams |
 | A plant model library | opensvf-kde is one plant model, not a general physics library |
-| A flight dynamics simulator | No orbit propagation, no environmental perturbations beyond B-field |
+| A flight dynamics simulator | The orbit is SGP4 from a TLE; no orbit control, no perturbations beyond a dipole B-field |
 | A certification tool | Produces evidence for validation, not formal verification |
 
 ---
 
 ## Design constraints
 
-**SRDB as the shared parameter contract.** Every parameter has one canonical name defined in SRDB. The OBSW, SVF, and YAMCS ground station all use the same names. Changing a parameter name in SRDB breaks the build  -  intentionally.
+**SRDB as the shared parameter contract.** Every parameter has one canonical name defined in the SRDB. The OBSW, opensvf and the YAMCS mission database use the same names. When the two sides diverge, `checkcons` fails  -  intentionally.
 
-**Equipment as the universal abstraction.** Every model is an Equipment. The simulation master doesn't know whether it's driving a Python sensor model, a C++ FMU, or a real C OBSW binary. Only the wiring YAML changes.
+**Equipment as the universal abstraction.** Every model is an Equipment. The simulation master does not know whether it drives a Python sensor model, a C++ FMU or a real C OBSW binary. Only `spacecraft.yaml` changes.
 
-**ObcInterface as the HIL plug-in point.** Swapping `ObcStub` for `OBCEmulatorAdapter` is one line. When Renode emulation is ready, it will be a third implementation of the same interface.
+**HilAdapter as the plug-in point for the OBC.** `ObcStub` (no flight software), `OBCEmulatorAdapter` over a pipe (`obsw_sim`) and over a socket (Renode) implement the same interface. Switching is one line: `obsw.type` in `spacecraft.yaml`.
 
 **Deterministic by default.** Every run is reproducible. Stochastic models require explicit seed injection. This is a deliberate choice  -  non-deterministic test suites are unusable for flight software validation.

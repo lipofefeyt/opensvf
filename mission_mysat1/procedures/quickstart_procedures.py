@@ -8,6 +8,8 @@ Classes are prefixed P1_–P4_ so the campaign runner executes them in order.
 Run with:
     svf campaign mission_mysat1/campaigns/quickstart_campaign.yaml --report
 """
+# The docs include the import and P1 (docs/index.md); keep them runnable.
+# --8<-- [start:p1]
 from svf.campaign.procedure import Procedure, ProcedureContext
 
 
@@ -31,6 +33,7 @@ class P1_SensorPowerOn(Procedure):
 
         self.step("Verify gyroscope status nominal")
         ctx.assert_parameter("aocs.gyro1.status", equals=1.0)
+# --8<-- [end:p1]
 
 
 class P2_StarTrackerAcquisition(Procedure):

@@ -1,347 +1,164 @@
-# SVF Abstraction Layer
+# Abstraction layer
 
-> **Status:** v0.3
-> **Last updated:** 2026-03
-> **Author:** lipofefeyt
+`SimulationMaster` drives a simulation through three interfaces, all in
+`svf.core.abstractions`:
 
----
+| Interface | Decides | Implementations |
+|---|---|---|
+| `TickSource` | when the next tick fires | `SoftwareTickSource`, `RealtimeTickSource` (`svf.sim.software_tick`) |
+| `SyncProtocol` | how models acknowledge a tick | `DdsSyncProtocol` (`svf.ground.dds_sync`), `SharedMemorySyncProtocol` (`svf.ground.shm_sync`) |
+| `ModelAdapter` | what one model does in a tick | `Equipment` and its subclasses (`svf.core`) |
 
-## Overview
+Equipment models, procedures and campaigns only see the stores and their
+ports, so swapping a tick source or a sync protocol does not change them.
+`SpacecraftLoader` builds all of this from `spacecraft.yaml`; this page is for
+building a simulation by hand.
 
-The SVF abstraction layer defines three interfaces that decouple the simulation core from its execution environment. Switching from software simulation to real-time execution is a one-line change at the composition root  -  the equipment models, test procedures, and campaign manager are unaffected.
-
----
-
-## 1. TickSource
-
-Controls the simulation clock.
+## TickSource
 
 ```python
 class TickSource(ABC):
-    @abstractmethod
-    def start(self) -> None: ...
-
-    @abstractmethod
+    def start(self, on_tick: TickCallback, dt: float, stop_time: float) -> None: ...
     def stop(self) -> None: ...
 ```
 
-### SoftwareTickSource
+- `SoftwareTickSource` ticks as fast as the models allow. Campaigns and tests
+  use it.
+- `RealtimeTickSource` aligns each tick to wall-clock time and logs a warning
+  when a tick overruns `dt`. `spacecraft.yaml` selects it with
+  `simulation.realtime: true`; the YAMCS demo and `svf console` use it.
 
-Default implementation. Ticks as fast as the CPU allows. Used in all current test procedures and campaigns.
-
-```python
-from svf.software_tick import SoftwareTickSource
-tick = SoftwareTickSource()
-```
-
-### RealtimeTickSource (M11)
-
-Drives the simulation at wall-clock rate using `RT_PREEMPT` timer. Required for hardware-in-the-loop with real equipment.
-
----
-
-## 2. SyncProtocol
-
-Coordinates tick synchronisation between `SimulationMaster` and equipment models. Each model acknowledges readiness after completing its tick.
+## SyncProtocol
 
 ```python
 class SyncProtocol(ABC):
-    @abstractmethod
     def reset(self) -> None: ...
-
-    @abstractmethod
     def publish_ready(self, model_id: str, t: float) -> None: ...
-
-    @abstractmethod
-    def wait_for_ready(
-        self, expected: list[str], timeout: float
-    ) -> bool: ...
+    def wait_for_ready(self, expected: list[str], timeout: float) -> bool: ...
 ```
 
-### DdsSyncProtocol
+Each model calls `publish_ready()` at the end of its tick; the master waits
+for all of them with `wait_for_ready()` and stops the run with a
+`SimulationError` when the sync timeout expires.
 
-Default implementation using Eclipse Cyclone DDS.
+- `DdsSyncProtocol` publishes the acknowledgements on the Cyclone DDS topic
+  `SVF/Sim/Ready` with `KEEP_ALL` history, so none is lost when models
+  acknowledge in quick succession. It is the default.
+- `SharedMemorySyncProtocol` keeps one byte per model in a POSIX shared
+  memory segment and spin-waits on it, for low-latency runs. The master
+  creates the segment (`create=True`, the default); another process attaches
+  with `name=` and `create=False`.
 
-- `SVF/Sim/Tick` topic  -  master broadcasts tick with `(t, dt)`
-- `SVF/Sim/Ready/{model_id}` topic  -  each model acknowledges
-
-```python
-from cyclonedds.domain import DomainParticipant
-from svf.dds_sync import DdsSyncProtocol
-
-participant = DomainParticipant()
-sync = DdsSyncProtocol(participant)
-```
-
-All DDS writers/readers use `KEEP_ALL` QoS to ensure late-joining models receive the last tick.
-
-### SharedMemorySyncProtocol (M41)
-
-One-byte-per-model POSIX shared memory segment with a pure spinwait. Single-byte writes are atomic on all architectures  -  no locks needed. Sub-ms latency for real-time HIL.
-
-```python
-from svf.ground.shm_sync import SharedMemorySyncProtocol
-
-# SVF master process  -  creates and owns the segment
-sync = SharedMemorySyncProtocol(model_ids=["mag", "gyro", "obc"])
-
-# Worker process  -  attach by name
-sync = SharedMemorySyncProtocol(
-    model_ids=["mag", "gyro", "obc"],
-    name=shared_name,
-    create=False,
-)
-
-# Drop-in for DdsSyncProtocol  -  same interface
-master = SimulationMaster(sync_protocol=sync, ...)
-```
-
----
-
-## 3. ModelAdapter
-
-The minimal interface that any model must implement to be driven by `SimulationMaster`.
+## ModelAdapter and Equipment
 
 ```python
 class ModelAdapter(ABC):
-    @property
-    @abstractmethod
-    def model_id(self) -> str: ...
-
-    @abstractmethod
+    model_id: str                                        # property
     def initialise(self, start_time: float = 0.0) -> None: ...
-
-    @abstractmethod
     def on_tick(self, t: float, dt: float) -> None: ...
-
-    @abstractmethod
+    def suggested_dt(self) -> Optional[float]: ...       # default None
     def teardown(self) -> None: ...
 ```
 
-### Equipment extends ModelAdapter
+`Equipment` (`svf.core.equipment`) implements `on_tick()` for every model:
 
-`Equipment` is the primary `ModelAdapter` implementation. Every spacecraft model extends `Equipment` and is directly driveable by `SimulationMaster` without any adapter wrapping.
+1. take the pending CommandStore entries of its IN ports;
+2. advance the time of the equipment fault engine;
+3. call `do_step(t, dt)`;
+4. write its OUT ports to the ParameterStore, time-stamped `t + dt`;
+5. call `publish_ready()`.
 
-```
-ModelAdapter (ABC)
-    └── Equipment (ABC)
-            ├── FmuEquipment      -  wraps FMI 3.0 FMU
-            ├── NativeEquipment   -  wraps Python step function
-            └── Bus (ABC)         -  fault injection + typed ports
-                    └── Mil1553Bus
-```
-
-### FmuEquipment
-
-Wraps an FMI 3.0 FMU. Translates FMU variables to SRDB canonical port names via `parameter_map`.
-
-```python
-from svf.fmu_equipment import FmuEquipment
-
-eps = FmuEquipment(
-    fmu_path="models/EpsFmu.fmu",
-    equipment_id="eps",
-    sync_protocol=sync,
-    store=store,
-    command_store=cmd_store,
-    parameter_map={
-        "battery_soc":        "eps.battery.soc",
-        "solar_illumination": "eps.solar_array.illumination",
-    },
-)
+```text
+ModelAdapter
+└── Equipment
+    ├── NativeEquipment   a Python step function (most models in svf.models)
+    ├── FmuEquipment      an FMI 2.0 co-simulation FMU (the dynamics model)
+    ├── HilAdapter        the OBC models: ObcStub, OBCEmulatorAdapter, DualObcAdapter
+    └── Bus               MIL-STD-1553B, SpaceWire, CAN (svf.bus)
 ```
 
-`on_tick()` behaviour:
-1. Read `CommandStore` entries into FMU inputs
-2. `fmu.doStep(t, dt)`
-3. Write FMU outputs to `ParameterStore`
-4. `sync.publish_ready()`
+`HilAdapter` (`svf.models.dhs.hil_adapter`) is the interface the OBC models
+share, so a procedure sends TCs the same way to the stub and to real flight
+software; `obsw.type` in `spacecraft.yaml` picks the implementation.
 
 ### NativeEquipment
 
-Wraps a Python step function. Ports declared explicitly at construction.
-
-Always define the step function **inside** a factory so the `equipment_id`-derived port prefix is captured as a closure variable. This is the only pattern that supports multiple instances of the same model without port name collisions.
-
-```python
-from svf.core.native_equipment import NativeEquipment
-from svf.core.equipment import PortDefinition, PortDirection
-
-def make_reaction_wheel(sync, store, cmd_store,
-                        equipment_id="rw1") -> NativeEquipment:
-    _pfx = f"aocs.{equipment_id}"
-
-    def _rw_step(eq: NativeEquipment, t: float, dt: float) -> None:
-        torque = eq.read_port(f"{_pfx}.torque_cmd")
-        speed  = eq.read_port(f"{_pfx}.speed")
-        eq.write_port(f"{_pfx}.speed", speed + torque * 100.0 * dt)
-
-    return NativeEquipment(
-        equipment_id=equipment_id,
-        ports=[
-            PortDefinition(f"{_pfx}.torque_cmd", PortDirection.IN,  unit="Nm"),
-            PortDefinition(f"{_pfx}.speed",       PortDirection.OUT, unit="rpm"),
-        ],
-        step_fn=_rw_step,
-        sync_protocol=sync,
-        store=store,
-        command_store=cmd_store,
-    )
-
-# Two independent instances  -  distinct port namespaces
-rw_x = make_reaction_wheel(sync, store, cmd_store, equipment_id="rw_x")
-rw_y = make_reaction_wheel(sync, store, cmd_store, equipment_id="rw_y")
-```
-
----
-
-## 4. SimulationMaster
-
-Drives the tick loop. Accepts any list of `ModelAdapter` instances.
+A step function wrapped with its ports. Write the step function inside a
+factory, so the port prefix derived from `equipment_id` is a closure
+variable and two instances get distinct port names:
 
 ```python
-from svf.simulation import SimulationMaster
-
-master = SimulationMaster(
-    tick_source=SoftwareTickSource(),
-    sync_protocol=sync,
-    models=[obc, ttc, bus, rw, st, sbt],
-    dt=0.1,
-    stop_time=30.0,
-    sync_timeout=5.0,
-    command_store=cmd_store,
-    param_store=store,
-)
-master.run()
+--8<-- "docs/examples/abstraction-layer/native_equipment.py"
 ```
 
-### Tick loop
+The models in `svf.models` follow this pattern; their ports are on the
+[equipment](equipment.md) page.
 
-```
-for each tick at t:
-  1. ParameterStore.write("svf.sim_time", t)
-  2. For each model: model.on_tick(t, dt)
-  3. Wait for all ready signals (timeout=sync_timeout)
-  4. Apply WiringMap (copy OUT port values to connected IN ports)
-  5. svf_command_schedule: fire any commands at t >= target_t
-  t += dt
-```
+### FmuEquipment
 
-### WiringMap
+`FmuEquipment(fmu_path, equipment_id, sync_protocol, store, command_store,
+parameter_map)` loads the FMU with FMPy. FMU inputs become IN ports and
+outputs OUT ports; `parameter_map` renames FMU variables to SRDB names (for
+example `{"battery_soc": "eps.battery.soc"}`). The committed FMUs are FMI
+2.0; see [IF-2](icd.md#if-2-fmi-20-co-simulation).
 
-Optional. Defines point-to-point connections between OUT and IN ports. Applied after each tick via `CommandStore.inject()`.
+## SimulationMaster
+
+`SimulationMaster` (`svf.sim.simulation`) runs the tick loop. For each tick
+at time `t` it:
+
+1. resets the sync protocol;
+2. injects the entries of the OBT parameter file that are due;
+3. calls `on_tick(t, dt)` on every model, in list order, with `dt` the
+   smallest of its own `dt` and any model's `suggested_dt()`;
+4. waits for every model's acknowledgement (`sync_timeout`, 5 s by default,
+   10 s from `spacecraft.yaml`);
+5. applies the wiring: each connection's OUT port value is injected into the
+   CommandStore under its IN port name;
+6. writes `svf.sim_time`.
+
+A model that raises is reported to `on_tick_error` as an
+`EquipmentTickError` (`equipment_id`, `obt`, `cause`); the default handler
+stops the run with a `SimulationError`. Pass another handler to record the
+error and keep the other models ticking. `equipment_tick_timeout` bounds the
+time of one model's tick.
+
+With `seed=` every model gets a seed derived from it (SHA-256 of the seed and
+the model ID), and the seeds are saved to `results/seed.json` so a run can
+be replayed.
+
+## Stores
+
+**ParameterStore** (`svf.stores.parameter_store`), the TM side. OUT ports
+write to it; procedures, the OBC models and the YAMCS bridge read it.
+
+- `write(name, value, t, model_id)`, `read(name)` returns the last
+  `ParameterEntry` (`value`, `t`, `model_id`) or `None`;
+- `snapshot()`, `subscribe(name, callback)` (returns an unsubscribe
+  function), `parameter_names()`.
+
+**CommandStore** (`svf.stores.command_store`), the TC side. Procedures
+(`ctx.inject()`), wiring, OBC models and bus adapters write to it; IN ports
+consume it.
+
+- `inject(name, value, t=..., source_id=...)`;
+- `take(name, consumer=...)` reads and consumes an entry, `peek(name)`
+  reads without consuming, `pending()` lists the names waiting.
+
+Both are thread-safe. Given an SRDB (`ParameterStore(srdb=...)`,
+`CommandStore(srdb=...)`) they log a warning, and do not raise, when a value
+is outside its valid range or a TM parameter is written as a TC (or the
+reverse). [IF-4](icd.md#if-4-srdb-parameter-contract) describes the SRDB.
+
+## A simulation built by hand
+
+The composition root that `SpacecraftLoader` writes for you, with two models
+from `svf.models`. A unit test runs this file:
 
 ```python
-from svf.wiring import WiringLoader
-
-loader = WiringLoader({"solar_array": sa, "pcdu": pcdu})
-wiring = loader.load(Path("srdb/wiring/eps_wiring.yaml"))
-
-master = SimulationMaster(..., wiring=wiring)
+--8<-- "docs/examples/abstraction-layer/composition_root.py"
 ```
 
----
-
-## 5. Stores
-
-### ParameterStore (TM)
-
-Thread-safe key-value store for telemetry. Written by Equipment OUT ports. Read by observables, loggers, and OBC HK aggregation.
-
-```python
-from svf.parameter_store import ParameterStore
-
-store = ParameterStore()
-store.write("eps.battery.soc", 0.85, t=1.0, model_id="eps")
-entry = store.read("eps.battery.soc")
-# entry.value, entry.t, entry.model_id
-snapshot = store.snapshot()  # dict[str, ParameterEntry]
-```
-
-Properties:
-- Thread-safe (`threading.Lock`)
-- Late-joiner safe  -  `read()` returns last value regardless of when called
-- SRDB validation when `Srdb` instance attached  -  warns on range violation
-
-### CommandStore (TC)
-
-Thread-safe key-value store for telecommands. Written by `inject()`, wiring, OBC S20 routing, bus BC_to_RT routing. Read by Equipment IN ports via `take()` (atomic read+consume).
-
-```python
-from svf.command_store import CommandStore
-
-cmd_store = CommandStore()
-cmd_store.inject("aocs.rw1.torque_cmd", 0.1, source_id="test")
-entry = cmd_store.take("aocs.rw1.torque_cmd")  # atomic, returns None if empty
-entry = cmd_store.peek("aocs.rw1.torque_cmd")  # non-consuming read
-```
-
-Properties:
-- Thread-safe
-- `take()` is atomic  -  read and consume in one operation
-- `peek()` for test assertions without consuming
-- SRDB validation  -  warns when TC-classified parameter injected to TM key
-
----
-
-## 6. SRDB Integration
-
-The SRDB provides runtime validation for both stores.
-
-```python
-from svf.srdb.loader import SrdbLoader
-
-loader = SrdbLoader()
-for baseline in Path("srdb/baseline").glob("*.yaml"):
-    loader.load_baseline(baseline)
-srdb = loader.build()
-
-store     = ParameterStore(srdb=srdb)
-cmd_store = CommandStore(srdb=srdb)
-```
-
-Validation warnings (never raise  -  simulation continues):
-- Value outside `valid_range`
-- Model writes to TC-classified parameter
-- Test injects to TM-classified parameter
-
----
-
-## 7. Dependency Injection Summary
-
-The composition root for a full platform simulation:
-
-```python
-# 1. Infrastructure
-participant = DomainParticipant()
-sync        = DdsSyncProtocol(participant)
-store       = ParameterStore()
-cmd_store   = CommandStore()
-
-# 2. Equipment
-obc = ObcEquipment(config, sync, store, cmd_store)
-ttc = TtcEquipment(obc,    sync, store, cmd_store)
-rw  = make_reaction_wheel( sync, store, cmd_store, equipment_id="rw1")
-st  = make_star_tracker(   sync, store, cmd_store, equipment_id="str1")
-sbt = make_sbt(            sync, store, cmd_store)
-bus = Mil1553Bus("platform_1553", rt_count=5,
-                 mappings=mappings,
-                 sync_protocol=sync,
-                 store=store,
-                 command_store=cmd_store)
-
-# 3. Simulation
-master = SimulationMaster(
-    tick_source=SoftwareTickSource(),   # ← swap for RealtimeTickSource (M11)
-    sync_protocol=sync,                 # ← swap for SharedMemorySyncProtocol (M41)
-    models=[ttc, obc, bus, rw, st, sbt],
-    dt=0.1,
-    stop_time=30.0,
-    sync_timeout=5.0,
-    command_store=cmd_store,
-    param_store=store,
-)
-master.run()
-```
-
-Switching to real-time HIL (M41): swap `DdsSyncProtocol` for `SharedMemorySyncProtocol` (`svf.ground.shm_sync`). Everything else is unchanged  -  same `SyncProtocol` interface.
+To run it in real time, pass `RealtimeTickSource()`; for the shared-memory
+sync, pass `SharedMemorySyncProtocol(model_ids=[...])` with the IDs of the
+models. Nothing else changes.

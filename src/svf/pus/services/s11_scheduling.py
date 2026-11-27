@@ -87,7 +87,7 @@ class PusService11:
     TC(11,4) app_data format (SVF pragmatic subset):
         4B CUC coarse time tag  (big-endian uint32)
         2B CUC fine time tag    (big-endian uint16, 1/65536 s)
-        N B embedded TC frame
+        N B embedded TC space packet
     """
 
     @staticmethod

@@ -302,6 +302,10 @@ def gen_icd() -> dict[str, str]:
     return {
         "openobsw-links.md": links,
         "openobsw-contrib.md": contrib,
+        "openobsw-targets.md": (
+            f"Which openobsw `{pin}` targets run in CI and which were bench-tested, "
+            f"and the PUS services each one routes, is on the openobsw "
+            f"[targets]({base}targets/) page.\n"),
         "obsw-banner.md": banner,
         "icd-adapter-tcs.md": _table(
             ["Set by a procedure", "TC sent", "Example bytes"], tcs),
@@ -312,10 +316,53 @@ def gen_icd() -> dict[str, str]:
     }
 
 
+# ── PUS services ─────────────────────────────────────────────────────────────
+
+def gen_pus() -> dict[str, str]:
+    import ast
+    rows = []
+    for f in sorted((REPO / "src" / "svf" / "pus" / "services").glob("s[0-9]*.py")):
+        doc = ast.get_docstring(ast.parse(f.read_text())) or ""
+        m = re.match(r"PUS Service (\d+)\s+-\s+(.+?)\.?$", doc.splitlines()[0] if doc else "")
+        if m is None:
+            raise CheckError(f"{f.name}: docstring does not start with "
+                             f"'PUS Service <n>  -  <name>.'")
+        rows.append([f"S{m.group(1)}", m.group(2), f"`svf.pus.services.{f.stem}`"])
+    pin = (REPO / ".openobsw-version").read_text().strip()
+    note = (f"\nWhich services openobsw `{pin}` implements on each target is on its "
+            f"[targets]({OPENOBSW_DOCS.format(pin=pin)}targets/) page.\n")
+    return {"pus-services.md": _table(["Service", "Name", "Module"], rows) + note}
+
+
+# ── Imports shown in the docs ────────────────────────────────────────────────
+
+_IMPORT_RE = re.compile(r"^[ \t>]*(from[ \t]+svf[\w.]*[ \t]+import[ \t]+(?:\([^)]*\)|[^\n#]+)"
+                        r"|import[ \t]+svf[\w.]*)", re.M)
+
+
+def check_doc_imports() -> None:
+    """Every `from svf... import` / `import svf...` line in a docs page imports."""
+    bad = []
+    for md in sorted((REPO / "docs").rglob("*.md")):
+        if OUT in md.parents:
+            continue
+        for m in _IMPORT_RE.finditer(md.read_text()):
+            stmt = " ".join(m.group(1).split())
+            try:
+                exec(stmt, {})  # noqa: S102 - our own docs
+            except Exception as e:  # noqa: BLE001
+                line = md.read_text()[:m.start()].count("\n") + 1
+                bad.append(f"{md.relative_to(REPO)}:{line}: {stmt}: {e}")
+    if bad:
+        raise CheckError("imports in the docs that fail:\n  " + "\n  ".join(bad))
+
+
 def main() -> int:
     try:
         pages: dict[str, str] = {}
-        for gen in (gen_compatibility, gen_equipment, gen_fidelity, gen_yamcs, gen_icd):
+        check_doc_imports()
+        for gen in (gen_compatibility, gen_equipment, gen_fidelity, gen_yamcs,
+                    gen_icd, gen_pus):
             pages.update(gen())
     except CheckError as e:
         print(f"gen_docs: {e}", file=sys.stderr)

@@ -1,10 +1,5 @@
 # SVF pytest Plugin
 
-> **Status:** v0.4
-> **Last updated:** 2026-04
-> **Author:** lipofefeyt
-
----
 
 ## Overview
 
