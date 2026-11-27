@@ -3,7 +3,7 @@ L1 checks of the example files the docs include (docs/examples/), without a
 flight software binary. The L3 suite runs the integrate-obsw files against
 obsw_sim (tests/system/test_integrate_obsw_example.py).
 
-Implements: SVF-DEV-222, SVF-DEV-223
+Implements: SVF-DEV-222, SVF-DEV-223, SVF-DEV-224
 """
 from __future__ import annotations
 
@@ -17,7 +17,8 @@ import pytest
 from svf.campaign.campaign_runner import CampaignRunner
 from svf.config.validator import SpacecraftValidator
 
-_EXAMPLE = Path(__file__).parents[2] / "docs" / "examples" / "integrate-obsw"
+_REPO = Path(__file__).parents[2]
+_EXAMPLE = _REPO / "docs" / "examples" / "integrate-obsw"
 
 
 @pytest.mark.requirement("SVF-DEV-222")
@@ -94,3 +95,35 @@ def test_a_stale_import_in_a_page_is_reported(
     monkeypatch.setattr(gen, "OUT", tmp_path / "docs" / "_gen")
     with pytest.raises(gen.CheckError, match=r"docs/page.md:3: from svf.procedure"):
         gen.check_doc_imports()
+
+
+@pytest.mark.requirement("SVF-DEV-224")
+def test_validation_tables_count_tests_and_requirements(tmp_path: Path) -> None:
+    gen = _load(_GEN_DOCS)
+    f = tmp_path / "test_sample.py"
+    f.write_text(
+        "import pytest\n"
+        "pytestmark = [pytest.mark.requirement('MOD-1')]\n"
+        "@pytest.mark.requirement('A-1', 'A-2')\n"
+        "def test_a(): pass\n"
+        "def helper(): pass\n"
+        "@pytest.mark.requirement('C-1')\n"
+        "class ThingSuite:\n"
+        "    def test_b(self): pass\n"
+        "    @pytest.mark.requirement('B-1')\n"
+        "    def test_c(self): pass\n"
+        "class TestIgnored:\n"
+        "    @pytest.mark.requirement('X-1')\n"
+        "    def test_d(self): pass\n")
+    n, reqs = gen._test_file(f)
+    assert n == 3
+    assert reqs == {"MOD-1", "A-1", "A-2", "C-1", "B-1"}
+
+
+@pytest.mark.requirement("SVF-DEV-224")
+def test_validation_tables_list_every_campaign() -> None:
+    gen = _load(_GEN_DOCS)
+    tables = gen.gen_validation()
+    campaigns = sorted(p.name for p in (_REPO / "mission_mysat1" / "campaigns").glob("*.yaml"))
+    assert all(f"`{c}`" in tables["validation-l4.md"] for c in campaigns)
+    assert "`test_integrate_obsw_example.py`" in tables["validation-l3.md"]

@@ -77,6 +77,9 @@ nav:
       - Architecture: architecture.md
       - Design philosophy: design-philosophy.md
       - Abstraction layer: abstraction-layer.md
+      - OBC modes: obc-modes.md
+      - Validation: validation.md
+      - System tests: system-tests.md
   - Reference:
       - Compatibility: compatibility.md
       - Interfaces (ICD): icd.md
@@ -84,6 +87,5 @@ nav:
       - Equipment library: equipment-library.md
       - YAMCS mission database: yamcs-mdb.md
       - pytest plugin: plugin.md
-      - SIL attitude validation: sil-attitude-validation-guide.md
   - Known limits: known-limits.md
   - Releases: releases.md

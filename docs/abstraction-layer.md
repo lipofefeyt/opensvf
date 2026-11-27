@@ -72,7 +72,7 @@ class ModelAdapter(ABC):
 ModelAdapter
 └── Equipment
     ├── NativeEquipment   a Python step function (most models in svf.models)
-    ├── FmuEquipment      an FMI 2.0 co-simulation FMU (the dynamics model)
+    ├── FmuEquipment      any FMI 2.0 co-simulation FMU, ports from its variables
     ├── HilAdapter        the OBC models: ObcStub, OBCEmulatorAdapter, DualObcAdapter
     └── Bus               MIL-STD-1553B, SpaceWire, CAN (svf.bus)
 ```
@@ -99,8 +99,9 @@ The models in `svf.models` follow this pattern; their ports are on the
 `FmuEquipment(fmu_path, equipment_id, sync_protocol, store, command_store,
 parameter_map)` loads the FMU with FMPy. FMU inputs become IN ports and
 outputs OUT ports; `parameter_map` renames FMU variables to SRDB names (for
-example `{"battery_soc": "eps.battery.soc"}`). The committed FMUs are FMI
-2.0; see [IF-2](icd.md#if-2-fmi-20-co-simulation).
+example `{"battery_soc": "eps.battery.soc"}`). The `dynamics` model does
+not use it: it is a `NativeEquipment` that drives `SpacecraftDynamics.fmu`
+itself; see [IF-2](icd.md#if-2-fmi-20-co-simulation).
 
 ## SimulationMaster
 
