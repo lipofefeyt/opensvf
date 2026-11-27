@@ -31,9 +31,9 @@ theme:
 
 # Not published: the docs toolchain pins, the sources of generated tables
 # (docs/_gen/ from tools/gen_docs.py, included by snippets), the example
-# files included by integrate-obsw.md (docs/examples/), and the ADD and
-# SVS data pack sources until their pages are corrected (#203). The ICD is
-# the site page icd.md.
+# files included by integrate-obsw.md (docs/examples/), and the data pack
+# metadata and build files (docs/datapack/; tools/build_datapack.py renders
+# the ADD, SVS and ICD PDFs from the site pages).
 exclude_docs: |
   requirements.txt
   compatibility.yaml

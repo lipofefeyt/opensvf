@@ -1,0 +1,27 @@
+# Pandoc metadata for the SVS PDF of the data pack (SVF-SVS-001).
+# tools/build_datapack.py fills in {version} and {date}; the text
+# comes from the site pages listed in that script.
+title: "OpenSVF  -  Software Validation Specification"
+subtitle: "SVF-SVS-001 | opensvf {version}"
+author: "Gonçalo Graças"
+date: "{date}"
+subject: "Software Validation Specification"
+keywords: [spacecraft, validation, V&V, PUS-C, SIL, ECSS, requirements, traceability]
+lang: en
+titlepage: true
+titlepage-color: "1a1a2e"
+titlepage-text-color: "EEEEEE"
+titlepage-rule-color: "4a90d9"
+titlepage-rule-height: 4
+toc: true
+toc-own-page: true
+numbersections: true
+colorlinks: true
+linkcolor: "4a90d9"
+fontsize: 11pt
+geometry: "margin=2.5cm"
+header-left: "SVF-SVS-001"
+header-right: "OpenSVF Software Validation Specification"
+footer-left: "opensvf {version}  -  {date}"
+footer-right: "Page \\thepage"
+classoption: oneside

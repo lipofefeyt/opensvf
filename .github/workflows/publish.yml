@@ -32,6 +32,43 @@ jobs:
           name: dist
           path: dist/
 
+  datapack:
+    name: Build data pack PDFs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the package
+        run: pip install -e ".[orbital]"
+
+      # Title pages carry the tag's version; links point at this version's
+      # site (/en/<tag>/), which must be activated on Read the Docs.
+      - name: Build the data pack Markdown
+        env:
+          TAG: ${{ github.ref_name }}
+        run: python tools/build_datapack.py --md-only --version "${TAG#v}" --site-version "$TAG"
+
+      - name: Render the PDFs
+        run: |
+          docker run --rm -v "$PWD:/data" -w /data --entrypoint /bin/sh \
+            pandoc/extra:3.11.0.0-debian -c '
+              set -e
+              mkdir -p datapack
+              for d in add svs icd; do
+                pandoc "build/datapack/$d.md" -o "datapack/opensvf-$d.pdf" \
+                  --template=eisvogel --pdf-engine=xelatex
+              done'
+
+      - name: Upload the PDFs
+        uses: actions/upload-artifact@v4
+        with:
+          name: datapack
+          path: datapack/*.pdf
+
   publish:
     name: Publish to PyPI
     needs: build
@@ -55,7 +92,7 @@ jobs:
 
   release:
     name: Create GitHub release
-    needs: publish            # only release what actually reached PyPI
+    needs: [publish, datapack]   # only release what actually reached PyPI
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -68,13 +105,20 @@ jobs:
           name: dist
           path: dist/
 
+      - name: Download the data pack
+        uses: actions/download-artifact@v4
+        with:
+          name: datapack
+          path: datapack/
+
       - name: Create release from tag
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists - leaving it untouched"
+            echo "Release $TAG already exists - only (re)attaching the data pack"
+            gh release upload "$TAG" datapack/*.pdf --clobber
             exit 0
           fi
           # checkout may store the tag as lightweight; refetch the tag object
@@ -82,9 +126,9 @@ jobs:
           if [ "$(git cat-file -t "$TAG")" = "tag" ]; then
             # Annotated tag: subject line is the title, body is the notes
             git tag -l --format='%(contents:body)' "$TAG" > notes.md
-            gh release create "$TAG" dist/* \
+            gh release create "$TAG" dist/* datapack/*.pdf \
               --title "$(git tag -l --format='%(contents:subject)' "$TAG")" \
               --notes-file notes.md --verify-tag
           else
-            gh release create "$TAG" dist/* --title "$TAG" --generate-notes --verify-tag
+            gh release create "$TAG" dist/* datapack/*.pdf --title "$TAG" --generate-notes --verify-tag
           fi

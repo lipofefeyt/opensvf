@@ -1,21 +1,16 @@
-TEMPLATE := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))eisvogel.latex
-PANDOC   := pandoc
-FLAGS    := --template=$(TEMPLATE) --pdf-engine=xelatex --highlight-style=tango
+# Data pack PDFs (ADD, SVS, ICD) from the site pages; see
+# tools/build_datapack.py. Needs pandoc, xelatex and the eisvogel template
+# (docs/datapack/eisvogel.latex if present, else pandoc's own). CI renders
+# them with the pandoc/extra image and attaches them to each release.
+REPO := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../..)
 
-# The ICD is the site page docs/icd.md (metadata in icd.meta.yaml); its PDF
-# returns with the data pack build from the site sources.
-DOCS     := add svs
-PDFS     := $(addprefix out/, $(addsuffix .pdf, $(DOCS)))
+.PHONY: all md clean
 
-.PHONY: all clean
+all:
+	python3 $(REPO)/tools/build_datapack.py
 
-all: out/ $(PDFS)
-
-out/:
-	mkdir -p out
-
-out/%.pdf: %.md $(TEMPLATE) | out/
-	$(PANDOC) $(FLAGS) -o $@ $<
+md:
+	python3 $(REPO)/tools/build_datapack.py --md-only
 
 clean:
-	rm -rf out/
+	rm -rf $(REPO)/docs/datapack/out $(REPO)/build/datapack

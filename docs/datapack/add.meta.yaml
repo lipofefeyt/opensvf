@@ -1,0 +1,27 @@
+# Pandoc metadata for the ADD PDF of the data pack (SVF-ADD-001).
+# tools/build_datapack.py fills in {version} and {date}; the text
+# comes from the site pages listed in that script.
+title: "OpenSVF  -  Architecture Description Document"
+subtitle: "SVF-ADD-001 | opensvf {version}"
+author: "Gonçalo Graças"
+date: "{date}"
+subject: "Architecture Description Document"
+keywords: [spacecraft, validation, PUS-C, FMI, SIL, ECSS]
+lang: en
+titlepage: true
+titlepage-color: "1a1a2e"
+titlepage-text-color: "EEEEEE"
+titlepage-rule-color: "4a90d9"
+titlepage-rule-height: 4
+toc: true
+toc-own-page: true
+numbersections: true
+colorlinks: true
+linkcolor: "4a90d9"
+fontsize: 11pt
+geometry: "margin=2.5cm"
+header-left: "SVF-ADD-001"
+header-right: "OpenSVF Architecture Description Document"
+footer-left: "opensvf {version}  -  {date}"
+footer-right: "Page \\thepage"
+classoption: oneside
