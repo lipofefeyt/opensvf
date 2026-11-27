@@ -618,6 +618,9 @@ In pipe mode `OBCEmulatorAdapter` shall read the `obsw_sim` stderr for the whole
 **SVF-DEV-221** `[SYS]` `IMPLEMENTED`
 `checkcons` shall read `obsw_sensor_frame_t` and `obsw_actuator_frame_t` from openobsw's `sim/sensor_inject.h` only, the header openobsw generates its ICD from, and shall warn when `--obsw` has no such file, instead of taking the first of openobsw's frame copies found on the filesystem. `checkcons` shall check that `docs/compatibility.yaml` has a row for the `pyproject.toml` version naming the openobsw release in `.openobsw-version`, the adapter's wire protocol version and its sensor frame size, that `.openobsw-version` is a release tag, and that the README compatibility table names the same opensvf version, openobsw release and wire protocol; any difference shall be an error. Given `--obsw` on a git checkout that is not at the pinned tag, it shall warn. `tools/gen_docs.py` shall build the compatibility page from the same values and fail on the same differences.
 
+**SVF-DEV-222** `[SYS]` `IMPLEMENTED`
+The documentation shall give a first campaign for integrating a flight software binary in pipe mode (`docs/integrate-obsw.md`), whose `spacecraft.yaml`, campaign YAML and procedure are included from `docs/examples/integrate-obsw/` rather than copied into the page. The L3 suite shall run those files unchanged, with `obsw_sim` from the pinned openobsw release as `bin/my_obsw`, through `CampaignRunner`, and shall require a PASS with every declared requirement covered and no TM dropped, so the example cannot drift from the code.
+
 ---
 
 ## Test Orchestration Requirements [ORC]
@@ -1183,6 +1186,7 @@ loads are connected and drop to 0 V when UVLO disconnects them.
 | SVF-DEV-219   | DHS  | IMPLEMENTED |  -  | test_thermal_fault_commands_safe_and_clearance_is_observable_in_safe |
 | SVF-DEV-220   | DHS  | IMPLEMENTED |  -  | test_sim_exit_raises_with_status_and_stderr |
 | SVF-DEV-221   | SYS  | IMPLEMENTED |  -  | test_compatibility_row_disagreeing_with_pin_is_an_error |
+| SVF-DEV-222   | SYS  | IMPLEMENTED |  -  | test_integrate_obsw_example_campaign_passes |
 | CAN-001       | CAN  | IMPLEMENTED | M30 | test_extended_id_out_of_range_raises |
 | CAN-002       | CAN  | IMPLEMENTED | M30 | test_tx_message_routed_to_command_store |
 | CAN-003       | CAN  | IMPLEMENTED | M30 | test_bus_error_fault_causes_bus_off |

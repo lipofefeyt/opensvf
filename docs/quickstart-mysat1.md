@@ -66,7 +66,7 @@ procedures:
 
 - Browse the full AOCS suite: `mission_mysat1/campaigns/aocs_campaign.yaml`
 - Add fault injection: `ctx.inject_equipment_fault("mag1", ...)`
-- Bring your own binary: see [Plug In Your Own Binary](quickstart-own-binary.md)
+- Bring your own binary: see [Integrate your flight software](integrate-obsw.md)
 
 ---
 
