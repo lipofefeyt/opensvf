@@ -17,7 +17,11 @@ toc: true
 toc-own-page: true
 numbersections: true
 colorlinks: true
-linkcolor: "4a90d9"
+# Named colour: eisvogel 3 takes colour names here, not hex codes.
+header-includes: |
+  \definecolor{svfblue}{HTML}{4A90D9}
+linkcolor: "svfblue"
+urlcolor: "svfblue"
 fontsize: 11pt
 geometry: "margin=2.5cm"
 header-left: "SVF-SVS-001"
