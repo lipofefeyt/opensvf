@@ -120,7 +120,7 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
                 TC {{ r.link.tc_sent }} sent, {{ r.link.tc_accepted }} accepted, {{ r.link.tc_completed }} completed,
                 rejected: {% if r.link.tc_rejected %}{% for code, n in r.link.tc_rejected.items() %}{{ code }} x{{ n }} {% endfor %}{% else %}none{% endif %} &middot;
                 mode changes: {% for m in r.link.mode_changes %}t={{ "%.1f"|format(m[0]) }}s&rarr;{{ m[1] }} {% else %}none{% endfor %} &middot;
-                desyncs {{ r.link.desyncs }}
+                desyncs {{ r.link.desyncs }}{% if r.link.tc_syncs_missed %}, TC syncs missed {{ r.link.tc_syncs_missed }}{% endif %}
             </div>
             {% endif %}
             {% if r.seed %}

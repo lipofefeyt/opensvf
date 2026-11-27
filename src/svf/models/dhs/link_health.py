@@ -4,10 +4,11 @@ Communication health between opensvf and a real flight software.
 Counts what crossed the link and what became of it, so a run that could not
 read the OBSW's telemetry or command it is visible at a glance: TM packets
 received, parsed and dropped; TCs sent, accepted, completed and rejected
-(by failure code); mode changes reported by the OBSW; sync losses;
-housekeeping reports that did not match their SRDB layout.
+(by failure code); mode changes reported by the OBSW; sync losses, for the
+sensor frame and for each TC frame; housekeeping reports that did not match
+their SRDB layout.
 
-Implements: SVF-DEV-214, SVF-DEV-217
+Implements: SVF-DEV-214, SVF-DEV-217, SVF-DEV-225
 """
 
 from __future__ import annotations
@@ -29,7 +30,8 @@ class LinkHealth:
     tc_completed: int = 0         # TM(1,7)
     tc_rejected: dict[int, int] = field(default_factory=dict)   # code -> count, TM(1,2)/(1,8)
     mode_changes: list[tuple[float, int]] = field(default_factory=list)  # (sim time, mode)
-    desyncs: int = 0
+    desyncs: int = 0              # ticks without the sensor frame's 0xFF
+    tc_syncs_missed: int = 0      # TC frames without their 0xFF
     # TM(3,25) reports of a set the SRDB defines whose length is not the SRDB's
     hk_undecoded: int = 0
     last_hk_problem: Optional[str] = None
@@ -44,9 +46,10 @@ class LinkHealth:
 
     @property
     def healthy(self) -> bool:
-        """No TM was lost or left undecoded, the link never lost sync and the
-        OBSW did not exit."""
+        """No TM was lost or left undecoded, the link never lost sync (for a
+        sensor frame or a TC frame) and the OBSW did not exit."""
         return (self.tm_dropped == 0 and self.desyncs == 0
+                and self.tc_syncs_missed == 0
                 and self.hk_undecoded == 0 and self.obsw_exit_status is None)
 
     def problems(self) -> list[str]:
@@ -61,6 +64,8 @@ class LinkHealth:
                        f" ({self.last_drop_reason})")
         if self.desyncs:
             out.append(f"{self.desyncs} tick(s) without the OBSW sync byte")
+        if self.tc_syncs_missed:
+            out.append(f"{self.tc_syncs_missed} TC frame(s) without the OBSW sync byte")
         if self.hk_undecoded:
             out.append(f"{self.hk_undecoded} HK report(s) not decoded"
                        f" ({self.last_hk_problem})")
@@ -76,7 +81,8 @@ class LinkHealth:
         return (f"TM {self.tm_parsed}/{self.tm_received} parsed, {self.tm_dropped} dropped | "
                 f"TC {self.tc_sent} sent, {self.tc_accepted} accepted, "
                 f"{self.tc_completed} completed, rejected: {rejected} | "
-                f"mode changes {len(self.mode_changes)} | desyncs {self.desyncs}")
+                f"mode changes {len(self.mode_changes)} | desyncs {self.desyncs}"
+                + (f", TC syncs missed {self.tc_syncs_missed}" if self.tc_syncs_missed else ""))
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -90,6 +96,7 @@ class LinkHealth:
             "tc_rejected": {f"0x{c:04X}": n for c, n in sorted(self.tc_rejected.items())},
             "mode_changes": [[t, m] for t, m in self.mode_changes],
             "desyncs": self.desyncs,
+            "tc_syncs_missed": self.tc_syncs_missed,
             "hk_undecoded": self.hk_undecoded,
             "last_hk_problem": self.last_hk_problem,
             "obsw_exit_status": self.obsw_exit_status,
