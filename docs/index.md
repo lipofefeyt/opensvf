@@ -2,25 +2,26 @@
 
 **Open-source spacecraft software validation facility**
 
-OpenSVF is a Python platform for validating flight software before hardware integration. You write test procedures in Python; OpenSVF runs your flight software binary in a closed loop with a 6-DOF physics engine and a real PUS ground station, then produces an HTML campaign report with a requirement traceability matrix.
+OpenSVF validates flight software before hardware integration. It runs the
+flight software binary in closed loop with equipment models, an orbit and
+6-DOF dynamics, sends it telecommands and decodes its telemetry. Test
+procedures are written in Python; a campaign turns them into an HTML report
+with a requirement traceability matrix. YAMCS can be attached as the ground
+station.
 
+```text
+ Flight software binary (openobsw, or yours)
+        |  wire protocol: stdin/stdout, or TCP to Renode
+ OpenSVF (Python)
+   OBC models         stub, pipe, socket
+   Equipment models   AOCS sensors and actuators, EPS, thermal, TT&C
+   Dynamics           opensvf-kde 6-DOF FMU, SGP4 orbit, B-field
+   Bus adapters       MIL-STD-1553B, SpaceWire, CAN 2.0B
+   PUS TM/TC stack    ECSS-E-ST-70-41C
+   Campaign runner    procedure -> verdict -> HTML report
+        |  PUS TM/TC (optional)
+ YAMCS 5.12.6
 ```
-Your flight software binary
-        │  stdin/stdout wire protocol
-        ▼
-    OpenSVF (Python)
-  ┌─────────────────────────────┐
-  │  Sensor models              │  magnetometer, gyro, star tracker, GPS, RW
-  │  Bus adapters               │  MIL-STD-1553B, SpaceWire, CAN 2.0B
-  │  PUS TM/TC stack            │  ECSS-E-ST-70-41C
-  │  Campaign runner            │  procedure → verdict → HTML report
-  └─────────────────────────────┘
-        │  PUS TM/TC
-        ▼
-    YAMCS 5.12.6  (optional ground station)
-```
-
----
 
 ## Install
 
@@ -28,66 +29,48 @@ Your flight software binary
 pip install opensvf
 ```
 
----
+This installs the library and the `svf` command. The reference mission
+(MySat-1) is in the repository, not in the package.
 
-## 60-second demo
+## First campaign
 
-No flight binary needed  -  the MySat-1 reference mission runs in stub mode:
+MySat-1 runs without a flight software binary: the OBC is a rule-based stub.
 
 ```bash
-pip install opensvf
+git clone https://github.com/lipofefeyt/opensvf
+cd opensvf
+pip install .
 svf campaign mission_mysat1/campaigns/quickstart_campaign.yaml --report
-open results/quickstart_campaign_report.html
 ```
 
-The HTML report shows four PASS verdicts for AOCS requirements and flags four UNCOVERED EPS requirements  -  exactly where the gap is.
+Four procedures PASS, and the report lists four EPS requirements the campaign
+declares but does not cover. The [MySat-1 quickstart](quickstart-mysat1.md)
+explains both.
 
----
+## Three OBC modes
 
-## Three modes
+| `obsw.type` | OBC | When to use |
+|---|---|---|
+| `stub` | `ObcStub` rule engine, no flight software | Writing procedures and models |
+| `pipe` | Your binary as a subprocess (stdin/stdout); aarch64 under QEMU | SIL validation, CI |
+| `socket` | Your target under Renode (UART over TCP) | Target builds: TCs and housekeeping |
 
-| Mode | OBC | When to use |
-|------|-----|-------------|
-| **Stub** | Rule-based Python stub | Rapid iteration, no binary needed |
-| **Pipe** | Real binary via stdin/stdout | Primary SIL validation, CI |
-| **Socket** | Binary in Renode ZynqMP | Instruction-accurate emulation |
-
----
+[Integrate your flight software](integrate-obsw.md) explains pipe and
+socket mode.
 
 ## What a procedure looks like
 
+The first MySat-1 procedure:
+
 ```python
-from svf.campaign.procedure import Procedure, ProcedureContext
-
-class BdotConvergence(Procedure):
-    id          = "TC-AOCS-001"
-    title       = "B-dot detumbling convergence"
-    requirement = "MIS-AOCS-042"
-
-    def run(self, ctx: ProcedureContext) -> None:
-        self.step("Power on sensors")
-        ctx.inject("aocs.mag.power_enable", 1.0)
-        ctx.inject("aocs.gyro.power_enable", 1.0)
-
-        self.step("Monitor angular rate for 60s")
-        monitor = ctx.monitor("aocs.gyro.rate_x", less_than=0.5)
-        ctx.wait(60.0)
-        monitor.assert_no_violations()
+--8<-- "mission_mysat1/procedures/quickstart_procedures.py:p1"
 ```
-
-```bash
-svf campaign campaign.yaml --report
-```
-
----
 
 ## Related projects
 
 | Project | What it is |
-|---------|------------|
-| [openobsw](https://github.com/lipofefeyt/openobsw) | C11 flight software: PUS stack, b-dot, ADCS PD, FDIR |
+|---|---|
+| [openobsw](https://github.com/lipofefeyt/openobsw) | C11 flight software: PUS stack, b-dot, ADCS PD, FDIR ([documentation](https://openobsw.readthedocs.io/)) |
 | [opensvf-kde](https://github.com/lipofefeyt/opensvf-kde) | C++ 6-DOF kinematics and dynamics engine (FMI 2.0 FMU) |
 
----
-
-*Apache 2.0  -  built by [lipofefeyt](https://github.com/lipofefeyt/opensvf)*
+*Apache 2.0  -  [lipofefeyt/opensvf](https://github.com/lipofefeyt/opensvf)*

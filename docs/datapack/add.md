@@ -328,7 +328,7 @@ time-advancing assertions and parameter injection.
 ## Procedure API
 
 ```python
-from svf.procedure import Procedure, ProcedureContext
+from svf.campaign.procedure import Procedure, ProcedureContext
 
 class BdotConvergence(Procedure):
     id          = "TC-AOCS-001"

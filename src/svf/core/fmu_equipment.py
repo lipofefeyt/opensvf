@@ -1,6 +1,6 @@
 """
 SVF FmuEquipment
-Wraps an FMI 3.0 FMU as an Equipment implementation.
+Wraps an FMI 2.0 co-simulation FMU as an Equipment implementation.
 Maps FMU variable names to Equipment port names via parameter_map.
 Implements: SVF-DEV-004, SVF-DEV-014
 """
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 class FmuEquipment(Equipment):
     """
-    Wraps an FMI 3.0 FMU as an Equipment.
+    Wraps an FMI 2.0 co-simulation FMU (loaded with FMPy) as an Equipment.
 
     FMU input variables are exposed as IN ports.
     FMU output variables are exposed as OUT ports.

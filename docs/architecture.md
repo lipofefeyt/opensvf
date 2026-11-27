@@ -1,403 +1,174 @@
-# SVF Architecture
+# Architecture
 
-> **Status:** v2.3
-> **Last updated:** 2026-05
-> **Author:** lipofefeyt
+opensvf runs a spacecraft simulation in closed loop with the flight software
+under test, and turns test procedures into a campaign report with
+requirement traceability. It connects four components:
 
----
+| Component | What it is | Interface |
+|---|---|---|
+| opensvf (this repository) | Python: simulation master, equipment models, PUS stack, campaign runner | |
+| openobsw | C11 flight software, the software under test | wire protocol ([IF-1](icd.md#if-1-obsw-wire-protocol)) |
+| opensvf-kde | C++ 6-DOF dynamics, built as an FMI 2.0 FMU | FMI ([IF-2](icd.md#if-2-fmi-20-co-simulation)) |
+| YAMCS 5.12.6 | Ground station: TM display, TC uplink | PUS over TCP/UDP ([IF-3](icd.md#if-3-yamcs-ground-station)) |
 
-## 1. Overview
+## Entry points
 
-The Software Validation Facility (SVF) is an open-core platform for the validation of spacecraft software and systems. It connects four independent components into a single closed-loop simulation:
+| Command | Does |
+|---|---|
+| `svf validate spacecraft.yaml` | Checks a configuration without starting DDS or loading models |
+| `svf check spacecraft.yaml` | Loads the configuration in full (DDS, models) without running it |
+| `svf run spacecraft.yaml` | Runs the simulation to `stop_time` |
+| `svf campaign campaign.yaml --report` | Runs a campaign; writes `results/<campaign>_report.html` |
+| `svf console spacecraft.yaml` | Runs in real time and takes operator commands (ping, mode, OBT, HK) |
+| `svf profiles` | Lists the bundled hardware profiles |
 
-- **opensvf**  -  Python orchestration layer (this repo)
-- **opensvf-kde**  -  C++ 6-DOF physics engine, compiled to FMI 2.0 FMU
-- **openobsw**  -  C11 OBSW: PUS services, b-dot, ADCS PD, FDIR
-- **YAMCS 5.12.6**  -  Ground station: TC uplink, TM display, XTCE MDB
-
----
-
-## 2. Entry Points
-
-### Zero-Python (M19)
-
-```bash
-python3 -c "
-from svf.spacecraft import SpacecraftLoader
-SpacecraftLoader.load('spacecraft.yaml').run()
-"
-```
-
-### Python API
+The same from Python:
 
 ```python
-from svf.spacecraft import SpacecraftLoader
-master = SpacecraftLoader.load("spacecraft.yaml")
-master.run()
-```
-
-### Campaign runner
-
-```python
-from svf.campaign_runner import CampaignRunner
-from svf.report import generate_html_report
 from pathlib import Path
 
-runner = CampaignRunner.from_yaml("campaign.yaml")
-report = runner.run()
-generate_html_report(report, Path("results/report.html"))
+from svf.campaign.campaign_runner import CampaignRunner
+from svf.campaign.reporter import generate_html_report
+from svf.config.spacecraft import SpacecraftLoader
+
+SpacecraftLoader.load("spacecraft.yaml").run()          # one simulation
+
+report = CampaignRunner.from_yaml("campaign.yaml").run()  # a campaign
+generate_html_report(report, Path("results/campaign_report.html"))
 ```
 
-### Low-level (full control)
+To build a simulation without `spacecraft.yaml`, see
+[abstraction layer](abstraction-layer.md#a-simulation-built-by-hand).
 
-```python
-participant = DomainParticipant()
-sync      = DdsSyncProtocol(participant)
-store     = ParameterStore()
-cmd_store = CommandStore()
-# instantiate equipment manually
-master = SimulationMaster(...)
-master.run()
+## Closed loop
+
+```text
+ YAMCS 5.12.6 (optional)
+     |  TM over TCP 10015, TC over UDP 10025
+ YamcsBridge
+     |  ParameterStore / TC queue
+ OBC model, selected by obsw.type
+     stub    ObcStub rule engine, no flight software
+     pipe    OBCEmulatorAdapter + obsw_sim (aarch64 under QEMU)
+     socket  OBCEmulatorAdapter + Renode UART on TCP 3456
+     |  wire protocol: sensor frame and TCs in, actuator frame and TM out
+ openobsw flight software
+     |  actuator frame -> CommandStore (MTQ dipoles, RW torques)
+ Actuator models: magnetorquer, reaction wheels, thruster
+     |  torques, dipoles
+ Dynamics: the opensvf-kde FMU (the dynamics model, 6-DOF)
+     |  true rates, attitude, field
+ Environment: SGP4 orbit, dipole B-field, eclipse, solar flux
+     |
+ Sensor models: magnetometer, gyroscope, star tracker, CSS, GPS
+     |  noisy measurements -> sensor frame
+ (back to the OBC model)
 ```
 
----
+EPS (solar array, battery, PCDU), thermal and TT&C (S-band transponder)
+models run in the same loop. Bus adapters (MIL-STD-1553B, SpaceWire with RMAP, CAN 2.0B) can carry
+parameters between models, with bus-level fault injection. Every model and
+its ports are on the [equipment](equipment.md) page.
 
-## 3. Spacecraft Configuration (M19)
+Each tick, `SimulationMaster` steps every model in order, waits for their
+acknowledgements, applies the wiring and publishes `svf.sim_time`; the
+[abstraction layer](abstraction-layer.md#simulationmaster) page has the
+details. What the OBC model does on the wire in a tick is in the
+[ICD](icd.md#one-tick).
+
+## PUS services
+
+`svf.pus` builds TCs and decodes TM for these services; procedures, the
+console and the YAMCS bridge use them:
+
+--8<-- "docs/_gen/pus-services.md"
+
+## Spacecraft configuration
 
 ```yaml
+version: 1
 spacecraft: MySat-1
 
 obsw:
-  type: pipe | socket | stub
-  binary: ./obsw_sim        # pipe mode
-  host: localhost            # socket mode
-  port: 3456                 # socket mode
+  type: pipe              # stub | pipe | socket
+  binary: bin/obsw_sim    # pipe: relative to this file
+  # host: localhost       # socket
+  # port: 3456            # socket (required)
 
 equipment:
   - id: mag1
     model: magnetometer
     hardware_profile: mag_default
-    seed: 42
+    seed: 42              # optional, per model
 
-buses:
+buses:                    # optional: mil1553 | spacewire | can
   - id: aocs_bus
-    type: mil1553 | spacewire | can
-    # ... bus-specific config
+    type: mil1553
+    # ...
 
 wiring:
-  auto: true
-  overrides:
-    - from: mag1.aocs.mag.field_x
-      to:   obc.aocs.mag1.field_x
+  auto: true              # connect OUT and IN ports with the same name
+  overrides:             # names differ, so auto-wiring cannot match these
+    - from: pcdu.eps.pcdu.charge_current
+      to:   battery.eps.battery.charge_current
 
 simulation:
   dt: 0.1
   stop_time: 300.0
   seed: 42
-  realtime: false
+  realtime: false         # true: RealtimeTickSource
 ```
 
-**Auto-wiring:** SVF connects OUT to IN port pairs automatically when they share the same canonical name. Explicit overrides handle non-standard connections.
-
----
-
-## 4. Full System Architecture
-
-```
-┌──────────────────────────────────────────────────────────┐
-│  YAMCS 5.12.6  http://localhost:8090                     │
-│  XTCE MDB: parameters, containers, commands              │
-└──────────────────────┬───────────────────────────────────┘
-                       │ PUS TM/TC via TCP
-┌──────────────────────▼───────────────────────────────────┐
-│  YamcsBridge + TtcEquipment                              │
-└──────────────────────┬───────────────────────────────────┘
-                       │ PUS bytes
-┌──────────────────────▼───────────────────────────────────┐
-│  OBCEmulatorAdapter                                      │
-│  PIPE:   obsw_sim (x86_64) or obsw_sim_aarch64 (QEMU)   │
-│  SOCKET: Renode ZynqMP uart0 TCP:3456                    │
-│  STUB:   ObcStub rule engine                             │
-└──────────────────────┬───────────────────────────────────┘
-                       │ wire protocol v4
-┌──────────────────────▼───────────────────────────────────┐
-│  openobsw C11 OBSW                                       │
-│  b-dot → MTQ dipoles | ADCS PD → RW torques             │
-│  PUS S1/3/5/8/17/20  FDIR FSM                           │
-└──────────────────────┬───────────────────────────────────┘
-                       │ actuator frame → CommandStore
-┌──────────────────────▼───────────────────────────────────┐
-│  Bus Adapters (optional)                                 │
-│  MIL-STD-1553B | SpaceWire+RMAP | CAN 2.0B (ECSS)      │
-│  Fault injection: BUS_ERROR, NO_RESPONSE, BAD_PARITY    │
-└──────────────────────┬───────────────────────────────────┘
-                       │ torques → KDE
-┌──────────────────────▼───────────────────────────────────┐
-│  opensvf-kde FMU (C++ / Eigen3)                         │
-│  6-DOF physics, Euler equations, B-field model          │
-│  OUT: true omega, true B, true q                        │
-└──────────────────────┬───────────────────────────────────┘
-                       │ true state → sensor models
-┌──────────────────────▼───────────────────────────────────┐
-│  Sensor Models: MAG GYRO ST CSS GPS                     │
-│  Noisy measurements → type-0x02 frames → OBSW           │
-└──────────────────────┬───────────────────────────────────┘
-┌──────────────────────▼───────────────────────────────────┐
-│  Thermal Model: N-node radiation/conduction network      │
-└──────────────────────────────────────────────────────────┘
-```
-
----
-
-## 5. Wire Protocol v4
-
-```
-SVF → OBSW (stdin or TCP):
-  [0x01][uint16 BE len][TC frame]          TC uplink
-  [0x02][uint16 BE len][sensor_frame_t]    Sensor injection
-
-OBSW → SVF (stdout or TCP):
-  [0x04][uint16 BE len][TM packet]         PUS TM
-  [0x03][uint16 BE len][actuator_frame_t]  Actuator commands
-  [0xFF]                                   End of tick
-```
-
-The C reference implementation lives in `contrib/svf_protocol/` in the openobsw repository.
-
----
-
-## 6. Model Organisation
-
-```
-src/svf/models/
-├── aocs/       reaction_wheel, magnetometer, magnetorquer, gyroscope,
-│               star_tracker, css, bdot_controller, thruster, gps
-├── dynamics/   kde_equipment (FmuEquipment adapter for SpacecraftDynamics.fmu)
-├── eps/        solar_array, battery, pcdu  (all NativeEquipment factories)
-├── dhs/        obc, obc_stub, obc_emulator
-├── ttc/        ttc, sbt
-└── thermal/    thermal
-
-models/         FMU binaries (data, not code  -  external models only)
-├── SpacecraftDynamics.fmu   (from opensvf-kde C++ project)
-└── SimpleCounter.fmu        (test double for FmuEquipment infrastructure tests)
-```
-
-All SVF reference models are implemented as `NativeEquipment` factories  -  pure Python closures with no compiled binaries. `FmuEquipment` is an adapter reserved for operator-supplied external physics (Modelica, Simulink, C++) and the `SpacecraftDynamics.fmu` from `opensvf-kde`. The FMU binaries are committed under `models/`; to update `SpacecraftDynamics.fmu`, rebuild it in opensvf-kde and copy it there.
-
----
-
-## 7. Hardware Profile System
-
-Hardware profiles are YAML files that override equipment physics constants. Bundled profiles live in `mission_mysat1/hardware_profiles/`  -  no extra packages needed.
-
-```
-mission_mysat1/hardware_profiles/     bundled profiles
-├── mag_default.yaml          Generic MAG (1e-7 T noise)
-├── gyro_default.yaml         Generic GYRO (ARW 1e-4 rad/s/sqrthz)
-├── mtq_default.yaml          Generic MTQ (10 Am^2)
-├── rw_default.yaml           Generic RW (6000 rpm, 0.2 Nm)
-├── rw_sinclair_rw003.yaml    Sinclair RW-0.03 (5000 rpm, 30 mNm)
-├── str_default.yaml          Generic ST (30° sun exclusion, 10s acq)
-├── thr_default.yaml          Cold gas (1 N, Isp=70s)
-├── thr_moog_monarc_1.yaml    Hydrazine (1 N, Isp=220s)
-├── gps_default.yaml          Generic GPS (5 m noise)
-├── gps_novatel_oem7.yaml     NovAtel OEM7 (1.5 m noise)
-└── thermal_default.yaml      3-node (panels + internal)
-```
-
-Profile search order in `svf.config.hardware_profile.load_hardware_profile()`:
-
-1. Explicit `hardware_dir` argument (if provided)
-2. Bundled `mission_mysat1/hardware_profiles/` in opensvf (always available)
-3. `obsw-srdb` Python package (if installed)
-
-**Note:** `srdb/data/hardware/` in the openobsw repository contains the same profile data used to generate the OBSW SRDB C header  -  this is a separate concern from SVF.
-
----
-
-## 8. Test Procedure API (M20)
-
-```python
-from svf.procedure import Procedure, ProcedureContext
-
-class BdotConvergence(Procedure):
-    id          = "TC-AOCS-001"
-    title       = "B-dot detumbling convergence"
-    requirement = "MIS-AOCS-042"
-
-    def run(self, ctx: ProcedureContext) -> None:
-        self.step("Power on sensors")
-        ctx.inject("aocs.mag.power_enable", 1.0)
-
-        self.step("Wait for detumbling")
-        ctx.wait(60.0)
-
-        self.step("Verify convergence")
-        ctx.assert_parameter("aocs.truth.rate_x", less_than=0.1)
-```
-
-Verdicts: PASS / FAIL / INCONCLUSIVE / ERROR. Steps captured with names. Results traced to requirements in HTML report.
-
----
-
-## 9. Campaign and Reporting (M20/M21)
-
-```yaml
-# campaign.yaml
-campaign: MySat-1 AOCS Validation
-spacecraft: spacecraft.yaml
-procedures:
-  - tests/procedures/test_aocs.py
-  - tests/procedures/test_fdir.py
-```
-
-```python
-from svf.campaign_runner import CampaignRunner
-from svf.report import generate_html_report
-from pathlib import Path
-
-runner = CampaignRunner.from_yaml("campaign.yaml")
-report = runner.run()
-generate_html_report(report, Path("results/report.html"))
-```
-
-The HTML report is fully self-contained (no CDN), includes summary cards, per-procedure verdicts, and a requirement coverage table.
-
----
-
-## 10. Tick Sources
-
-| Tick Source | Behaviour | Use Case |
-|---|---|---|
-| `SoftwareTickSource` | Fast as possible | CI, Monte Carlo |
-| `RealtimeTickSource` | Wall-clock aligned | YAMCS demos, HIL |
-
-Variable timestep: `Equipment.suggested_dt()` returns an optional smaller step size. `SimulationMaster._effective_dt()` uses the minimum across all models.
-
----
-
-## 11. Deterministic Replay
-
-```python
-master = SimulationMaster(..., seed=42)
-master.run()
-# Seed manifest saved to results/seed.json
-```
-
-Per-model seeds derived deterministically from master seed via SHA-256.
-
----
-
-## 12. Equipment Tick Error Handling (M35)
-
-When an equipment model raises during a simulation tick, `SimulationMaster`
-wraps the exception in an `EquipmentTickError` and dispatches it to the
-configured handler.
-
-```python
-from svf.sim.simulation import EquipmentTickError, SimulationMaster
-
-# Default behaviour: re-raise as SimulationError (abort the run)
-master = SimulationMaster(..., models=[...])
-
-# Record-and-continue: collect errors, let other models keep ticking
-errors: list[EquipmentTickError] = []
-master = SimulationMaster(..., on_tick_error=errors.append)
-master.run()
-for e in errors:
-    print(e.equipment_id, e.obt, e.cause)
-
-# Strict custom handler: abort with a domain-specific message
-def strict(err: EquipmentTickError) -> None:
-    if err.equipment_id == "mag":
-        raise SimulationError(f"Critical sensor failure: {err}")
-    # otherwise swallow and continue
-master = SimulationMaster(..., on_tick_error=strict)
-```
-
-`EquipmentTickError` fields:
-
-| Field | Type | Description |
-|---|---|---|
-| `equipment_id` | `str` | The failing model's ID |
-| `obt` | `float` | On-board time when the fault occurred (seconds) |
-| `cause` | `Exception` | The original exception raised by the model |
-| `context` | `dict` | Structured dict with `equipment_id`, `obt`, `cause_type`, `cause_message` |
-
-## 13. Checks
-
-### Pre-flight validation
-
-```bash
-svf validate spacecraft.yaml   # fast config check  -  no DDS, no FMU, no model imports
-```
-
-`SpacecraftValidator` (`src/svf/config/validator.py`) runs before any simulation
-infrastructure is instantiated and catches:
-
-- Duplicate equipment IDs
-- Bus address conflicts (CAN node-id, SpaceWire logical address, 1553 RT address)
-- Wiring overrides referencing non-existent equipment IDs or ports
-- OBT parameter file missing on disk or containing malformed YAML
-
-Exits 0 if clean; lists all issues (not just the first) on failure.
-
-### Coverage check
-
-```bash
-checkcov   # BASELINED requirement coverage + equipment fidelity report (F1–F4)
-```
-
-`checkcov` (`tools/check_coverage.py`) cross-references `REQUIREMENTS.md`
-against `results/traceability.txt` and also prints a per-model fidelity table:
-
-```
-  Equipment fidelity coverage
-  ─────────────────────────────────────────────────────────────────────────
-  Model                Level  TM params  Calibrated  Note
-  Magnetometer         F2             3           0  → F3: Add polynomial calibration ...
-  Gyroscope            F2             4           0  → F3: Add Allan-variance noise model ...
-  KDE Dynamics (FMI)   F3             0           0  Add flex modes from modal test data for F4
-  ...
-```
-
-An inconsistency error (F2 model with CalibrationCurve entries) causes exit 1.
-
-### Cross-repository consistency check
-
-```bash
-# Python-side checks only (struct sizes, port mapping, orphan requirements):
-checkcons
-
-# Full check including C struct field names (pass openobsw gitingest snapshot):
-checkcons-full lipofefeyt-openobsw-*.txt
-```
-
-`checkcons` (`tools/srdb_consistency_check.py`) runs 10 checks:
-
-| Check | What it catches |
+Port names are SRDB canonical names (`aocs.mag.field_x`), so auto-wiring
+connects most of a spacecraft; overrides handle the rest.
+`mission_mysat1/` has complete configurations: `spacecraft.yaml` (stub),
+`spacecraft_hil.yaml` (pipe), `spacecraft_with_buses.yaml`.
+
+## Hardware profiles
+
+A hardware profile is a YAML file of physical constants for one equipment
+(noise, limits, timings). `hardware_profile: <name>` in `spacecraft.yaml`
+loads one of the profiles bundled with the package (`svf profiles` lists
+them). A model factory called from Python also takes `hardware_dir=`, which is
+searched first; the `obsw-srdb` package, when installed, is searched last.
+`mission_mysat1/hardware_profiles/` holds a copy of the bundled profiles;
+`checkcons` check 6 keeps the two in step.
+
+## Procedures and campaigns
+
+A procedure is a `Procedure` subclass (`svf.campaign.procedure`) with an
+`id`, a `title`, the `requirement` it verifies and a `run(ctx)` method. The
+`ProcedureContext` it gets can inject commands (`inject`), send TCs (`tc`,
+`schedule_tc`), wait in simulation time (`wait`) or on a condition
+(`wait_until`), wait for TM (`expect_tm`), assert on parameters
+(`assert_parameter`, `monitor`), inject equipment faults
+(`inject_equipment_fault`) and bring the OBC to NOMINAL (`ensure_nominal`).
+[Integrate your flight software](integrate-obsw.md#a-first-campaign) has a
+complete example that CI runs.
+
+A campaign YAML names the spacecraft, the procedure files and the
+requirements the campaign is responsible for. Each procedure runs against a
+fresh simulation. Its verdict is PASS, FAIL, ERROR or INCONCLUSIVE; a PASS
+on an OBSW link that dropped TM or lost sync becomes FAIL. The HTML report
+lists the verdicts, the steps and the declared requirements no procedure
+covered; `--json` writes the same results with the link health and step
+events.
+
+## Checks
+
+| Command | Checks |
 |---|---|
-| [1/10] Struct sizes | `_SENSOR_FMT` / `_ACTUATOR_FMT` drift from C struct layout |
-| [2/10] Python-side mapping | `obc_emulator.py` store keys diverging from mapping table |
-| [3/10] C struct fields | Field renames in openobsw `sim/sensor_inject.h` not propagated to SVF packer |
-| [4/10] Producer/consumer | Sensor model port renames that produce silent zeros in the OBSW |
-| [5/10] Requirement orphans | `@pytest.mark.requirement` IDs absent from `REQUIREMENTS.md` |
-| [6/10] Profile symmetry | Mission hardware profiles missing from bundled directory |
-| [7/10] SRDB namespace | OUT ports declared by equipment models but absent from SRDB baseline |
-| [8/10] S5 mode events | `S5_MODE_EVENTS` in `obc_emulator.py` diverging from openobsw `srdb/data/events.yaml` |
-| [9/10] HK set layouts | `src/svf/data/srdb/hk_sets.yaml` diverging from openobsw `hk_sets.yaml` / `parameters.yaml` (set IDs, parameter order, types) |
-| [10/10] Compatibility pin | `docs/compatibility.yaml` or the README compatibility table disagreeing with `.openobsw-version` or the wire protocol |
+| `svf validate` | Duplicate equipment IDs, bus address conflicts, wiring references, the OBT parameter file |
+| `checkcov` | Every BASELINED requirement in `REQUIREMENTS.md` has a test in `results/traceability.txt` (written by the last pytest run), and the equipment fidelity levels |
+| `checkcons` | opensvf against its own SRDB and against openobsw (below) |
+| `tools/gen_docs.py` | The generated reference pages against their sources, and every `svf` import shown in these docs |
 
-The C struct check and the openobsw side of checks [8/10] and [9/10] accept
-either a real openobsw checkout (directory) or a gitingest snapshot (`.txt`
-file), which is the correct approach in
-single-workspace environments (Firebase IDX, GitHub Codespaces) where both
-repos cannot coexist on the same filesystem.
+`checkcons` runs these checks; with `--obsw <openobsw checkout>` it also
+reads the openobsw sources (CI runs it against the pinned release):
 
-## 14. Milestones
+--8<-- "docs/_gen/icd-checkcons.md"
 
-The milestone table is maintained in one place only  -  see [README.md](https://github.com/lipofefeyt/opensvf/blob/main/README.md#roadmap)
-for the canonical, up-to-date roadmap (done milestones and backlog). Keeping
-a second copy here caused this section to drift out of sync with the real
-status in the past; don't reintroduce a duplicate table.
+## Roadmap
+
+The milestones and the roadmap are kept in one place, the
+[README](https://github.com/lipofefeyt/opensvf/blob/main/README.md#roadmap).

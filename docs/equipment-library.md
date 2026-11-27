@@ -1,10 +1,5 @@
 # SVF Equipment Library
 
-> **Status:** v0.5
-> **Last updated:** 2026-05
-> **Author:** lipofefeyt
-
----
 
 ## Overview
 

@@ -85,7 +85,7 @@ class PusService19:
 
     TC(19,1) app_data format:
         2B uint16  event_id
-        N bytes    action TC frame
+        N bytes    action TC space packet
     """
 
     @staticmethod
