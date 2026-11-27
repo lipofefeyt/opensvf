@@ -53,8 +53,11 @@ with the set layouts listed in the ICD. The OBC mode, OBT and the other
 
 !!! warning "Print the banner yourself"
     In openobsw v0.20 `svf_init()` in `contrib/svf_protocol/` does not print
-    the banner yet (its body is a TODO). Write the line above to stderr at
+    the banner (its body is a TODO). Write the line above to stderr at
     start-up, or opensvf runs without checking the protocol version.
+    openobsw `main` fixes this (PR #157): `svf_init()` prints the banner and
+    the SRDB version through a platform hook, `svf_io_debug()` (stderr on
+    Linux, the UART on ZynqMP). It ships in the release after v0.20.
 
 ## A first campaign
 
