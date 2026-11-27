@@ -334,6 +334,116 @@ def gen_pus() -> dict[str, str]:
     return {"pus-services.md": _table(["Service", "Name", "Module"], rows) + note}
 
 
+# ── Validation ───────────────────────────────────────────────────────────────
+
+def _requirement_args(decorators: list[Any]) -> set[str]:
+    import ast
+    out: set[str] = set()
+    for d in decorators:
+        if (isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute)
+                and d.func.attr == "requirement"):
+            out |= {a.value for a in d.args
+                    if isinstance(a, ast.Constant) and isinstance(a.value, str)}
+    return out
+
+
+def _test_file(path: Path) -> tuple[int, set[str]]:
+    """(number of test functions, requirement IDs) of one pytest file."""
+    import ast
+    tree = ast.parse(path.read_text())
+    module_reqs: set[str] = set()
+    for node in tree.body:
+        if (isinstance(node, ast.Assign)
+                and any(isinstance(t, ast.Name) and t.id == "pytestmark"
+                        for t in node.targets)):
+            vals = node.value.elts if isinstance(node.value, ast.List) else [node.value]
+            module_reqs |= _requirement_args(vals)
+    n, reqs = 0, set(module_reqs)
+
+    def visit(body: list[Any], inherited: set[str], in_class: bool) -> None:
+        nonlocal n
+        for node in body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) \
+                    and node.name.startswith("test"):
+                n += 1
+                reqs.update(inherited | _requirement_args(node.decorator_list))
+            elif isinstance(node, ast.ClassDef) and not in_class \
+                    and node.name.endswith(("Suite", "Tests")):
+                visit(node.body, inherited | _requirement_args(node.decorator_list), True)
+
+    visit(tree.body, module_reqs, False)
+    return n, reqs
+
+
+def _level_table(level_dir: Path) -> tuple[str, int, set[str]]:
+    rows, total, all_reqs = [], 0, set()
+    for f in sorted(level_dir.rglob("test_*.py")):
+        n, reqs = _test_file(f)
+        if n == 0:
+            continue
+        total += n
+        all_reqs |= reqs
+        rows.append([f"`{f.relative_to(level_dir)}`", n, ", ".join(sorted(reqs))])
+    return _table(["File", "Test functions", "Requirements"], rows), total, all_reqs
+
+
+def _campaign_rows() -> list[list[Any]]:
+    import ast
+    rows = []
+    for c in sorted((REPO / "mission_mysat1" / "campaigns").glob("*.yaml")):
+        cfg = yaml.safe_load(c.read_text())
+        procs = []
+        for pf in cfg.get("procedures", []):
+            tree = ast.parse((c.parent / pf).read_text())
+            for node in tree.body:
+                if isinstance(node, ast.ClassDef):
+                    attrs = {t.id: v.value for a in node.body if isinstance(a, ast.Assign)
+                             for t in a.targets if isinstance(t, ast.Name)
+                             for v in [a.value] if isinstance(v, ast.Constant)}
+                    if "id" in attrs and "requirement" in attrs:
+                        procs.append(str(attrs["requirement"]))
+        rows.append([f"`{c.name}`", cfg.get("campaign", ""),
+                     f"`{Path(cfg.get('spacecraft', 'spacecraft.yaml')).name}`",
+                     len(procs), ", ".join(sorted(set(procs))),
+                     len(cfg.get("requirements", [])) or ""])
+    return rows
+
+
+def gen_validation() -> dict[str, str]:
+    from svf.tools.checkcov import KNOWN_GAPS
+    out: dict[str, str] = {}
+    traced: set[str] = set()
+    counts = []
+    for key, sub in (("l1", "unit"), ("l2", "integration"), ("l3", "system")):
+        table, n, reqs = _level_table(REPO / "tests" / sub)
+        out[f"validation-{key}.md"] = table
+        traced |= reqs
+        counts.append(n)
+    out["validation-l4.md"] = _table(
+        ["Campaign", "Name", "Spacecraft", "Procedures", "Requirements verified",
+         "Declared"],
+        _campaign_rows())
+
+    text = (REPO / "REQUIREMENTS.md").read_text()
+    status = dict(re.findall(r"^\*\*([\w-]+)\*\* `\[[\w\d]+\]` `([A-Z]+)`", text, re.M))
+    by_status: dict[str, list[str]] = {}
+    for rid, st in status.items():
+        by_status.setdefault(st, []).append(rid)
+    rows = []
+    for st in sorted(by_status):
+        ids = by_status[st]
+        rows.append([st, len(ids), sum(1 for i in ids if i in traced),
+                     sum(1 for i in ids if i in KNOWN_GAPS)])
+    out["validation-requirements.md"] = _table(
+        ["Status", "Requirements", "With a test", "Verified by CI or a tool"], rows)
+    out["validation-counts.md"] = _table(
+        ["Level", "Directory", "Test functions"],
+        [["L1 unit", "`tests/unit/`", counts[0]],
+         ["L2 integration", "`tests/integration/`", counts[1]],
+         ["L3 system", "`tests/system/`", counts[2]]])
+    return out
+
+
 # ── Imports shown in the docs ────────────────────────────────────────────────
 
 _IMPORT_RE = re.compile(r"^[ \t>]*(from[ \t]+svf[\w.]*[ \t]+import[ \t]+(?:\([^)]*\)|[^\n#]+)"
@@ -362,7 +472,7 @@ def main() -> int:
         pages: dict[str, str] = {}
         check_doc_imports()
         for gen in (gen_compatibility, gen_equipment, gen_fidelity, gen_yamcs,
-                    gen_icd, gen_pus):
+                    gen_icd, gen_pus, gen_validation):
             pages.update(gen())
     except CheckError as e:
         print(f"gen_docs: {e}", file=sys.stderr)

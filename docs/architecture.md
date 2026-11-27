@@ -55,7 +55,7 @@ To build a simulation without `spacecraft.yaml`, see
  openobsw flight software
      |  actuator frame -> CommandStore (MTQ dipoles, RW torques)
  Actuator models: magnetorquer, reaction wheels, thruster
-     |  torques, dipoles
+     |  magnetorquer torque (reaction wheel torque is not fed back yet)
  Dynamics: the opensvf-kde FMU (the dynamics model, 6-DOF)
      |  true rates, attitude, field
  Environment: SGP4 orbit, dipole B-field, eclipse, solar flux

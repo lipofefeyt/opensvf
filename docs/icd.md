@@ -148,14 +148,18 @@ with openobsw's events.
 
 ## IF-2: FMI 2.0 co-simulation
 
-`FmuEquipment` wraps an FMI 2.0 co-simulation FMU as an equipment model. In
+`FmuEquipment` wraps any FMI 2.0 co-simulation FMU as an equipment model. In
 each tick it sets the FMU inputs from its IN ports, calls `doStep`, and reads
 the outputs into its OUT ports. The FMU must not advance time on its own.
 
-The reference plant is `SpacecraftDynamics.fmu` from opensvf-kde, built into
-the `dynamics` model (`make_kde_equipment()`); its ports are listed on the
-[equipment](equipment.md#dynamics) page. Both FMUs are committed in
-`models/`:
+The reference plant is `SpacecraftDynamics.fmu` from opensvf-kde. The
+`dynamics` model (`make_kde_equipment()`) drives it: a `NativeEquipment` that
+loads the FMU with FMPy, feeds it the magnetorquer torque and publishes the
+true rates, field and attitude under SRDB names; its ports are on the
+[equipment](equipment.md#dynamics) page. It looks for
+`models/SpacecraftDynamics.fmu` above the installed package, then in the
+working directory, so it runs from a repository checkout. Both FMUs are
+committed in `models/`:
 
 | File | Used by |
 |---|---|
